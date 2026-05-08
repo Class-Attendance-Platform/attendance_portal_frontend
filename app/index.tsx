@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { Link, Stack } from 'expo-router';
 import { MoonStarIcon, StarIcon, SunIcon } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -12,9 +13,10 @@ const LOGO = {
   dark: require('@/assets/images/react-native-reusables-dark.png'),
 };
 
-const SCREEN_OPTIONS = {
+const SCREEN_OPTIONS: NativeStackNavigationOptions = {
   title: 'React Native Reusables',
   headerTransparent: true,
+  headerShown: false,
   headerRight: () => <ThemeToggle />,
 };
 
@@ -28,7 +30,7 @@ export default function Screen() {
 
   return (
     <>
-      <Stack.Screen options={SCREEN_OPTIONS} />
+      <Stack.Screen options={SCREEN_OPTIONS}  />
       <View className="flex-1 items-center justify-center gap-8 p-4">
         <Image source={LOGO[colorScheme ?? 'light']} style={IMAGE_STYLE} resizeMode="contain" />
         <View className="gap-2 p-4">
