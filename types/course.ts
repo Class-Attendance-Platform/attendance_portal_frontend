@@ -1,5 +1,6 @@
 import type { Attendance } from "./attendance";
 import type { StudentRow } from "./student";
+import type { Level } from "./common";
 
 export interface Course {
   id: string;
@@ -9,7 +10,7 @@ export interface Course {
   credits: string;
   faculty: string;
   department: string;
-  level?: string;
+  level?: Level;
 }
 
 export interface CourseInfo {

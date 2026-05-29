@@ -11,9 +11,8 @@ import { Dropdown } from '@/components/custom/dropdown';
 import { StudentCard } from '@/components/custom/studentcard';
 import { Student } from '@/types/student';
 import { api } from '@/lib/api';
+import { LEVELS, SEMESTERS, Level, SemesterName } from '@/types/common';
 
-const LEVELS = ['First', 'Second', 'Third', 'Fourth'];
-const SEMESTERS = ['I', 'II'];
 const FACULTIES = [
   'COMPUTER_SCIENCE_AND_ENGINEERING',
   'ENGINEERING',
@@ -51,8 +50,8 @@ export default function StudentsScreen() {
   const [studentId, setStudentId] = useState('');
   const [faculty, setFaculty] = useState('COMPUTER_SCIENCE_AND_ENGINEERING');
   const [department, setDepartment] = useState('COMPUTER_SCIENCE_AND_ENGINEERING');
-  const [currentLevel, setCurrentLevel] = useState('First');
-  const [currentSemester, setCurrentSemester] = useState('I');
+  const [currentLevel, setCurrentLevel] = useState<Level>('First');
+  const [currentSemester, setCurrentSemester] = useState<SemesterName>('I');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 

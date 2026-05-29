@@ -5,13 +5,13 @@ import { Check, ChevronDown, Search, SlidersHorizontal } from 'lucide-react-nati
 import { Text } from '@/components/ui/text';
 import { useState } from 'react';
 
-interface DropdownProps {
-  value: string;
-  onValueChange: (val: string) => void;
-  options: string[];
+interface DropdownProps<T extends string> {
+  value: T;
+  onValueChange: (val: T) => void;
+  options: readonly T[] | T[];
 }
 
-export function Dropdown({ value, onValueChange, options }: DropdownProps) {
+export function Dropdown<T extends string>({ value, onValueChange, options }: DropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (

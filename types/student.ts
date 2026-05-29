@@ -1,10 +1,11 @@
 import type { BaseUser } from "./user";
+import type { Level, SemesterName } from "./common";
 
 export interface Student extends BaseUser {
   role: 'STUDENT';
   studentId: number;
-  currentLevel: string;
-  currentSemester: string;
+  currentLevel: Level;
+  currentSemester: SemesterName;
   semesterCourses?: string[];
   batchYear?: number;
 }
@@ -14,8 +15,8 @@ export interface StudentRow {
   userName: string;
   studentId: number;
   email: string;
-  currentLevel: string;
-  currentSemester: string;
+  currentLevel: Level;
+  currentSemester: SemesterName;
   attendanceCount: number;
   percentage: number;
 }
