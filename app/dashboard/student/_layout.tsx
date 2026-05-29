@@ -1,14 +1,5 @@
-import { ReactNode } from "react";
+import { Slot } from "expo-router";
 
-type Props = {
-    children: ReactNode;
-};
-
-export default function RootLayout({ children }: Props) {
-
-    return (
-        <>
-            {children}
-        </>
-    );
+export default function RootLayout() {
+    return <Slot />;
 }

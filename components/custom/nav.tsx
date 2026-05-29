@@ -31,7 +31,7 @@ export function useIsActiveRoute() {
     return React.useCallback(
         (route: RouteKey) => {
             const target = ROUTES[route];
-            if (target === "/") return pathname === "/";
+            if ((target as string) === "/") return pathname === "/";
             return pathname === target || pathname.startsWith(`${target}/`);
         },
         [pathname]

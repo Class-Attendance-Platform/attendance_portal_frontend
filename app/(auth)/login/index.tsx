@@ -13,16 +13,35 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/hooks/AuthContext';
 
 export default function SignInScreen() {
+  const { login } = useAuth();
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const passwordInputRef = React.useRef<TextInput>(null);
 
   function onEmailSubmitEditing() {
     passwordInputRef.current?.focus();
   }
 
-  function onSubmit() {
-    // TODO: Submit form and navigate to protected screen if successful
+  async function onSubmit() {
+    if (!email || !password) {
+      setError('Please enter both email and password.');
+      return;
+    }
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await login(email, password);
+      router.replace('/');
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -48,19 +67,28 @@ export default function SignInScreen() {
           </CardHeader>
 
           <CardContent className="gap-5 pt-4">
+            {error ? (
+              <View className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
+                <Text className="text-destructive text-sm text-center font-medium">{error}</Text>
+              </View>
+            ) : null}
+
             <View className="gap-2">
               <Label nativeID="emailLabel" htmlFor="email">
-                Email Address
+                Email Address or Username
               </Label>
               <Input
                 id="email"
-                placeholder="m@example.com"
+                placeholder="test@gmail.com"
+                value={email}
+                onChangeText={setEmail}
                 keyboardType="email-address"
                 autoComplete="email"
                 autoCapitalize="none"
                 returnKeyType="next"
                 onSubmitEditing={onEmailSubmitEditing}
                 submitBehavior="submit"
+                editable={!isSubmitting}
               />
             </View>
 
@@ -85,13 +113,21 @@ export default function SignInScreen() {
                 id="password"
                 placeholder="••••••••"
                 secureTextEntry
+                value={password}
+                onChangeText={setPassword}
                 returnKeyType="send"
                 onSubmitEditing={onSubmit}
+                editable={!isSubmitting}
               />
             </View>
 
-            <Button className="w-full mt-4" size="lg" onPress={onSubmit}>
-              <Text className="font-semibold">Sign In</Text>
+            <Button 
+              className="w-full mt-4" 
+              size="lg" 
+              onPress={onSubmit}
+              disabled={isSubmitting}
+            >
+              <Text className="font-semibold">{isSubmitting ? 'Signing In...' : 'Sign In'}</Text>
             </Button>
 
             <View className="flex-row justify-center items-center mt-2">

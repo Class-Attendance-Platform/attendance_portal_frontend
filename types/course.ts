@@ -5,4 +5,5 @@ export interface Course {
   faculty: string;
   department: string;
   credits: number;
+  level?: string;
 }
