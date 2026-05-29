@@ -10,32 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Dropdown } from '@/components/custom/dropdown';
 import { BookOpen, Calendar, CheckCircle, Award, RefreshCw, GraduationCap, X, Check, Clock, AlertCircle, Search } from 'lucide-react-native';
 import TopPanel from '@/components/custom/toppanel';
+import { CourseStat } from '@/types/attendance';
+import { SemesterData } from '@/types/semester';
 
-interface CourseStat {
-  id: string;
-  course: {
-    title: string;
-    code: string;
-    credits: string;
-  };
-  teacher: {
-    userName: string;
-    email: string;
-  };
-  totalClasses: number;
-  presentCount: number;
-  percentage: number;
-  history?: Array<{ date: string; present: boolean }>;
-}
-
-interface SemesterData {
-  id: string;
-  level: string;
-  semester: string;
-  startDate: any;
-  endDate: any;
-  courses: CourseStat[];
-}
 
 export default function StudentDashboard() {
   const router = useRouter();

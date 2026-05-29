@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
 import { TeacherCard } from '@/components/custom/teachercard';
+import { Teacher } from '@/types/teacher';
 import { api } from '@/lib/api';
 
 const FACULTIES = [
@@ -23,15 +24,6 @@ const DEPARTMENTS = [
   'ELECTRICAL_AND_ELECTRONIC_ENGINEERING',
   'AGRICULTURE_CHEMISTRY'
 ];
-
-interface Teacher {
-  id: string;
-  userName: string;
-  email: string;
-  role: string;
-  faculty: string;
-  department: string;
-}
 
 export default function TeachersScreen() {
   const { width } = useWindowDimensions();

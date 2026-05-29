@@ -1,11 +1,104 @@
-const fs = require('fs');
+const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 
+const DB_PATH = path.join(__dirname, 'data/portal.db');
 const OLD_DB_PATH = path.join(__dirname, '../old/db/data.json');
 const NEW_DB_PATH = path.join(__dirname, 'data/data.json');
 
-// In-memory collections
+const dbDir = path.dirname(DB_PATH);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
+// Initialize SQLite connection
+const sqliteDb = new Database(DB_PATH);
+
+// Enable WAL mode for performance
+sqliteDb.pragma('journal_mode = WAL');
+
+// Create tables
+sqliteDb.exec(`
+  CREATE TABLE IF NOT EXISTS courses (
+    id TEXT PRIMARY KEY,
+    deleted INTEGER,
+    code TEXT,
+    title TEXT,
+    content TEXT,
+    credits TEXT,
+    faculty TEXT,
+    department TEXT
+  );
+  
+  CREATE TABLE IF NOT EXISTS teachers (
+    id TEXT PRIMARY KEY,
+    deleted INTEGER,
+    userName TEXT,
+    email TEXT,
+    passwordHash TEXT,
+    role TEXT,
+    faculty TEXT,
+    department TEXT,
+    currentCourses TEXT,
+    previousCourses TEXT
+  );
+  
+  CREATE TABLE IF NOT EXISTS students (
+    id TEXT PRIMARY KEY,
+    deleted INTEGER,
+    userName TEXT,
+    email TEXT,
+    passwordHash TEXT,
+    role TEXT,
+    faculty TEXT,
+    department TEXT,
+    currentLevel TEXT,
+    currentSemester TEXT,
+    studentId INTEGER,
+    semesterCourses TEXT
+  );
+  
+  CREATE TABLE IF NOT EXISTS admins (
+    id TEXT PRIMARY KEY,
+    deleted INTEGER,
+    userName TEXT,
+    email TEXT,
+    passwordHash TEXT,
+    role TEXT,
+    faculty TEXT,
+    department TEXT
+  );
+  
+  CREATE TABLE IF NOT EXISTS course_infos (
+    id TEXT PRIMARY KEY,
+    deleted INTEGER,
+    course TEXT,
+    teacher TEXT,
+    attendance TEXT
+  );
+  
+  CREATE TABLE IF NOT EXISTS attendances (
+    id TEXT PRIMARY KEY,
+    deleted INTEGER,
+    totalClasses INTEGER,
+    attendanceMap TEXT,
+    history TEXT
+  );
+  
+  CREATE TABLE IF NOT EXISTS semester_courses (
+    id TEXT PRIMARY KEY,
+    deleted INTEGER,
+    level TEXT,
+    semester TEXT,
+    startDate TEXT,
+    endDate TEXT,
+    students TEXT,
+    courses TEXT
+  );
+`);
+
+// In-memory collections matching backend/server.js expects
 let db = {
   courses: [],
   teachers: [],
@@ -22,49 +115,139 @@ function encryptPassword(password) {
   return crypto.createHash('sha256').update(salted, 'utf8').digest('hex');
 }
 
-// Load database
+// Load database from SQLite
 function loadDB() {
-  if (fs.existsSync(NEW_DB_PATH)) {
-    try {
-      const raw = fs.readFileSync(NEW_DB_PATH, 'utf8');
-      db = JSON.parse(raw);
-      console.log(`Database loaded successfully from ${NEW_DB_PATH}.`);
-      console.log(`Stats: ${db.teachers.length} teachers, ${db.students.length} students, ${db.courses.length} courses.`);
-      
-      // Auto seed if database is missing core seed accounts or is too small
-      const hasAdmin = db.admins && db.admins.some(a => a.email === 'admin@gmail.com' && !a.deleted);
-      const hasTeacher = db.teachers && db.teachers.some(t => t.email === 'teacher@gmail.com' && !t.deleted);
-      const hasStudent = db.students && db.students.some(s => s.email === 'student@gmail.com' && !s.deleted);
+  try {
+    const courses = sqliteDb.prepare('SELECT * FROM courses').all();
+    const teachers = sqliteDb.prepare('SELECT * FROM teachers').all();
+    const students = sqliteDb.prepare('SELECT * FROM students').all();
+    const admins = sqliteDb.prepare('SELECT * FROM admins').all();
+    const courseInfos = sqliteDb.prepare('SELECT * FROM course_infos').all();
+    const attendances = sqliteDb.prepare('SELECT * FROM attendances').all();
+    const semesterCourses = sqliteDb.prepare('SELECT * FROM semester_courses').all();
 
-      if (!hasAdmin || !hasTeacher || !hasStudent || db.students.length < 15 || db.courses.length === 0) {
-        seedDummyData();
+    // Map to db object format
+    db.courses = courses.map(c => ({
+      id: c.id,
+      deleted: !!c.deleted,
+      code: c.code || '',
+      title: c.title || '',
+      content: c.content || '',
+      credits: c.credits || 'CREDIT_2_00',
+      faculty: c.faculty || '',
+      department: c.department || ''
+    }));
+
+    db.teachers = teachers.map(t => ({
+      id: t.id,
+      deleted: !!t.deleted,
+      userName: t.userName || '',
+      email: t.email || '',
+      passwordHash: t.passwordHash || '',
+      role: t.role || 'teacher',
+      faculty: t.faculty || '',
+      department: t.department || '',
+      currentCourses: t.currentCourses ? JSON.parse(t.currentCourses) : [],
+      previousCourses: t.previousCourses ? JSON.parse(t.previousCourses) : []
+    }));
+
+    db.students = students.map(s => ({
+      id: s.id,
+      deleted: !!s.deleted,
+      userName: s.userName || '',
+      email: s.email || '',
+      passwordHash: s.passwordHash || '',
+      role: s.role || 'student',
+      faculty: s.faculty || '',
+      department: s.department || '',
+      currentLevel: s.currentLevel || '',
+      currentSemester: s.currentSemester || '',
+      studentId: s.studentId || 0,
+      semesterCourses: s.semesterCourses ? JSON.parse(s.semesterCourses) : []
+    }));
+
+    db.admins = admins.map(a => ({
+      id: a.id,
+      deleted: !!a.deleted,
+      userName: a.userName || '',
+      email: a.email || '',
+      passwordHash: a.passwordHash || '',
+      role: a.role || 'admin',
+      faculty: a.faculty || '',
+      department: a.department || ''
+    }));
+
+    db.courseInfos = courseInfos.map(ci => ({
+      id: ci.id,
+      deleted: !!ci.deleted,
+      course: ci.course || '',
+      teacher: ci.teacher || '',
+      attendance: ci.attendance || ''
+    }));
+
+    db.attendances = attendances.map(att => ({
+      id: att.id,
+      deleted: !!att.deleted,
+      totalClasses: att.totalClasses || 0,
+      attendanceMap: att.attendanceMap ? JSON.parse(att.attendanceMap) : {},
+      history: att.history ? JSON.parse(att.history) : []
+    }));
+
+    db.semesterCourses = semesterCourses.map(sc => ({
+      id: sc.id,
+      deleted: !!sc.deleted,
+      level: sc.level || '',
+      semester: sc.semester || '',
+      startDate: sc.startDate ? JSON.parse(sc.startDate) : null,
+      endDate: sc.endDate ? JSON.parse(sc.endDate) : null,
+      students: sc.students ? JSON.parse(sc.students) : [],
+      courses: sc.courses ? JSON.parse(sc.courses) : []
+    }));
+
+    console.log(`Database loaded successfully from SQLite database.`);
+    console.log(`Stats: ${db.teachers.length} teachers, ${db.students.length} students, ${db.courses.length} courses.`);
+
+    // Auto seed if database is empty or missing core seed accounts
+    const hasAdmin = db.admins && db.admins.some(a => a.email === 'admin@gmail.com' && !a.deleted);
+    const hasTeacher = db.teachers && db.teachers.some(t => t.email === 'teacher@gmail.com' && !t.deleted);
+    const hasStudent = db.students && db.students.some(s => s.email === 'student@gmail.com' && !s.deleted);
+
+    if (!hasAdmin || !hasTeacher || !hasStudent || db.students.length < 15 || db.courses.length === 0) {
+      // 1. Check if new active JSON exists
+      if (fs.existsSync(NEW_DB_PATH)) {
+        try {
+          console.log(`Migrating active JSON database data.json to SQLite...`);
+          const raw = fs.readFileSync(NEW_DB_PATH, 'utf8');
+          db = JSON.parse(raw);
+          saveDB();
+          console.log(`Migration of active JSON to SQLite completed.`);
+          return;
+        } catch (err) {
+          console.error("Failed to parse active database JSON.", err);
+        }
       }
-      return;
-    } catch (err) {
-      console.error("Failed to parse active database, falling back to old database.", err);
-    }
-  }
+      
+      // 2. Check if old JSON database exists
+      if (fs.existsSync(OLD_DB_PATH)) {
+        try {
+          console.log("Normalizing database from old Jackson-based data.json to SQLite...");
+          const raw = fs.readFileSync(OLD_DB_PATH, 'utf8');
+          const oldData = JSON.parse(raw);
+          normalizeOldData(oldData);
+          seedDummyData();
+          saveDB();
+          console.log("Normalization & Seeding complete! Saved to SQLite.");
+          return;
+        } catch (err) {
+          console.error("Failed to parse old database JSON.", err);
+        }
+      }
 
-  const dataDir = path.dirname(NEW_DB_PATH);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  if (fs.existsSync(OLD_DB_PATH)) {
-    try {
-      const raw = fs.readFileSync(OLD_DB_PATH, 'utf8');
-      const oldData = JSON.parse(raw);
-      console.log("Normalizing database from old Jackson-based data.json...");
-      normalizeOldData(oldData);
-      seedDummyData(); // Add extra dummy data
-      saveDB();
-      console.log("Normalization & Seeding complete! Saved to local active database.");
-    } catch (err) {
-      console.error("Failed to parse old database.", err);
+      console.log("No JSON databases found or parsed. Initializing empty SQLite with seeded data.");
       initEmptyDB();
     }
-  } else {
-    console.warn("No database file found. Initializing empty database.");
+  } catch (err) {
+    console.error("Error checking/loading SQLite database, initializing empty.", err);
     initEmptyDB();
   }
 }
@@ -213,11 +396,9 @@ function normalizeOldData(old) {
   db.semesterCourses = Array.from(semesterCoursesMap.values());
 }
 
-// Seeder for dummy data
 function seedDummyData() {
-  console.log("Seeding extra realistic dummy data into database...");
+  console.log("Seeding extra realistic dummy data into SQLite database...");
 
-  // Clean initialization
   db.courses = [];
   db.teachers = [];
   db.students = [];
@@ -242,19 +423,14 @@ function seedDummyData() {
 
   // 2. Create courses
   const courseData = [
-    // Level First Semester I
     { code: "CSE 101", title: "Structured Programming Language", content: "Introduction to programming concepts, control structures, functions, arrays, pointers, and structures in C.", credits: "CREDIT_3_00" },
     { code: "CSE 102", title: "Structured Programming Language Lab", content: "Laboratory sessions for Structured Programming Language (C programming).", credits: "CREDIT_1_50" },
-    // Level First Semester II
     { code: "CSE 151", title: "Discrete Mathematics", content: "Sets, logic, relations, functions, graphs, trees, combinatorics, and algebraic structures.", credits: "CREDIT_3_00" },
     { code: "CSE 152", title: "Digital Logic Design", content: "Number systems, Boolean algebra, logic gates, combinational and sequential circuit design.", credits: "CREDIT_3_00" },
-    // Level Second Semester I
     { code: "CSE 201", title: "Object Oriented Programming", content: "Object-oriented principles, classes, objects, inheritance, polymorphism, templates, and exception handling in C++.", credits: "CREDIT_3_00" },
     { code: "CSE 202", title: "Object Oriented Programming Lab", content: "Hands-on lab in OOP using C++.", credits: "CREDIT_1_50" },
-    // Level Second Semester II
     { code: "CSE 251", title: "Data Structures", content: "Arrays, linked lists, stacks, queues, trees, graphs, hashing, sorting, and searching algorithms.", credits: "CREDIT_3_00" },
     { code: "CSE 252", title: "Data Structures Lab", content: "Hands-on implementation of core data structures.", credits: "CREDIT_1_00" },
-    // Level Third Semester I (Active)
     { code: "CSE 301", title: "Database Management Systems", content: "Introduction to databases, SQL, relational algebra, normalization, transactions, indexing, and NoSQL databases.", credits: "CREDIT_3_00" },
     { code: "CSE 302", title: "Database Management Systems Lab", content: "Hands-on lab exercises in SQL programming, database schema design, and backend database connectivity.", credits: "CREDIT_1_50" },
     { code: "CSE 303", title: "Software Engineering", content: "Software development lifecycles, Agile/Scrum, software design patterns, testing, UML modeling, and DevOps practices.", credits: "CREDIT_3_00" },
@@ -336,7 +512,6 @@ function seedDummyData() {
     return studObj;
   });
 
-  // 5. Connect teachers to courses mapping for different semesters
   const courseTeacherMap = {
     "CSE 101": 0, "CSE 102": 0, "CSE 301": 0, "CSE 302": 0,
     "CSE 151": 1, "CSE 152": 1, "CSE 303": 1, "CSE 304": 1,
@@ -380,15 +555,13 @@ function seedDummyData() {
           history: []
         };
 
-        // Seed realistic student attendances
         const presentCounts = {};
         seededStudents.forEach(student => {
-          const presentCount = Math.floor(Math.random() * 8) + 8; // 8 to 15
+          const presentCount = Math.floor(Math.random() * 8) + 8;
           presentCounts[student.studentId] = presentCount;
           attendanceObj.attendanceMap[student.studentId] = presentCount;
         });
 
-        // Create 15 classes history dates
         const dates = [];
         let currentDate = new Date(semDef.year, 2, 2);
         for (let i = 0; i < 15; i++) {
@@ -402,7 +575,6 @@ function seedDummyData() {
           presentStudents: []
         }));
 
-        // Distribute student presence
         seededStudents.forEach(student => {
           const P = presentCounts[student.studentId];
           const shuffledIndices = [...Array(15).keys()].sort(() => Math.random() - 0.5);
@@ -414,7 +586,6 @@ function seedDummyData() {
 
         db.attendances.push(attendanceObj);
 
-        // Create CourseInfo
         const courseInfoObj = {
           id: courseInfoId,
           deleted: false,
@@ -424,7 +595,6 @@ function seedDummyData() {
         };
         db.courseInfos.push(courseInfoObj);
 
-        // Connect to teacher
         const teacher = seededTeachers[courseTeacherMap[code]];
         if (semDef.year === 2026) {
           teacher.currentCourses.push(courseInfoId);
@@ -432,33 +602,95 @@ function seedDummyData() {
           teacher.previousCourses.push(courseInfoId);
         }
 
-        // Add to semester
         semesterObj.courses.push(courseInfoId);
       }
     });
 
     db.semesterCourses.push(semesterObj);
 
-    // Link semester to students
     seededStudents.forEach(s => {
       s.semesterCourses.push(semId);
     });
   });
-
-  saveDB();
-  console.log(`Rich seeding complete! Created 1 admin, ${db.teachers.length} teachers, ${db.students.length} students, ${db.courses.length} courses, ${db.courseInfos.length} course mappings.`);
 }
 
-// Save database
+// Save database to SQLite using Transaction
 function saveDB() {
+  const insertCourse = sqliteDb.prepare(`
+    INSERT OR REPLACE INTO courses (id, deleted, code, title, content, credits, faculty, department)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  
+  const insertTeacher = sqliteDb.prepare(`
+    INSERT OR REPLACE INTO teachers (id, deleted, userName, email, passwordHash, role, faculty, department, currentCourses, previousCourses)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertStudent = sqliteDb.prepare(`
+    INSERT OR REPLACE INTO students (id, deleted, userName, email, passwordHash, role, faculty, department, currentLevel, currentSemester, studentId, semesterCourses)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertAdmin = sqliteDb.prepare(`
+    INSERT OR REPLACE INTO admins (id, deleted, userName, email, passwordHash, role, faculty, department)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertCourseInfo = sqliteDb.prepare(`
+    INSERT OR REPLACE INTO course_infos (id, deleted, course, teacher, attendance)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  const insertAttendance = sqliteDb.prepare(`
+    INSERT OR REPLACE INTO attendances (id, deleted, totalClasses, attendanceMap, history)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  const insertSemesterCourse = sqliteDb.prepare(`
+    INSERT OR REPLACE INTO semester_courses (id, deleted, level, semester, startDate, endDate, students, courses)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const transaction = sqliteDb.transaction(() => {
+    sqliteDb.prepare('DELETE FROM courses').run();
+    sqliteDb.prepare('DELETE FROM teachers').run();
+    sqliteDb.prepare('DELETE FROM students').run();
+    sqliteDb.prepare('DELETE FROM admins').run();
+    sqliteDb.prepare('DELETE FROM course_infos').run();
+    sqliteDb.prepare('DELETE FROM attendances').run();
+    sqliteDb.prepare('DELETE FROM semester_courses').run();
+
+    for (const c of db.courses) {
+      insertCourse.run(c.id, c.deleted ? 1 : 0, c.code, c.title, c.content, c.credits, c.faculty, c.department);
+    }
+    for (const t of db.teachers) {
+      insertTeacher.run(t.id, t.deleted ? 1 : 0, t.userName, t.email, t.passwordHash, t.role, t.faculty, t.department, JSON.stringify(t.currentCourses || []), JSON.stringify(t.previousCourses || []));
+    }
+    for (const s of db.students) {
+      insertStudent.run(s.id, s.deleted ? 1 : 0, s.userName, s.email, s.passwordHash, s.role, s.faculty, s.department, s.currentLevel, s.currentSemester, s.studentId, JSON.stringify(s.semesterCourses || []));
+    }
+    for (const a of db.admins) {
+      insertAdmin.run(a.id, a.deleted ? 1 : 0, a.userName, a.email, a.passwordHash, a.role, a.faculty, a.department);
+    }
+    for (const ci of db.courseInfos) {
+      insertCourseInfo.run(ci.id, ci.deleted ? 1 : 0, ci.course, ci.teacher, ci.attendance);
+    }
+    for (const att of db.attendances) {
+      insertAttendance.run(att.id, att.deleted ? 1 : 0, att.totalClasses, JSON.stringify(att.attendanceMap || {}), JSON.stringify(att.history || []));
+    }
+    for (const sc of db.semesterCourses) {
+      insertSemesterCourse.run(sc.id, sc.deleted ? 1 : 0, sc.level, sc.semester, JSON.stringify(sc.startDate), JSON.stringify(sc.endDate), JSON.stringify(sc.students || []), JSON.stringify(sc.courses || []));
+    }
+  });
+
   try {
-    fs.writeFileSync(NEW_DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+    transaction();
   } catch (err) {
-    console.error("Failed to save database to disk.", err);
+    console.error("Failed to execute SQLite save transaction.", err);
   }
 }
 
-// Initialize database on import
+// Initial database load on import
 loadDB();
 
 module.exports = {

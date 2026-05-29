@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
 import { CourseCard } from '@/components/custom/coursecard';
+import { Course } from '@/types/course';
 import { api } from '@/lib/api';
 
 const CREDITS_OPTIONS = ['1.00', '1.50', '2.00', '3.00'];
@@ -25,23 +26,14 @@ const REV_CREDIT_MAP: Record<string, string> = {
   'CREDIT_2_00': '2.00',
   'CREDIT_3_00': '3.00',
 };
-
-interface Course {
-  id: string;
-  code: string;
-  title: string;
-  content: string;
-  credits: string;
-  faculty: string;
-  department: string;
-}
-
 const FACULTIES = [
+
   'COMPUTER_SCIENCE_AND_ENGINEERING',
   'ENGINEERING',
   'AGRICULTURE',
   'BUSINESS_STUDIES'
 ];
+
 const DEPARTMENTS = [
   'COMPUTER_SCIENCE_AND_ENGINEERING',
   'INFORMATION_AND_COMMUNICATION_TECHNOLOGY',
@@ -125,7 +117,8 @@ export default function CoursesScreen() {
     setEditingCourse(course);
     setCode(course.code);
     setTitle(course.title);
-    setContent(course.content);
+    setContent(course.content || '');
+
     setCredits(REV_CREDIT_MAP[course.credits] || '3.00');
     setFaculty(course.faculty || 'COMPUTER_SCIENCE_AND_ENGINEERING');
     setDepartment(course.department || 'COMPUTER_SCIENCE_AND_ENGINEERING');

@@ -11,7 +11,8 @@ interface StudentCardProps {
     id: string;
     userName: string;
     email: string;
-    studentId: number;
+    studentId: number | string;
+
     faculty: string;
     department: string;
     currentLevel: string;

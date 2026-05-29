@@ -12,47 +12,8 @@ import { Dropdown } from '@/components/custom/dropdown';
 import { BookOpen, Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search } from 'lucide-react-native';
 import TopPanel from '@/components/custom/toppanel';
 
-interface StudentRow {
-  id: string;
-  userName: string;
-  studentId: number;
-  email: string;
-  currentLevel: string;
-  currentSemester: string;
-  attendanceCount: number;
-  percentage: number;
-}
-
-interface CourseInfo {
-  id: string;
-  course: {
-    title: string;
-    code: string;
-    credits: string;
-    content: string;
-  };
-  teacher: {
-    id: string;
-    userName: string;
-    email: string;
-  };
-  attendance: {
-    id: string;
-    totalClasses: number;
-    attendanceMap: Record<number, number>;
-    history?: Array<{ date: string; presentStudents: number[] }>;
-  };
-  students: StudentRow[];
-}
-
-interface TeacherCourseListItem {
-  id: string;
-  course: {
-    title: string;
-    code: string;
-  };
-  totalClasses: number;
-}
+import { StudentRow } from '@/types/student';
+import { CourseInfo, TeacherCourseListItem } from '@/types/course';
 
 export default function TeacherDashboard() {
   const router = useRouter();

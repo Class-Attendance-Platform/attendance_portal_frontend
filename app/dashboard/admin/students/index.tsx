@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
 import { StudentCard } from '@/components/custom/studentcard';
+import { Student } from '@/types/student';
 import { api } from '@/lib/api';
 
 const LEVELS = ['First', 'Second', 'Third', 'Fourth'];
@@ -26,20 +27,10 @@ const DEPARTMENTS = [
   'AGRICULTURE_CHEMISTRY'
 ];
 
-interface Student {
-  id: string;
-  userName: string;
-  email: string;
-  role: string;
-  faculty: string;
-  department: string;
-  currentLevel: string;
-  currentSemester: string;
-  studentId: number;
-}
 
 export default function StudentsScreen() {
   const { width } = useWindowDimensions();
+
 
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);

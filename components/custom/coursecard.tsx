@@ -11,8 +11,9 @@ interface CourseCardProps {
     id: string;
     code: string;
     title: string;
-    content: string;
-    credits: string;
+    content?: string;
+
+    credits: string | number;
   };
   onPress?: (course: any) => void;
   onEdit?: (course: any) => void;
@@ -21,8 +22,11 @@ interface CourseCardProps {
 
 export function CourseCard({ course, onPress, onEdit, onDelete }: CourseCardProps) {
   const displayCredits = course.credits
-    ? course.credits.replace('CREDIT_', '').replace('_', '.')
+    ? typeof course.credits === 'number'
+      ? course.credits.toFixed(2)
+      : course.credits.replace('CREDIT_', '').replace('_', '.')
     : '2.00';
+
 
   return (
     <View className="m-2 flex-1">
