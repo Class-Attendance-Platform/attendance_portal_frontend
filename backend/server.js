@@ -173,13 +173,19 @@ app.get('/api/student/:id/semesters', (req, res) => {
       const studentAttendanceCount = attendance.attendanceMap[student.studentId] || 0;
       const rate = attendance.totalClasses > 0 ? (studentAttendanceCount / attendance.totalClasses) * 100 : 0;
 
+      const historyResolved = (attendance.history || []).map(h => ({
+        date: h.date,
+        present: h.presentStudents.includes(student.studentId)
+      }));
+
       return {
         id: ci.id,
         course,
         teacher: { userName: teacher.userName, email: teacher.email },
         totalClasses: attendance.totalClasses,
         presentCount: studentAttendanceCount,
-        percentage: parseFloat(rate.toFixed(2))
+        percentage: parseFloat(rate.toFixed(2)),
+        history: historyResolved
       };
     }).filter(Boolean);
 
