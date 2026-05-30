@@ -1,0 +1,107 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Course {
+  id          String       @id @default(uuid())
+  deleted     Boolean      @default(false)
+  code        String       @unique
+  title       String
+  content     String?
+  credits     String
+  faculty     String
+  department  String
+  courseInfos CourseInfo[]
+}
+
+model Teacher {
+  id              String       @id @default(uuid())
+  deleted         Boolean      @default(false)
+  userName        String
+  email           String       @unique
+  passwordHash    String
+  role            String       @default("teacher")
+  faculty         String
+  department      String
+  courseInfos     CourseInfo[]
+}
+
+model Student {
+  id              String            @id @default(uuid())
+  deleted         Boolean           @default(false)
+  userName        String
+  email           String            @unique
+  passwordHash    String
+  role            String            @default("student")
+  faculty         String
+  department      String
+  currentLevel    String
+  currentSemester String
+  studentId       Int               @unique
+  semesters       StudentSemester[]
+}
+
+model Admin {
+  id           String  @id @default(uuid())
+  deleted      Boolean @default(false)
+  userName     String
+  email        String  @unique
+  passwordHash String
+  role         String  @default("admin")
+  faculty      String?
+  department   String?
+}
+
+model Attendance {
+  id            String      @id @default(uuid())
+  deleted       Boolean     @default(false)
+  totalClasses  Int         @default(0)
+  attendanceMap String      @default("{}") // Store studentId -> presentCount as a serialized JSON string
+  history       String      @default("[]") // Store history sessions list as a serialized JSON string
+  courseInfo    CourseInfo?
+}
+
+model CourseInfo {
+  id           String               @id @default(uuid())
+  deleted      Boolean              @default(false)
+  courseId     String
+  course       Course               @relation(fields: [courseId], references: [id])
+  teacherId    String
+  teacher      Teacher              @relation(fields: [teacherId], references: [id])
+  attendanceId String               @unique
+  attendance   Attendance           @relation(fields: [attendanceId], references: [id])
+  semesters    SemesterCourseInfo[]
+}
+
+model Semester {
+  id        String               @id @default(uuid())
+  deleted   Boolean              @default(false)
+  level     String
+  semester  String
+  startDate String? // Store [year, month, day] JSON array
+  endDate   String? // Store [year, month, day] JSON array
+  students  StudentSemester[]
+  courses   SemesterCourseInfo[]
+}
+
+model StudentSemester {
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  semesterId String
+  semester   Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, semesterId])
+}
+
+model SemesterCourseInfo {
+  semesterId   String
+  semester     Semester   @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  courseInfoId String
+  courseInfo   CourseInfo @relation(fields: [courseInfoId], references: [id], onDelete: Cascade)
+
+  @@id([semesterId, courseInfoId])
+}
