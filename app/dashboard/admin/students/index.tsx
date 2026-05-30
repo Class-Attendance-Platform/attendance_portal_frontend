@@ -1,6 +1,15 @@
 import * as React from 'react';
 import { useMemo, useState, useEffect } from 'react';
-import { FlatList, View, useWindowDimensions, ActivityIndicator, Modal, Pressable, ScrollView, Alert } from 'react-native';
+import {
+  FlatList,
+  View,
+  useWindowDimensions,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  Alert,
+} from 'react-native';
 import { Search, Plus, X } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
@@ -13,23 +22,20 @@ import { Student } from '@/types/student';
 import { api } from '@/lib/api';
 import { LEVELS, SEMESTERS, Level, SemesterName } from '@/types/common';
 
-const FACULTIES = [
-  'COMPUTER_SCIENCE_AND_ENGINEERING',
-  'ENGINEERING',
-  'AGRICULTURE',
-  'BUSINESS_STUDIES'
-];
-const DEPARTMENTS = [
-  'COMPUTER_SCIENCE_AND_ENGINEERING',
-  'INFORMATION_AND_COMMUNICATION_TECHNOLOGY',
-  'ELECTRICAL_AND_ELECTRONIC_ENGINEERING',
-  'AGRICULTURE_CHEMISTRY'
-];
-
+function humanize(str: string): string {
+  if (!str) return '';
+  return str
+    .split('_')
+    .map((word) => {
+      if (word === 'AND') return 'and';
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
 
 export default function StudentsScreen() {
   const { width } = useWindowDimensions();
-
+  const isMobile = width < 768;
 
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,12 +54,63 @@ export default function StudentsScreen() {
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [studentId, setStudentId] = useState('');
-  const [faculty, setFaculty] = useState('COMPUTER_SCIENCE_AND_ENGINEERING');
-  const [department, setDepartment] = useState('COMPUTER_SCIENCE_AND_ENGINEERING');
+
+  // Dynamic configuration states
+  const [facultyMap, setFacultyMap] = useState<Record<string, string>>({});
+  const [revFacultyMap, setRevFacultyMap] = useState<Record<string, string>>({});
+  const [facultyOptions, setFacultyOptions] = useState<string[]>([]);
+
+  const [deptMap, setDeptMap] = useState<Record<string, string>>({});
+  const [revDeptMap, setRevDeptMap] = useState<Record<string, string>>({});
+  const [deptOptions, setDeptOptions] = useState<string[]>([]);
+
+  const [faculty, setFaculty] = useState('');
+  const [department, setDepartment] = useState('');
   const [currentLevel, setCurrentLevel] = useState<Level>('First');
   const [currentSemester, setCurrentSemester] = useState<SemesterName>('I');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const fetchConfig = async () => {
+    try {
+      const [facultiesRes, deptsRes] = await Promise.all([
+        api.get('/api/config/faculties'),
+        api.get('/api/config/departments'),
+      ]);
+      if (facultiesRes.success && facultiesRes.faculties) {
+        const map: Record<string, string> = {};
+        const revMap: Record<string, string> = {};
+        const options: string[] = [];
+        facultiesRes.faculties.forEach((f: string) => {
+          const h = humanize(f);
+          map[h] = f;
+          revMap[f] = h;
+          options.push(h);
+        });
+        setFacultyMap(map);
+        setRevFacultyMap(revMap);
+        setFacultyOptions(options);
+        setFaculty(options[0] || '');
+      }
+      if (deptsRes.success && deptsRes.departments) {
+        const map: Record<string, string> = {};
+        const revMap: Record<string, string> = {};
+        const options: string[] = [];
+        deptsRes.departments.forEach((d: string) => {
+          const h = humanize(d);
+          map[h] = d;
+          revMap[d] = h;
+          options.push(h);
+        });
+        setDeptMap(map);
+        setRevDeptMap(revMap);
+        setDeptOptions(options);
+        setDepartment(options[0] || '');
+      }
+    } catch (e) {
+      console.error('Error fetching config', e);
+    }
+  };
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -71,39 +128,46 @@ export default function StudentsScreen() {
   };
 
   useEffect(() => {
+    fetchConfig();
     fetchStudents();
   }, []);
 
-  const numColumns = useMemo(() => {
-    if (width >= 1440) return 5;
-    if (width >= 1150) return 4;
-    if (width >= 850) return 3;
-    if (width >= 580) return 2;
-    return 1;
-  }, [width]);
-
   const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
-      const nameMatch = student.userName.toLowerCase().includes(searchQuery.toLowerCase());
-      const emailMatch = student.email.toLowerCase().includes(searchQuery.toLowerCase());
-      const idMatch = student.studentId.toString().includes(searchQuery);
-      
-      const matchesFaculty = selectedFaculty === 'ALL' || student.faculty === selectedFaculty;
-      const matchesDept = selectedDepartment === 'ALL' || student.department === selectedDepartment;
-      const matchesLevel = selectedLevel === 'ALL' || student.currentLevel === selectedLevel;
-      const matchesSemester = selectedSemester === 'ALL' || student.currentSemester === selectedSemester;
-      
-      return (nameMatch || emailMatch || idMatch) && matchesFaculty && matchesDept && matchesLevel && matchesSemester;
+    return students.filter((s) => {
+      const matchSearch =
+        s.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.studentId && s.studentId.toString().includes(searchQuery));
+
+      const matchFaculty =
+        selectedFaculty === 'ALL' || revFacultyMap[s.faculty || ''] === selectedFaculty;
+      const matchDept =
+        selectedDepartment === 'ALL' || revDeptMap[s.department || ''] === selectedDepartment;
+      const matchLevel = selectedLevel === 'ALL' || s.currentLevel === selectedLevel;
+      const matchSemester = selectedSemester === 'ALL' || s.currentSemester === selectedSemester;
+
+      return matchSearch && matchFaculty && matchDept && matchLevel && matchSemester;
     });
-  }, [students, searchQuery, selectedFaculty, selectedDepartment, selectedLevel, selectedSemester]);
+  }, [
+    students,
+    searchQuery,
+    selectedFaculty,
+    selectedDepartment,
+    selectedLevel,
+    selectedSemester,
+    revFacultyMap,
+    revDeptMap,
+  ]);
+
+  const numColumns = width >= 1024 ? 3 : width >= 768 ? 2 : 1;
 
   const handleOpenAddModal = () => {
     setEditingStudent(null);
     setUserName('');
     setEmail('');
     setStudentId('');
-    setFaculty('COMPUTER_SCIENCE_AND_ENGINEERING');
-    setDepartment('COMPUTER_SCIENCE_AND_ENGINEERING');
+    setFaculty(facultyOptions[0] || '');
+    setDepartment(deptOptions[0] || '');
     setCurrentLevel('First');
     setCurrentSemester('I');
     setPassword('');
@@ -111,25 +175,21 @@ export default function StudentsScreen() {
     setModalOpen(true);
   };
 
-  const handleOpenEditModal = (student: Student) => {
-    setEditingStudent(student);
-    setUserName(student.userName);
-    setEmail(student.email);
-    setStudentId(student.studentId.toString());
-    setFaculty(student.faculty || 'COMPUTER_SCIENCE_AND_ENGINEERING');
-    setDepartment(student.department || 'COMPUTER_SCIENCE_AND_ENGINEERING');
-    setCurrentLevel(student.currentLevel || 'First');
-    setCurrentSemester(student.currentSemester || 'I');
+  const handleOpenEditModal = (s: Student) => {
+    setEditingStudent(s);
+    setUserName(s.userName);
+    setEmail(s.email);
+    setStudentId(s.studentId?.toString() || '');
+    setFaculty(revFacultyMap[s.faculty || ''] || facultyOptions[0] || '');
+    setDepartment(revDeptMap[s.department || ''] || deptOptions[0] || '');
+    setCurrentLevel(s.currentLevel as Level);
+    setCurrentSemester(s.currentSemester as SemesterName);
     setPassword('');
     setError('');
     setModalOpen(true);
   };
 
   const handleSaveStudent = async () => {
-    if (!userName || !email || !studentId) {
-      setError('Name, email and Student ID are required.');
-      return;
-    }
     setSubmitting(true);
     setError('');
     try {
@@ -137,12 +197,12 @@ export default function StudentsScreen() {
       const body = {
         userName,
         email,
-        studentId: parseInt(studentId, 10),
-        faculty,
-        department,
+        studentId: studentId ? parseInt(studentId, 10) : undefined,
+        faculty: facultyMap[faculty] || faculty,
+        department: deptMap[department] || department,
         currentLevel,
         currentSemester,
-        password: password || undefined
+        ...(password ? { password } : {}),
       };
 
       if (editingStudent) {
@@ -165,7 +225,7 @@ export default function StudentsScreen() {
   const handleDeleteStudent = (id: string) => {
     Alert.alert(
       'Delete Student',
-      'Are you sure you want to delete this student account? This will unenroll them from all course sheets.',
+      'Are you sure you want to delete this student? This will remove all their enrollment data.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -180,8 +240,8 @@ export default function StudentsScreen() {
             } catch (err: any) {
               setError(err.message || 'Failed to delete student.');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -196,9 +256,9 @@ export default function StudentsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background md:pr-64 lg:pr-64">
+    <View className="flex-1 bg-background">
       <View className="z-10 border-b border-border bg-card">
-        <View className="flex-row items-center gap-2 px-4 pt-4 pb-2">
+        <View className="flex-row items-center gap-2 px-4 pb-2 pt-4">
           <View className="relative flex-1 justify-center">
             <Search size={18} className="absolute left-3 z-10 text-muted-foreground" />
             <Input
@@ -212,40 +272,48 @@ export default function StudentsScreen() {
           </View>
           <Button
             variant="default"
-            className="h-11 px-4 rounded-xl flex-row gap-2"
+            className="h-11 flex-row gap-2 rounded-xl px-4"
             onPress={handleOpenAddModal}>
             <Plus size={16} />
             <Text className="font-semibold">Add Student</Text>
           </Button>
         </View>
 
-        <View className="flex-row flex-wrap gap-3 px-4 pb-3">
-          <View className="flex-1 min-w-[140px]">
-            <Label className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-bold">Faculty</Label>
+        <View className="flex-row flex-wrap gap-2 px-4 pb-3">
+          <View className="min-w-[120px] flex-1">
+            <Label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Faculty
+            </Label>
             <Dropdown
               value={selectedFaculty}
               onValueChange={setSelectedFaculty}
-              options={['ALL', ...FACULTIES]}
+              options={['ALL', ...facultyOptions]}
             />
           </View>
-          <View className="flex-1 min-w-[140px]">
-            <Label className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-bold">Department</Label>
+          <View className="min-w-[120px] flex-1">
+            <Label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Department
+            </Label>
             <Dropdown
               value={selectedDepartment}
               onValueChange={setSelectedDepartment}
-              options={['ALL', ...DEPARTMENTS]}
+              options={['ALL', ...deptOptions]}
             />
           </View>
-          <View className="flex-1 min-w-[80px]">
-            <Label className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-bold">Level</Label>
+          <View className="min-w-[100px] flex-1">
+            <Label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Level
+            </Label>
             <Dropdown
               value={selectedLevel}
               onValueChange={setSelectedLevel}
               options={['ALL', ...LEVELS]}
             />
           </View>
-          <View className="flex-1 min-w-[80px]">
-            <Label className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-bold">Semester</Label>
+          <View className="min-w-[100px] flex-1">
+            <Label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Semester
+            </Label>
             <Dropdown
               value={selectedSemester}
               onValueChange={setSelectedSemester}
@@ -256,8 +324,8 @@ export default function StudentsScreen() {
       </View>
 
       {error ? (
-        <View className="m-4 p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
-          <Text className="text-destructive text-sm text-center font-medium">{error}</Text>
+        <View className="m-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3">
+          <Text className="text-center text-sm font-medium text-destructive">{error}</Text>
         </View>
       ) : null}
 
@@ -280,7 +348,7 @@ export default function StudentsScreen() {
         ListEmptyComponent={
           <View className="mt-10 flex-1 items-center justify-center p-8">
             <Text className="text-center text-lg font-semibold text-foreground">
-              No students found.
+              No students found matching your filters.
             </Text>
           </View>
         }
@@ -288,101 +356,109 @@ export default function StudentsScreen() {
 
       <Modal visible={modalOpen} transparent animationType="slide">
         <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="w-full max-w-xl rounded-2xl bg-card border border-border p-6 shadow-xl max-h-[90%]">
-            <View className="flex-row items-center justify-between border-b border-border/50 pb-3 mb-4">
-              <Text className="text-lg font-bold">{editingStudent ? 'Edit Student Details' : 'Register New Student'}</Text>
+          <View className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <View className="mb-4 flex-row items-center justify-between border-b border-border/50 pb-3">
+              <Text className="text-lg font-bold">
+                {editingStudent ? 'Edit Student Details' : 'Register New Student'}
+              </Text>
               <Pressable onPress={() => setModalOpen(false)}>
                 <X size={18} className="text-muted-foreground" />
               </Pressable>
             </View>
 
-            <ScrollView className="gap-4 pr-1" showsVerticalScrollIndicator>
-              <View className="gap-1.5 mb-2">
+            <ScrollView className="max-h-[70vh] gap-4 pr-1" showsVerticalScrollIndicator={true}>
+              <View className="gap-1.5">
                 <Label htmlFor="userName">Full Name</Label>
                 <Input
                   id="userName"
-                  placeholder="Tasnim Rahman"
+                  placeholder="John Doe"
                   value={userName}
                   onChangeText={setUserName}
                 />
               </View>
 
-              <View className="gap-1.5 mb-2">
+              <View className="gap-1.5">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
-                  placeholder="student@gmail.com"
+                  placeholder="john@example.com"
                   value={email}
                   onChangeText={setEmail}
-                  autoCapitalize="none"
                   keyboardType="email-address"
+                  autoCapitalize="none"
                 />
               </View>
 
-              <View className="gap-1.5 mb-2">
+              <View className="gap-1.5">
                 <Label htmlFor="studentId">Student ID</Label>
                 <Input
                   id="studentId"
-                  placeholder="2302001"
+                  placeholder="2102001"
                   value={studentId}
                   onChangeText={setStudentId}
                   keyboardType="number-pad"
                 />
               </View>
 
-              <View className="flex-row gap-2 mb-2">
+              <View className="flex-row gap-3">
                 <View className="flex-1 gap-1.5">
-                  <Label>Level</Label>
+                  <Label>Faculty</Label>
+                  <Dropdown
+                    value={faculty}
+                    onValueChange={setFaculty}
+                    options={facultyOptions.length > 0 ? facultyOptions : [faculty]}
+                  />
+                </View>
+                <View className="flex-1 gap-1.5">
+                  <Label>Department</Label>
+                  <Dropdown
+                    value={department}
+                    onValueChange={setDepartment}
+                    options={deptOptions.length > 0 ? deptOptions : [department]}
+                  />
+                </View>
+              </View>
+
+              <View className="flex-row gap-3">
+                <View className="flex-1 gap-1.5">
+                  <Label>Current Level</Label>
                   <Dropdown
                     value={currentLevel}
-                    onValueChange={setCurrentLevel}
+                    onValueChange={(val: any) => setCurrentLevel(val)}
                     options={LEVELS}
                   />
                 </View>
                 <View className="flex-1 gap-1.5">
-                  <Label>Semester</Label>
+                  <Label>Current Semester</Label>
                   <Dropdown
                     value={currentSemester}
-                    onValueChange={setCurrentSemester}
+                    onValueChange={(val: any) => setCurrentSemester(val)}
                     options={SEMESTERS}
                   />
                 </View>
               </View>
 
-              <View className="gap-1.5 mb-2">
-                <Label>Faculty</Label>
-                <Dropdown
-                  value={faculty}
-                  onValueChange={setFaculty}
-                  options={FACULTIES}
-                />
-              </View>
-
-              <View className="gap-1.5 mb-2">
-                <Label>Department</Label>
-                <Dropdown
-                  value={department}
-                  onValueChange={setDepartment}
-                  options={DEPARTMENTS}
-                />
-              </View>
-
-              <View className="gap-1.5 mb-4">
-                <Label htmlFor="password">{editingStudent ? 'Reset Password (Optional)' : 'Default Password'}</Label>
+              <View className="gap-1.5">
+                <Label htmlFor="password">
+                  {editingStudent ? 'Change Password (optional)' : 'Account Password'}
+                </Label>
                 <Input
                   id="password"
-                  placeholder={editingStudent ? 'Leave blank to keep current' : '123456'}
+                  placeholder="••••••••"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
                 />
               </View>
 
-              <Button
-                className="w-full mb-4"
-                onPress={handleSaveStudent}
-                disabled={submitting}>
-                <Text className="font-semibold text-primary-foreground">{submitting ? 'Saving...' : (editingStudent ? 'Update Details' : 'Register Student')}</Text>
+              <Button className="mt-4 w-full" onPress={handleSaveStudent} disabled={submitting}>
+                <Text className="font-semibold text-primary-foreground">
+                  {submitting
+                    ? 'Saving...'
+                    : editingStudent
+                      ? 'Update Details'
+                      : 'Register Student'}
+                </Text>
               </Button>
             </ScrollView>
           </View>

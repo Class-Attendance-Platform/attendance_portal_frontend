@@ -1,7 +1,17 @@
 import * as React from 'react';
 import { useMemo, useState, useEffect } from 'react';
-import { FlatList, View, useWindowDimensions, ActivityIndicator, Modal, Pressable, Alert, ScrollView } from 'react-native';
+import {
+  FlatList,
+  View,
+  useWindowDimensions,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import { Search, Plus, X } from 'lucide-react-native';
+import { Image } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,40 +19,24 @@ import { Text } from '@/components/ui/text';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
 import { CourseCard } from '@/components/custom/coursecard';
+import TopPanel from '@/components/custom/toppanel';
 import { Course } from '@/types/course';
 import { api } from '@/lib/api';
 
-const CREDITS_OPTIONS = ['1.00', '1.50', '2.00', '3.00'];
-const CREDIT_ENUM_MAP: Record<string, string> = {
-  '1.00': 'CREDIT_1_00',
-  '1.50': 'CREDIT_1_50',
-  '2.00': 'CREDIT_2_00',
-  '3.00': 'CREDIT_3_00',
-};
-
-const REV_CREDIT_MAP: Record<string, string> = {
-  'CREDIT_1_00': '1.00',
-  'CREDIT_1_50': '1.50',
-  'CREDIT_2_00': '2.00',
-  'CREDIT_3_00': '3.00',
-};
-const FACULTIES = [
-
-  'COMPUTER_SCIENCE_AND_ENGINEERING',
-  'ENGINEERING',
-  'AGRICULTURE',
-  'BUSINESS_STUDIES'
-];
-
-const DEPARTMENTS = [
-  'COMPUTER_SCIENCE_AND_ENGINEERING',
-  'INFORMATION_AND_COMMUNICATION_TECHNOLOGY',
-  'ELECTRICAL_AND_ELECTRONIC_ENGINEERING',
-  'AGRICULTURE_CHEMISTRY'
-];
+function humanize(str: string): string {
+  if (!str) return '';
+  return str
+    .split('_')
+    .map((word) => {
+      if (word === 'AND') return 'and';
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
 
 export default function CoursesScreen() {
   const { width } = useWindowDimensions();
+  const isMobile = width < 768;
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,14 +48,75 @@ export default function CoursesScreen() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  
+
   const [code, setCode] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+
+  // Dynamic configuration states
+  const [creditEnumMap, setCreditEnumMap] = useState<Record<string, string>>({});
+  const [revCreditMap, setRevCreditMap] = useState<Record<string, string>>({});
+  const [creditsOptions, setCreditsOptions] = useState<string[]>([]);
+
+  const [facultyMap, setFacultyMap] = useState<Record<string, string>>({});
+  const [revFacultyMap, setRevFacultyMap] = useState<Record<string, string>>({});
+  const [facultyOptions, setFacultyOptions] = useState<string[]>([]);
+
+  const [deptMap, setDeptMap] = useState<Record<string, string>>({});
+  const [revDeptMap, setRevDeptMap] = useState<Record<string, string>>({});
+  const [deptOptions, setDeptOptions] = useState<string[]>([]);
+
   const [credits, setCredits] = useState('3.00');
-  const [faculty, setFaculty] = useState('COMPUTER_SCIENCE_AND_ENGINEERING');
-  const [department, setDepartment] = useState('COMPUTER_SCIENCE_AND_ENGINEERING');
+  const [faculty, setFaculty] = useState('');
+  const [department, setDepartment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const fetchConfig = async () => {
+    try {
+      const [creditsRes, facultiesRes, deptsRes] = await Promise.all([
+        api.get('/api/config/credits'),
+        api.get('/api/config/faculties'),
+        api.get('/api/config/departments'),
+      ]);
+      if (creditsRes.success) {
+        setCreditEnumMap(creditsRes.creditEnumMap);
+        setRevCreditMap(creditsRes.revCreditMap);
+        setCreditsOptions(Object.keys(creditsRes.creditEnumMap));
+      }
+      if (facultiesRes.success && facultiesRes.faculties) {
+        const map: Record<string, string> = {};
+        const revMap: Record<string, string> = {};
+        const options: string[] = [];
+        facultiesRes.faculties.forEach((f: string) => {
+          const h = humanize(f);
+          map[h] = f;
+          revMap[f] = h;
+          options.push(h);
+        });
+        setFacultyMap(map);
+        setRevFacultyMap(revMap);
+        setFacultyOptions(options);
+        setFaculty(options[0] || '');
+      }
+      if (deptsRes.success && deptsRes.departments) {
+        const map: Record<string, string> = {};
+        const revMap: Record<string, string> = {};
+        const options: string[] = [];
+        deptsRes.departments.forEach((d: string) => {
+          const h = humanize(d);
+          map[h] = d;
+          revMap[d] = h;
+          options.push(h);
+        });
+        setDeptMap(map);
+        setRevDeptMap(revMap);
+        setDeptOptions(options);
+        setDepartment(options[0] || '');
+      }
+    } catch (err: any) {
+      console.error('Failed to load courses configuration:', err);
+    }
+  };
 
   const fetchCourses = async () => {
     setLoading(true);
@@ -79,6 +134,7 @@ export default function CoursesScreen() {
   };
 
   useEffect(() => {
+    fetchConfig();
     fetchCourses();
   }, []);
 
@@ -95,20 +151,25 @@ export default function CoursesScreen() {
       const matchesSearch =
         course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         course.code.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesFaculty = selectedFaculty === 'ALL' || course.faculty === selectedFaculty;
-      const matchesDept = selectedDepartment === 'ALL' || course.department === selectedDepartment;
+
+      const rawSelFaculty = facultyMap[selectedFaculty] || selectedFaculty;
+      const matchesFaculty = selectedFaculty === 'ALL' || course.faculty === rawSelFaculty;
+
+      const rawSelDept = deptMap[selectedDepartment] || selectedDepartment;
+      const matchesDept = selectedDepartment === 'ALL' || course.department === rawSelDept;
+
       return matchesSearch && matchesFaculty && matchesDept;
     });
-  }, [courses, searchQuery, selectedFaculty, selectedDepartment]);
+  }, [courses, searchQuery, selectedFaculty, selectedDepartment, facultyMap, deptMap]);
 
   const handleOpenAddModal = () => {
     setEditingCourse(null);
     setCode('');
     setTitle('');
     setContent('');
-    setCredits('3.00');
-    setFaculty('COMPUTER_SCIENCE_AND_ENGINEERING');
-    setDepartment('COMPUTER_SCIENCE_AND_ENGINEERING');
+    setCredits(creditsOptions[0] || '3.00');
+    setFaculty(facultyOptions[0] || '');
+    setDepartment(deptOptions[0] || '');
     setError('');
     setModalOpen(true);
   };
@@ -119,9 +180,9 @@ export default function CoursesScreen() {
     setTitle(course.title);
     setContent(course.content || '');
 
-    setCredits(REV_CREDIT_MAP[course.credits] || '3.00');
-    setFaculty(course.faculty || 'COMPUTER_SCIENCE_AND_ENGINEERING');
-    setDepartment(course.department || 'COMPUTER_SCIENCE_AND_ENGINEERING');
+    setCredits(revCreditMap[course.credits] || '3.00');
+    setFaculty(revFacultyMap[course.faculty] || course.faculty);
+    setDepartment(revDeptMap[course.department] || course.department);
     setError('');
     setModalOpen(true);
   };
@@ -139,9 +200,9 @@ export default function CoursesScreen() {
         code,
         title,
         content,
-        credits: CREDIT_ENUM_MAP[credits] || 'CREDIT_3_00',
-        faculty,
-        department,
+        credits: creditEnumMap[credits] || 'CREDIT_3_00',
+        faculty: facultyMap[faculty] || faculty,
+        department: deptMap[department] || department,
       };
 
       if (editingCourse) {
@@ -179,8 +240,8 @@ export default function CoursesScreen() {
             } catch (err: any) {
               setError(err.message || 'Failed to delete course.');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -195,9 +256,9 @@ export default function CoursesScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background md:pr-64 lg:pr-64">
+    <View className="flex-1 bg-background">
       <View className="z-10 border-b border-border bg-card">
-        <View className="flex-row items-center gap-2 px-4 pt-4 pb-2">
+        <View className="flex-row items-center gap-2 px-4 pb-2 pt-4">
           <View className="relative flex-1 justify-center">
             <Search size={18} className="absolute left-3 z-10 text-muted-foreground" />
             <Input
@@ -211,7 +272,7 @@ export default function CoursesScreen() {
           </View>
           <Button
             variant="default"
-            className="h-11 px-4 rounded-xl flex-row gap-2"
+            className="h-11 flex-row gap-2 rounded-xl px-4"
             onPress={handleOpenAddModal}>
             <Plus size={16} />
             <Text className="font-semibold">Add Course</Text>
@@ -219,28 +280,32 @@ export default function CoursesScreen() {
         </View>
 
         <View className="flex-row flex-wrap gap-3 px-4 pb-3">
-          <View className="flex-1 min-w-[140px]">
-            <Label className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-bold">Faculty</Label>
+          <View className="min-w-[140px] flex-1">
+            <Label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Faculty
+            </Label>
             <Dropdown
               value={selectedFaculty}
               onValueChange={setSelectedFaculty}
-              options={['ALL', ...FACULTIES]}
+              options={['ALL', ...facultyOptions]}
             />
           </View>
-          <View className="flex-1 min-w-[140px]">
-            <Label className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-bold">Department</Label>
+          <View className="min-w-[140px] flex-1">
+            <Label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Department
+            </Label>
             <Dropdown
               value={selectedDepartment}
               onValueChange={setSelectedDepartment}
-              options={['ALL', ...DEPARTMENTS]}
+              options={['ALL', ...deptOptions]}
             />
           </View>
         </View>
       </View>
 
       {error ? (
-        <View className="m-4 p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
-          <Text className="text-destructive text-sm text-center font-medium">{error}</Text>
+        <View className="m-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3">
+          <Text className="text-center text-sm font-medium text-destructive">{error}</Text>
         </View>
       ) : null}
 
@@ -271,9 +336,11 @@ export default function CoursesScreen() {
 
       <Modal visible={modalOpen} transparent animationType="slide">
         <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="w-full max-w-xl rounded-2xl bg-card border border-border p-6 shadow-xl">
-            <View className="flex-row items-center justify-between border-b border-border/50 pb-3 mb-4">
-              <Text className="text-lg font-bold">{editingCourse ? 'Edit Course' : 'Create New Course'}</Text>
+          <View className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <View className="mb-4 flex-row items-center justify-between border-b border-border/50 pb-3">
+              <Text className="text-lg font-bold">
+                {editingCourse ? 'Edit Course' : 'Create New Course'}
+              </Text>
               <Pressable onPress={() => setModalOpen(false)}>
                 <X size={18} className="text-muted-foreground" />
               </Pressable>
@@ -316,7 +383,7 @@ export default function CoursesScreen() {
                 <Dropdown
                   value={credits}
                   onValueChange={setCredits}
-                  options={CREDITS_OPTIONS}
+                  options={creditsOptions.length > 0 ? creditsOptions : [credits]}
                 />
               </View>
 
@@ -325,7 +392,7 @@ export default function CoursesScreen() {
                 <Dropdown
                   value={faculty}
                   onValueChange={setFaculty}
-                  options={FACULTIES}
+                  options={facultyOptions.length > 0 ? facultyOptions : [faculty]}
                 />
               </View>
 
@@ -334,15 +401,14 @@ export default function CoursesScreen() {
                 <Dropdown
                   value={department}
                   onValueChange={setDepartment}
-                  options={DEPARTMENTS}
+                  options={deptOptions.length > 0 ? deptOptions : [department]}
                 />
               </View>
 
-              <Button
-                className="w-full mt-4"
-                onPress={handleSaveCourse}
-                disabled={submitting}>
-                <Text className="font-semibold text-primary-foreground">{submitting ? 'Saving...' : (editingCourse ? 'Update Course' : 'Save Course')}</Text>
+              <Button className="mt-4 w-full" onPress={handleSaveCourse} disabled={submitting}>
+                <Text className="font-semibold text-primary-foreground">
+                  {submitting ? 'Saving...' : editingCourse ? 'Update Course' : 'Save Course'}
+                </Text>
               </Button>
             </ScrollView>
           </View>

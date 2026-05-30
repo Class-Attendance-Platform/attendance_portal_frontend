@@ -3,13 +3,7 @@ import * as React from 'react';
 import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
@@ -18,95 +12,34 @@ import { api } from '@/lib/api';
 
 const ROLES = ['Student', 'Teacher', 'Admin'];
 
-const FACULTIES = [
-  'Computer Science and Engineering',
-  'Business Studies',
-  'Science',
-  'Engineering',
-  'Agriculture',
-  'Fisheries',
-  'Postgraduate Studies',
-  'Social Science and Humanities',
-  'Veterinary and Animal Science'
-];
-
-const DEPARTMENTS = [
-  'Computer Science and Engineering',
-  'Accounting',
-  'Agricultural & Industrial Engineering',
-  'Agricultural Chemistry',
-  'Agronomy',
-  'Animal Science & Nutrition',
-  'Aquaculture',
-  'Architecture',
-  'Biochemistry & Molecular Biology',
-  'Management',
-  'Chemistry',
-  'Civil Engineering',
-  'Economics',
-  'Electrical and Electronic Engineering',
-  'Electronics and Communication Engineering',
-  'English',
-  'Fisheries Management',
-  'Food Engineering & Technology',
-  'Horticulture',
-  'Marketing',
-  'Mathematics',
-  'Physics',
-  'Sociology',
-  'Statistics'
-];
-
 const LEVELS = ['First', 'Second', 'Third', 'Fourth'];
 const SEMESTERS = ['I', 'II'];
 
-const FACULTY_MAP: Record<string, string> = {
-  'Agriculture': 'Agri',
-  'Business Studies': 'BUSINESS_STUDIES',
-  'Computer Science and Engineering': 'COMPUTER_SCIENCE_AND_ENGINEERING',
-  'Engineering': 'ENGINEERING',
-  'Fisheries': 'FISHERIES',
-  'Postgraduate Studies': 'POSTGRADUATE_STUDIES',
-  'Science': 'SCIENCE',
-  'Social Science and Humanities': 'SOCIAL_SCIENCE_AND_HUMANITIES',
-  'Veterinary and Animal Science': 'VETERINARY_AND_ANIMAL_SCIENCE'
-};
-
-const DEPT_MAP: Record<string, string> = {
-  'Accounting': 'ACCOUNTING',
-  'Agricultural & Industrial Engineering': 'AGRICULTURAL_AND_INDUSTRIAL_ENGINEERING',
-  'Agricultural Chemistry': 'AGRICULTURAL_CHEMISTRY',
-  'Agronomy': 'AGRONOMY',
-  'Animal Science & Nutrition': 'ANIMAL_SCIENCE_AND_NUTRITION',
-  'Aquaculture': 'AQUACULTURE',
-  'Architecture': 'ARCHITECTURE',
-  'Biochemistry & Molecular Biology': 'BIOCHEMISTRY_AND_MOLECULAR_BIOLOGY',
-  'Management': 'BUSINESS_MANAGEMENT',
-  'Chemistry': 'CHEMISTRY',
-  'Civil Engineering': 'CIVIL_ENGINEERING',
-  'Computer Science and Engineering': 'COMPUTER_SCIENCE_AND_ENGINEERING',
-  'Economics': 'ECONOMICS',
-  'Electrical and Electronic Engineering': 'ELECTRICAL_AND_ELECTRONIC_ENGINEERING',
-  'Electronics and Communication Engineering': 'ELECTRONICS_AND_COMMUNICATION_ENGINEERING',
-  'English': 'ENGLISH',
-  'Fisheries Management': 'FISHERIES_MANAGEMENT',
-  'Food Engineering & Technology': 'FOOD_ENGINEERING_AND_TECHNOLOGY',
-  'Horticulture': 'HORTICULTURE',
-  'Marketing': 'MARKETING',
-  'Mathematics': 'MATHEMATICS',
-  'Physics': 'PHYSICS',
-  'Sociology': 'SOCIOLOGY',
-  'Statistics': 'STATISTICS'
-};
+function humanize(str: string): string {
+  if (!str) return '';
+  return str
+    .split('_')
+    .map((word) => {
+      if (word === 'AND') return 'and';
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
 
 export default function SignUpScreen() {
   const [userName, setUserName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [selectedRole, setSelectedRole] = React.useState('Student');
-  const [selectedFaculty, setSelectedFaculty] = React.useState('Computer Science and Engineering');
-  const [selectedDept, setSelectedDept] = React.useState('Computer Science and Engineering');
-  
+
+  const [facultyMap, setFacultyMap] = React.useState<Record<string, string>>({});
+  const [deptMap, setDeptMap] = React.useState<Record<string, string>>({});
+  const [facultyOptions, setFacultyOptions] = React.useState<string[]>([]);
+  const [deptOptions, setDeptOptions] = React.useState<string[]>([]);
+
+  const [selectedFaculty, setSelectedFaculty] = React.useState('');
+  const [selectedDept, setSelectedDept] = React.useState('');
+
   const [studentId, setStudentId] = React.useState('');
   const [selectedLevel, setSelectedLevel] = React.useState('First');
   const [selectedSemester, setSelectedSemester] = React.useState('I');
@@ -118,6 +51,50 @@ export default function SignUpScreen() {
   const emailInputRef = React.useRef<TextInput>(null);
   const passwordInputRef = React.useRef<TextInput>(null);
   const studentIdInputRef = React.useRef<TextInput>(null);
+
+  React.useEffect(() => {
+    async function loadConfig() {
+      try {
+        const [facRes, deptRes] = await Promise.all([
+          api.get('/api/config/faculties'),
+          api.get('/api/config/departments'),
+        ]);
+
+        if (facRes.success && facRes.faculties) {
+          const map: Record<string, string> = {};
+          const options: string[] = [];
+          facRes.faculties.forEach((f: string) => {
+            const h = humanize(f);
+            map[h] = f;
+            options.push(h);
+          });
+          setFacultyMap(map);
+          setFacultyOptions(options);
+          if (options.length > 0) {
+            setSelectedFaculty(options[0]);
+          }
+        }
+
+        if (deptRes.success && deptRes.departments) {
+          const map: Record<string, string> = {};
+          const options: string[] = [];
+          deptRes.departments.forEach((d: string) => {
+            const h = humanize(d);
+            map[h] = d;
+            options.push(h);
+          });
+          setDeptMap(map);
+          setDeptOptions(options);
+          if (options.length > 0) {
+            setSelectedDept(options[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load register configuration', err);
+      }
+    }
+    loadConfig();
+  }, []);
 
   async function onSubmit() {
     if (!userName || !email || !password) {
@@ -139,8 +116,8 @@ export default function SignUpScreen() {
       email,
       password,
       role: selectedRole.toLowerCase(),
-      faculty: FACULTY_MAP[selectedFaculty] || selectedFaculty,
-      department: DEPT_MAP[selectedDept] || selectedDept,
+      faculty: facultyMap[selectedFaculty] || selectedFaculty,
+      department: deptMap[selectedDept] || selectedDept,
       studentId: selectedRole === 'Student' ? parseInt(studentId, 10) : undefined,
       currentLevel: selectedRole === 'Student' ? selectedLevel : undefined,
       currentSemester: selectedRole === 'Student' ? selectedSemester : undefined,
@@ -167,11 +144,10 @@ export default function SignUpScreen() {
     <ScrollView
       keyboardShouldPersistTaps="handled"
       contentContainerClassName="flex-grow items-center justify-center p-4 py-8 sm:p-6 mt-safe"
-      keyboardDismissMode="interactive"
-    >
+      keyboardDismissMode="interactive">
       <View className="w-full max-w-sm gap-6">
-        <Card className="border-border/0 sm:border-border shadow-none sm:shadow-sm sm:shadow-black/5 rounded-2xl">
-          <CardHeader className="items-center pb-2 mt-4">
+        <Card className="rounded-2xl border-border/0 shadow-none sm:border-border sm:shadow-sm sm:shadow-black/5">
+          <CardHeader className="mt-4 items-center pb-2">
             <Image
               source={require('@/assets/images/hstu.png')}
               style={{ width: 90, height: 90, marginBottom: 16 }}
@@ -180,21 +156,21 @@ export default function SignUpScreen() {
             <CardTitle className="text-center text-2xl font-bold tracking-tight">
               Create an Account
             </CardTitle>
-            <CardDescription className="text-center text-base mt-2">
+            <CardDescription className="mt-2 text-center text-base">
               Join us today! Please fill in your details.
             </CardDescription>
           </CardHeader>
 
           <CardContent className="gap-5 pt-4">
             {error ? (
-              <View className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
-                <Text className="text-destructive text-sm text-center font-medium">{error}</Text>
+              <View className="rounded-xl border border-destructive/20 bg-destructive/10 p-3">
+                <Text className="text-center text-sm font-medium text-destructive">{error}</Text>
               </View>
             ) : null}
 
             {success ? (
-              <View className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                <Text className="text-emerald-600 text-sm text-center font-medium">{success}</Text>
+              <View className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+                <Text className="text-center text-sm font-medium text-emerald-600">{success}</Text>
               </View>
             ) : null}
 
@@ -248,18 +224,16 @@ export default function SignUpScreen() {
                 value={password}
                 onChangeText={setPassword}
                 returnKeyType="next"
-                onSubmitEditing={() => selectedRole === 'Student' ? studentIdInputRef.current?.focus() : undefined}
+                onSubmitEditing={() =>
+                  selectedRole === 'Student' ? studentIdInputRef.current?.focus() : undefined
+                }
                 editable={!isSubmitting}
               />
             </View>
 
             <View className="gap-2">
               <Label nativeID="roleLabel">Role</Label>
-              <Dropdown
-                value={selectedRole}
-                onValueChange={setSelectedRole}
-                options={ROLES}
-              />
+              <Dropdown value={selectedRole} onValueChange={setSelectedRole} options={ROLES} />
             </View>
 
             <View className="gap-2">
@@ -267,7 +241,7 @@ export default function SignUpScreen() {
               <Dropdown
                 value={selectedFaculty}
                 onValueChange={setSelectedFaculty}
-                options={FACULTIES}
+                options={facultyOptions.length > 0 ? facultyOptions : [selectedFaculty]}
               />
             </View>
 
@@ -276,7 +250,7 @@ export default function SignUpScreen() {
               <Dropdown
                 value={selectedDept}
                 onValueChange={setSelectedDept}
-                options={DEPARTMENTS}
+                options={deptOptions.length > 0 ? deptOptions : [selectedDept]}
               />
             </View>
 
@@ -319,23 +293,15 @@ export default function SignUpScreen() {
               </View>
             )}
 
-            <Button 
-              className="w-full mt-4" 
-              size="lg" 
-              onPress={onSubmit}
-              disabled={isSubmitting}
-            >
+            <Button className="mt-4 w-full" size="lg" onPress={onSubmit} disabled={isSubmitting}>
               <Text className="font-semibold">{isSubmitting ? 'Registering...' : 'Sign Up'}</Text>
             </Button>
 
-            <View className="flex-row justify-center items-center mt-2">
-              <Text className="text-sm text-muted-foreground">
-                Already have an account?{' '}
-              </Text>
+            <View className="mt-2 flex-row items-center justify-center">
+              <Text className="text-sm text-muted-foreground">Already have an account? </Text>
               <Pressable
                 onPress={() => router.push('/(auth)/login')}
-                className="p-1 active:opacity-70"
-              >
+                className="p-1 active:opacity-70">
                 <Text className="text-sm font-semibold text-primary underline underline-offset-4">
                   Sign in
                 </Text>

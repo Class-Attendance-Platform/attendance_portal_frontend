@@ -70,3 +70,45 @@ portalRouter.post('/api/esp32/attendance', async (req: Request, res: Response) =
 
   res.json({ success: true, message: `Student ${student.userName} registered.` });
 });
+
+portalRouter.get('/api/config/credits', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    creditEnumMap: {
+      '1.00': 'CREDIT_1_00',
+      '1.50': 'CREDIT_1_50',
+      '2.00': 'CREDIT_2_00',
+      '3.00': 'CREDIT_3_00',
+    },
+    revCreditMap: {
+      'CREDIT_1_00': '1.00',
+      'CREDIT_1_50': '1.50',
+      'CREDIT_2_00': '2.00',
+      'CREDIT_3_00': '3.00',
+    }
+  });
+});
+
+portalRouter.get('/api/config/faculties', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    faculties: [
+      'COMPUTER_SCIENCE_AND_ENGINEERING',
+      'ENGINEERING',
+      'AGRICULTURE',
+      'BUSINESS_STUDIES'
+    ]
+  });
+});
+
+portalRouter.get('/api/config/departments', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    departments: [
+      'COMPUTER_SCIENCE_AND_ENGINEERING',
+      'INFORMATION_AND_COMMUNICATION_TECHNOLOGY',
+      'ELECTRICAL_AND_ELECTRONIC_ENGINEERING',
+      'AGRICULTURE_CHEMISTRY'
+    ]
+  });
+});

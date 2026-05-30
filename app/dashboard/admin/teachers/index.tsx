@@ -1,6 +1,15 @@
 import * as React from 'react';
 import { useMemo, useState, useEffect } from 'react';
-import { FlatList, View, useWindowDimensions, ActivityIndicator, Modal, Pressable, ScrollView, Alert } from 'react-native';
+import {
+  FlatList,
+  View,
+  useWindowDimensions,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  Alert,
+} from 'react-native';
 import { Search, Plus, X } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
@@ -12,18 +21,16 @@ import { TeacherCard } from '@/components/custom/teachercard';
 import { Teacher } from '@/types/teacher';
 import { api } from '@/lib/api';
 
-const FACULTIES = [
-  'COMPUTER_SCIENCE_AND_ENGINEERING',
-  'ENGINEERING',
-  'AGRICULTURE',
-  'BUSINESS_STUDIES'
-];
-const DEPARTMENTS = [
-  'COMPUTER_SCIENCE_AND_ENGINEERING',
-  'INFORMATION_AND_COMMUNICATION_TECHNOLOGY',
-  'ELECTRICAL_AND_ELECTRONIC_ENGINEERING',
-  'AGRICULTURE_CHEMISTRY'
-];
+function humanize(str: string): string {
+  if (!str) return '';
+  return str
+    .split('_')
+    .map((word) => {
+      if (word === 'AND') return 'and';
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
 
 export default function TeachersScreen() {
   const { width } = useWindowDimensions();
@@ -42,10 +49,61 @@ export default function TeachersScreen() {
 
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
-  const [faculty, setFaculty] = useState('COMPUTER_SCIENCE_AND_ENGINEERING');
-  const [department, setDepartment] = useState('COMPUTER_SCIENCE_AND_ENGINEERING');
+
+  // Dynamic configuration states
+  const [facultyMap, setFacultyMap] = useState<Record<string, string>>({});
+  const [revFacultyMap, setRevFacultyMap] = useState<Record<string, string>>({});
+  const [facultyOptions, setFacultyOptions] = useState<string[]>([]);
+
+  const [deptMap, setDeptMap] = useState<Record<string, string>>({});
+  const [revDeptMap, setRevDeptMap] = useState<Record<string, string>>({});
+  const [deptOptions, setDeptOptions] = useState<string[]>([]);
+
+  const [faculty, setFaculty] = useState('');
+  const [department, setDepartment] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const fetchConfig = async () => {
+    try {
+      const [facultiesRes, deptsRes] = await Promise.all([
+        api.get('/api/config/faculties'),
+        api.get('/api/config/departments'),
+      ]);
+      if (facultiesRes.success && facultiesRes.faculties) {
+        const map: Record<string, string> = {};
+        const revMap: Record<string, string> = {};
+        const options: string[] = [];
+        facultiesRes.faculties.forEach((f: string) => {
+          const h = humanize(f);
+          map[h] = f;
+          revMap[f] = h;
+          options.push(h);
+        });
+        setFacultyMap(map);
+        setRevFacultyMap(revMap);
+        setFacultyOptions(options);
+        setFaculty(options[0] || '');
+      }
+      if (deptsRes.success && deptsRes.departments) {
+        const map: Record<string, string> = {};
+        const revMap: Record<string, string> = {};
+        const options: string[] = [];
+        deptsRes.departments.forEach((d: string) => {
+          const h = humanize(d);
+          map[h] = d;
+          revMap[d] = h;
+          options.push(h);
+        });
+        setDeptMap(map);
+        setRevDeptMap(revMap);
+        setDeptOptions(options);
+        setDepartment(options[0] || '');
+      }
+    } catch (err: any) {
+      console.error('Failed to load teachers configuration:', err);
+    }
+  };
 
   const fetchTeachers = async () => {
     setLoading(true);
@@ -63,6 +121,7 @@ export default function TeachersScreen() {
   };
 
   useEffect(() => {
+    fetchConfig();
     fetchTeachers();
   }, []);
 
@@ -78,20 +137,23 @@ export default function TeachersScreen() {
     return teachers.filter((teacher) => {
       const nameMatch = teacher.userName.toLowerCase().includes(searchQuery.toLowerCase());
       const emailMatch = teacher.email.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesFaculty = selectedFaculty === 'ALL' || teacher.faculty === selectedFaculty;
-      const matchesDept = selectedDepartment === 'ALL' || teacher.department === selectedDepartment;
-      
+
+      const rawSelFaculty = facultyMap[selectedFaculty] || selectedFaculty;
+      const matchesFaculty = selectedFaculty === 'ALL' || teacher.faculty === rawSelFaculty;
+
+      const rawSelDept = deptMap[selectedDepartment] || selectedDepartment;
+      const matchesDept = selectedDepartment === 'ALL' || teacher.department === rawSelDept;
+
       return (nameMatch || emailMatch) && matchesFaculty && matchesDept;
     });
-  }, [teachers, searchQuery, selectedFaculty, selectedDepartment]);
+  }, [teachers, searchQuery, selectedFaculty, selectedDepartment, facultyMap, deptMap]);
 
   const handleOpenAddModal = () => {
     setEditingTeacher(null);
     setUserName('');
     setEmail('');
-    setFaculty('COMPUTER_SCIENCE_AND_ENGINEERING');
-    setDepartment('COMPUTER_SCIENCE_AND_ENGINEERING');
+    setFaculty(facultyOptions[0] || '');
+    setDepartment(deptOptions[0] || '');
     setPassword('');
     setError('');
     setModalOpen(true);
@@ -101,8 +163,8 @@ export default function TeachersScreen() {
     setEditingTeacher(teacher);
     setUserName(teacher.userName);
     setEmail(teacher.email);
-    setFaculty(teacher.faculty || 'COMPUTER_SCIENCE_AND_ENGINEERING');
-    setDepartment(teacher.department || 'COMPUTER_SCIENCE_AND_ENGINEERING');
+    setFaculty(revFacultyMap[teacher.faculty] || teacher.faculty);
+    setDepartment(revDeptMap[teacher.department] || teacher.department);
     setPassword('');
     setError('');
     setModalOpen(true);
@@ -120,9 +182,9 @@ export default function TeachersScreen() {
       const body = {
         userName,
         email,
-        faculty,
-        department,
-        password: password || undefined
+        faculty: facultyMap[faculty] || faculty,
+        department: deptMap[department] || department,
+        password: password || undefined,
       };
 
       if (editingTeacher) {
@@ -143,27 +205,23 @@ export default function TeachersScreen() {
   };
 
   const handleDeleteTeacher = (id: string) => {
-    Alert.alert(
-      'Delete Teacher',
-      'Are you sure you want to delete this teacher account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await api.delete(`/api/admin/teachers/${id}`);
-              if (res.success) {
-                fetchTeachers();
-              }
-            } catch (err: any) {
-              setError(err.message || 'Failed to delete teacher.');
+    Alert.alert('Delete Teacher', 'Are you sure you want to delete this teacher account?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await api.delete(`/api/admin/teachers/${id}`);
+            if (res.success) {
+              fetchTeachers();
             }
+          } catch (err: any) {
+            setError(err.message || 'Failed to delete teacher.');
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   if (loading) {
@@ -176,9 +234,9 @@ export default function TeachersScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background md:pr-64 lg:pr-64">
+    <View className="flex-1 bg-background">
       <View className="z-10 border-b border-border bg-card">
-        <View className="flex-row items-center gap-2 px-4 pt-4 pb-2">
+        <View className="flex-row items-center gap-2 px-4 pb-2 pt-4">
           <View className="relative flex-1 justify-center">
             <Search size={18} className="absolute left-3 z-10 text-muted-foreground" />
             <Input
@@ -192,7 +250,7 @@ export default function TeachersScreen() {
           </View>
           <Button
             variant="default"
-            className="h-11 px-4 rounded-xl flex-row gap-2"
+            className="h-11 flex-row gap-2 rounded-xl px-4"
             onPress={handleOpenAddModal}>
             <Plus size={16} />
             <Text className="font-semibold">Add Teacher</Text>
@@ -200,28 +258,32 @@ export default function TeachersScreen() {
         </View>
 
         <View className="flex-row flex-wrap gap-3 px-4 pb-3">
-          <View className="flex-1 min-w-[140px]">
-            <Label className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-bold">Faculty</Label>
+          <View className="min-w-[140px] flex-1">
+            <Label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Faculty
+            </Label>
             <Dropdown
               value={selectedFaculty}
               onValueChange={setSelectedFaculty}
-              options={['ALL', ...FACULTIES]}
+              options={['ALL', ...facultyOptions]}
             />
           </View>
-          <View className="flex-1 min-w-[140px]">
-            <Label className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-bold">Department</Label>
+          <View className="min-w-[140px] flex-1">
+            <Label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Department
+            </Label>
             <Dropdown
               value={selectedDepartment}
               onValueChange={setSelectedDepartment}
-              options={['ALL', ...DEPARTMENTS]}
+              options={['ALL', ...deptOptions]}
             />
           </View>
         </View>
       </View>
 
       {error ? (
-        <View className="m-4 p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
-          <Text className="text-destructive text-sm text-center font-medium">{error}</Text>
+        <View className="m-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3">
+          <Text className="text-center text-sm font-medium text-destructive">{error}</Text>
         </View>
       ) : null}
 
@@ -252,16 +314,18 @@ export default function TeachersScreen() {
 
       <Modal visible={modalOpen} transparent animationType="slide">
         <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="w-full max-w-xl rounded-2xl bg-card border border-border p-6 shadow-xl">
-            <View className="flex-row items-center justify-between border-b border-border/50 pb-3 mb-4">
-              <Text className="text-lg font-bold">{editingTeacher ? 'Edit Teacher Details' : 'Register New Teacher'}</Text>
+          <View className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <View className="mb-4 flex-row items-center justify-between border-b border-border/50 pb-3">
+              <Text className="text-lg font-bold">
+                {editingTeacher ? 'Edit Teacher Details' : 'Register New Teacher'}
+              </Text>
               <Pressable onPress={() => setModalOpen(false)}>
                 <X size={18} className="text-muted-foreground" />
               </Pressable>
             </View>
 
             <ScrollView className="max-h-[60vh] gap-4 pr-1" showsVerticalScrollIndicator>
-              <View className="gap-1.5 mb-2">
+              <View className="mb-2 gap-1.5">
                 <Label htmlFor="userName">Full Name</Label>
                 <Input
                   id="userName"
@@ -271,7 +335,7 @@ export default function TeachersScreen() {
                 />
               </View>
 
-              <View className="gap-1.5 mb-2">
+              <View className="mb-2 gap-1.5">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
@@ -283,26 +347,28 @@ export default function TeachersScreen() {
                 />
               </View>
 
-              <View className="gap-1.5 mb-2">
+              <View className="mb-2 gap-1.5">
                 <Label>Faculty</Label>
                 <Dropdown
                   value={faculty}
                   onValueChange={setFaculty}
-                  options={FACULTIES}
+                  options={facultyOptions.length > 0 ? facultyOptions : [faculty]}
                 />
               </View>
 
-              <View className="gap-1.5 mb-2">
+              <View className="mb-2 gap-1.5">
                 <Label>Department</Label>
                 <Dropdown
                   value={department}
                   onValueChange={setDepartment}
-                  options={DEPARTMENTS}
+                  options={deptOptions.length > 0 ? deptOptions : [department]}
                 />
               </View>
 
-              <View className="gap-1.5 mb-4">
-                <Label htmlFor="password">{editingTeacher ? 'Reset Password (Optional)' : 'Default Password'}</Label>
+              <View className="mb-4 gap-1.5">
+                <Label htmlFor="password">
+                  {editingTeacher ? 'Reset Password (Optional)' : 'Default Password'}
+                </Label>
                 <Input
                   id="password"
                   placeholder={editingTeacher ? 'Leave blank to keep current' : '123456'}
@@ -312,11 +378,14 @@ export default function TeachersScreen() {
                 />
               </View>
 
-              <Button
-                className="w-full mb-4"
-                onPress={handleSaveTeacher}
-                disabled={submitting}>
-                <Text className="font-semibold text-primary-foreground">{submitting ? 'Saving...' : (editingTeacher ? 'Update Details' : 'Register Teacher')}</Text>
+              <Button className="mb-4 w-full" onPress={handleSaveTeacher} disabled={submitting}>
+                <Text className="font-semibold text-primary-foreground">
+                  {submitting
+                    ? 'Saving...'
+                    : editingTeacher
+                      ? 'Update Details'
+                      : 'Register Teacher'}
+                </Text>
               </Button>
             </ScrollView>
           </View>

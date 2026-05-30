@@ -104,6 +104,64 @@ Django models should mirror the following relational columns.
 
 The React Native frontend communicates with the server through the following HTTP JSON APIs.
 
+### ⚙️ 3.0 Meta Configuration API
+
+#### Get Dynamic Course Credits Map
+- **Method**: `GET`
+- **URL**: `/api/config/credits`
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "creditEnumMap": {
+      "1.00": "CREDIT_1_00",
+      "1.50": "CREDIT_1_50",
+      "2.00": "CREDIT_2_00",
+      "3.00": "CREDIT_3_00"
+    },
+    "revCreditMap": {
+      "CREDIT_1_00": "1.00",
+      "CREDIT_1_50": "1.50",
+      "CREDIT_2_00": "2.00",
+      "CREDIT_3_00": "3.00"
+    }
+  }
+  ```
+
+#### Get Academic Faculties List
+- **Method**: `GET`
+- **URL**: `/api/config/faculties`
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "faculties": [
+      "COMPUTER_SCIENCE_AND_ENGINEERING",
+      "ENGINEERING",
+      "AGRICULTURE",
+      "BUSINESS_STUDIES"
+    ]
+  }
+  ```
+
+#### Get Academic Departments List
+- **Method**: `GET`
+- **URL**: `/api/config/departments`
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "departments": [
+      "COMPUTER_SCIENCE_AND_ENGINEERING",
+      "INFORMATION_AND_COMMUNICATION_TECHNOLOGY",
+      "ELECTRICAL_AND_ELECTRONIC_ENGINEERING",
+      "AGRICULTURE_CHEMISTRY"
+    ]
+  }
+  ```
+
+---
+
 ### 🔑 3.1 Auth API
 
 #### login
