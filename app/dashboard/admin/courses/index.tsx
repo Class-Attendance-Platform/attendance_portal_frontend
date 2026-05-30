@@ -271,7 +271,7 @@ export default function CoursesScreen() {
 
       <Modal visible={modalOpen} transparent animationType="slide">
         <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-xl">
+          <View className="w-full max-w-xl rounded-2xl bg-card border border-border p-6 shadow-xl">
             <View className="flex-row items-center justify-between border-b border-border/50 pb-3 mb-4">
               <Text className="text-lg font-bold">{editingCourse ? 'Edit Course' : 'Create New Course'}</Text>
               <Pressable onPress={() => setModalOpen(false)}>

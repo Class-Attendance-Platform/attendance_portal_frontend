@@ -6,17 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 
+import { Teacher } from '@/types/teacher';
+
 interface TeacherCardProps {
-  teacher: {
-    id: string;
-    userName: string;
-    email: string;
-    faculty: string;
-    department: string;
-  };
-  onPress?: (teacher: any) => void;
-  onEdit?: (teacher: any) => void;
-  onDelete?: (teacher: any) => void;
+  teacher: Teacher;
+  onPress?: (teacher: Teacher) => void;
+  onEdit?: (teacher: Teacher) => void;
+  onDelete?: (teacher: Teacher) => void;
 }
 
 export function TeacherCard({ teacher, onPress, onEdit, onDelete }: TeacherCardProps) {

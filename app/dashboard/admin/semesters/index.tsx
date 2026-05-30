@@ -19,6 +19,8 @@ import { CourseSelector } from '@/components/custom/course-selector';
 
 export default function SemestersScreen() {
   const { width } = useWindowDimensions();
+  const isMobile = width < 1024;
+
 
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -307,11 +309,15 @@ export default function SemestersScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="flex-1 flex-col md:flex-row">
+      <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
         
         {/* Sidebar: Semester Selection */}
-        <View className="w-full border-b border-border bg-card md:w-80 md:border-b-0 md:border-r">
-          <View className="p-4 flex-1">
+        <View className={`border-border bg-card ${
+          isMobile 
+            ? 'w-full border-b' 
+            : 'w-80 border-r h-full'
+        }`}>
+          <View className={`p-4 flex-col ${isMobile ? 'h-auto' : 'flex-1'}`}>
             <View className="mb-4 flex-row items-center justify-between">
               <Text className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Semester Sessions
@@ -329,6 +335,20 @@ export default function SemestersScreen() {
 
             {semesters.length === 0 ? (
               <Text className="text-xs text-muted-foreground italic mt-4 px-2">No semesters configured.</Text>
+            ) : isMobile ? (
+              <View className="mb-2">
+                <Dropdown
+                  value={activeSemester ? `Level ${activeSemester.level} • Semester ${activeSemester.semester}` : 'Select Session'}
+                  onValueChange={(val) => {
+                    const found = semesters.find(s => `Level ${s.level} • Semester ${s.semester}` === val);
+                    if (found) {
+                      setActiveSemesterId(found.id);
+                      setRosterSearchQuery('');
+                    }
+                  }}
+                  options={semesters.map(s => `Level ${s.level} • Semester ${s.semester}`)}
+                />
+              </View>
             ) : (
               <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {semesters.map((sem) => {
@@ -385,12 +405,12 @@ export default function SemestersScreen() {
         </View>
 
         {/* Right Workspace: Selected Semester Details */}
-        <View className="flex-1 bg-background/30 min-w-0">
+        <View style={{ paddingRight: isMobile ? 0 : 320 }} className="flex-1 bg-background/30">
           {activeSemester ? (
             <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }} showsVerticalScrollIndicator={false}>
               
               {/* Header with Title and Control Buttons */}
-              <View className="flex-col gap-4 border-b border-border/45 pb-5 sm:flex-row sm:items-center sm:justify-between mb-6">
+              <View className={`flex-col gap-4 border-b border-border/45 pb-5 mb-6 ${width >= 1280 ? 'flex-row items-center justify-between' : ''}`}>
                 <View>
                   <View className="flex-row items-center gap-2">
                     <Text className="text-2xl font-black tracking-tight text-foreground">
@@ -406,7 +426,7 @@ export default function SemestersScreen() {
                   </Text>
                 </View>
 
-                <View className="flex-row gap-2">
+                <View className="flex-row gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     className="h-10 rounded-xl px-4 flex-row gap-1.5 border-primary/20 bg-primary/5 active:scale-95 transition-transform"
@@ -468,7 +488,7 @@ export default function SemestersScreen() {
               </View>
 
               {/* Split Workspace Sections */}
-              <View className="flex-col lg:flex-row gap-6">
+              <View className={`flex-col gap-6 ${width >= 1280 ? 'flex-row' : ''}`}>
                 
                 {/* Left pane: Active Courses List */}
                 <View className="flex-1 gap-4">
@@ -549,7 +569,7 @@ export default function SemestersScreen() {
                       <Text className="text-xs text-muted-foreground italic">No students matching search.</Text>
                     </Card>
                   ) : (
-                    <View className="gap-2 max-h-[420px] overflow-y-auto pr-1">
+                    <View className="gap-2">
                       {resolvedStudents.map((stud) => (
                         <Card key={stud.id} className="rounded-2xl border border-border/80 p-3 bg-card shadow-sm flex-row items-center justify-between relative overflow-hidden">
                           {/* Student visual accent line */}
@@ -602,7 +622,7 @@ export default function SemestersScreen() {
       {/* Form Modal for Add/Edit Semester */}
       <Modal visible={modalOpen} transparent animationType="slide">
         <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-xl max-h-[85%]">
+          <View className="w-full max-w-2xl rounded-3xl bg-card border border-border p-6 shadow-xl max-h-[85%]">
             <View className="flex-row items-center justify-between border-b border-border/50 pb-3.5 mb-4">
               <Text className="text-lg font-extrabold text-foreground">{editingSemester ? 'Edit Semester Session' : 'Create Semester Session'}</Text>
               <Pressable onPress={() => setModalOpen(false)} className="h-7 w-7 rounded-full bg-muted/30 items-center justify-center active:scale-90">
@@ -687,7 +707,7 @@ export default function SemestersScreen() {
       {/* Promotion Modal */}
       <Modal visible={promotionModalOpen} transparent animationType="fade">
         <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="w-full max-w-sm rounded-3xl bg-card border border-border p-6 shadow-xl">
+          <View className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-xl">
             <View className="items-center mb-6">
               <View className="h-14 w-14 rounded-full bg-primary/10 items-center justify-center mb-4">
                 <ArrowUpCircle size={32} className="text-primary" />

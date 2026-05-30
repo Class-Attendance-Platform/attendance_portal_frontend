@@ -151,7 +151,7 @@ export default function TopPanel() {
           onPress={() => setProfileModalOpen(false)}
         >
           <View 
-            className="w-full max-w-sm rounded-3xl bg-card border border-border p-6 shadow-2xl"
+            className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl"
             onStartShouldSetResponder={() => true}
             onTouchEnd={(e) => e.stopPropagation()}
           >
@@ -207,7 +207,7 @@ export default function TopPanel() {
           onPress={() => setSettingsModalOpen(false)}
         >
           <View 
-            className="w-full max-w-sm rounded-3xl bg-card border border-border p-6 shadow-2xl"
+            className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl"
             onStartShouldSetResponder={() => true}
             onTouchEnd={(e) => e.stopPropagation()}
           >

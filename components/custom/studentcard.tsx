@@ -6,21 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 
-interface StudentCardProps {
-  student: {
-    id: string;
-    userName: string;
-    email: string;
-    studentId: number | string;
+import { Student } from '@/types/student';
 
-    faculty: string;
-    department: string;
-    currentLevel: string;
-    currentSemester: string;
-  };
-  onPress?: (student: any) => void;
-  onEdit?: (student: any) => void;
-  onDelete?: (student: any) => void;
+interface StudentCardProps {
+  student: Student;
+  onPress?: (student: Student) => void;
+  onEdit?: (student: Student) => void;
+  onDelete?: (student: Student) => void;
 }
 
 export function StudentCard({ student, onPress, onEdit, onDelete }: StudentCardProps) {

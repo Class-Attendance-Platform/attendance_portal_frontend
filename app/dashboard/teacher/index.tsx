@@ -453,7 +453,7 @@ export default function TeacherDashboard() {
         </View>
 
         {/* Selected Course Content Area */}
-        <View className="flex-1">
+        <View className="flex-1 md:pr-64 lg:pr-64">
           {detailsLoading ? (
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="large" />

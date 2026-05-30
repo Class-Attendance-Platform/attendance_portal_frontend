@@ -302,7 +302,7 @@ export default function StudentDashboard() {
         </View>
 
         {/* Main Content Area */}
-        <View className="flex-1">
+        <View className="flex-1 md:pr-64 lg:pr-64">
           {activeCourse ? (
             <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 40 }}>
               {error ? (

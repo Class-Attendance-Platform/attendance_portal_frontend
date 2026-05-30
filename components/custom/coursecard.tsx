@@ -6,25 +6,20 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 
-interface CourseCardProps {
-  course: {
-    id: string;
-    code: string;
-    title: string;
-    content?: string;
+import { Course } from '@/types/course';
 
-    credits: string | number;
-  };
-  onPress?: (course: any) => void;
-  onEdit?: (course: any) => void;
-  onDelete?: (course: any) => void;
+interface CourseCardProps {
+  course: Course;
+  onPress?: (course: Course) => void;
+  onEdit?: (course: Course) => void;
+  onDelete?: (course: Course) => void;
 }
 
 export function CourseCard({ course, onPress, onEdit, onDelete }: CourseCardProps) {
   const displayCredits = course.credits
-    ? typeof course.credits === 'number'
-      ? course.credits.toFixed(2)
-      : course.credits.replace('CREDIT_', '').replace('_', '.')
+    ? typeof course.credits === 'string'
+      ? course.credits.replace('CREDIT_', '').replace('_', '.')
+      : (course.credits as number).toFixed(2)
     : '2.00';
 
 

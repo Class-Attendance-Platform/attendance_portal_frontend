@@ -40,32 +40,30 @@ export default function DashboardLayout({
     const { isMobile } = useBreakpoint();
 
     return (
-        <View className={`flex-1 flex-row bg-zinc-50 ${className ?? ""}`}>
-            {!isMobile && (
-                <SideBar
-                    title={title}
-                    items={navItems}
-                    logo={logo}
-                />
-            )}
+        <View className={`flex-1 flex-col bg-background ${className ?? ""}`}>
+            {/* Top Bar spans full width */}
+            {topPanel ?? <TopPanel />}
 
-            <View className="flex-1">
-                <View className="flex-1">
-                    <View className="w-full border-b border-border bg-background p-4">
-                        {topPanel ?? <TopPanel />}
-                    </View>
-
-                    <View className="flex-1">
-                        {children}
-                    </View>
-                </View>
-
-                {isMobile && (
-                    <BottomBar
+            {/* Sidebar + Main content below it */}
+            <View className="flex-1 flex-row">
+                {!isMobile && (
+                    <SideBar
+                        title={title}
                         items={navItems}
+                        logo={logo}
                     />
                 )}
+
+                <View className="flex-1 min-w-0 bg-zinc-50">
+                    {children}
+                </View>
             </View>
+
+            {isMobile && (
+                <BottomBar
+                    items={navItems}
+                />
+            )}
         </View>
     );
 }

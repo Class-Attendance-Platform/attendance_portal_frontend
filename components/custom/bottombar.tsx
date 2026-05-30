@@ -19,7 +19,7 @@ export default function BottomBar({
     return (
         <Nav
             size="sm"
-            className="flex-row justify-around items-center border-t border-border bg-background py-2"
+            className="flex-row items-center border-t border-border bg-background py-1 w-full"
         >
             {items.map((item) => {
                 const Icon = item.icon;
@@ -29,7 +29,9 @@ export default function BottomBar({
                         key={item.route}
                         label={item.label}
                         route={item.route}
-                        className="flex-col h-auto gap-1 px-3 py-1"
+                        className="flex-1 flex-col h-auto gap-0.5 px-1 py-1 items-center justify-center bg-transparent active:bg-transparent"
+                        textClassName="text-[10px] font-bold text-center"
+                        iconClassName="w-4 h-4"
                         icon={({ className }) => (
                             <Icon className={className} />
                         )}
