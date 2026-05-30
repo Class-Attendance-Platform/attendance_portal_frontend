@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/AuthContext';
 import { api } from '@/lib/api';
@@ -18,6 +18,7 @@ export default function StudentDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   
   // Semester Navigation state
   const [selectedSemesterIdx, setSelectedSemesterIdx] = useState(0);
@@ -215,9 +216,26 @@ export default function StudentDashboard() {
     <View className="flex-1 bg-background">
       <TopPanel />
 
-      <View className="flex-1 flex-col md:flex-row lg:flex-row">
+      <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
         {/* Sidebar: Semester Selection & Enrolled Courses */}
-        <View className="w-full border-b border-border bg-card p-4 md:w-64 md:border-b-0 md:border-r">
+        <View className={`border-border bg-card p-4 ${
+          isMobile 
+            ? 'w-full border-b' 
+            : 'w-64 border-r'
+        }`}>
+          {!isMobile && (
+            <View className="flex-col items-center mb-6">
+              <Image
+                source={require("@/assets/images/hstu.png")}
+                style={{ width: 100, height: 100 }}
+                resizeMode="contain"
+              />
+              <Text className="text-lg font-bold tracking-tight mt-3 mb-4 px-4 text-foreground text-center">
+                Student Dashboard
+              </Text>
+              <View className="w-full h-px bg-border/60 mb-4" />
+            </View>
+          )}
           <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Academic Session
           </Text>
@@ -302,7 +320,7 @@ export default function StudentDashboard() {
         </View>
 
         {/* Main Content Area */}
-        <View className="flex-1 md:pr-64 lg:pr-64">
+        <View className="flex-1 min-w-0">
           {activeCourse ? (
             <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 40 }}>
               {error ? (

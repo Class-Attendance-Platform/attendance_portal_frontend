@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/AuthContext';
 import { api, API_BASE } from '@/lib/api';
@@ -18,6 +18,8 @@ import { CourseInfo, TeacherCourseListItem } from '@/types/course';
 export default function TeacherDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   const [courses, setCourses] = useState<TeacherCourseListItem[]>([]);
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   const [courseInfo, setCourseInfo] = useState<CourseInfo | null>(null);
@@ -412,9 +414,26 @@ export default function TeacherDashboard() {
     <View className="flex-1 bg-background">
       <TopPanel />
 
-      <View className="flex-1 flex-col md:flex-row lg:flex-row">
+      <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
         {/* Sidebar for courses */}
-        <View className="w-full border-b border-border bg-card p-4 md:w-64 md:border-b-0 md:border-r">
+        <View className={`border-border bg-card p-4 ${
+          isMobile
+            ? 'w-full border-b'
+            : 'w-64 border-r'
+        }`}>
+          {!isMobile && (
+            <View className="flex-col items-center mb-6">
+              <Image
+                source={require("@/assets/images/hstu.png")}
+                style={{ width: 100, height: 100 }}
+                resizeMode="contain"
+              />
+              <Text className="text-lg font-bold tracking-tight mt-3 mb-4 px-4 text-foreground text-center">
+                Teacher Dashboard
+              </Text>
+              <View className="w-full h-px bg-border/60 mb-4" />
+            </View>
+          )}
           <Text className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Your Courses
           </Text>
@@ -453,7 +472,7 @@ export default function TeacherDashboard() {
         </View>
 
         {/* Selected Course Content Area */}
-        <View className="flex-1 md:pr-64 lg:pr-64">
+        <View className="flex-1 min-w-0">
           {detailsLoading ? (
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="large" />

@@ -50,6 +50,44 @@ export default function SemestersScreen() {
   const [targetLevel, setTargetLevel] = useState<Level>('Third');
   const [targetSemester, setTargetSemester] = useState<SemesterName>('I');
 
+  // Calendar Date Picker states
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<'start' | 'end'>('start');
+  const [pickerMonth, setPickerMonth] = useState(4);
+  const [pickerYear, setPickerYear] = useState(2026);
+
+  const handleOpenStartDatePicker = () => {
+    setPickerTarget('start');
+    try {
+      const parts = startDateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        if (!isNaN(y) && !isNaN(m)) {
+          setPickerYear(y);
+          setPickerMonth(m);
+        }
+      }
+    } catch (e) {}
+    setDatePickerOpen(true);
+  };
+
+  const handleOpenEndDatePicker = () => {
+    setPickerTarget('end');
+    try {
+      const parts = endDateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        if (!isNaN(y) && !isNaN(m)) {
+          setPickerYear(y);
+          setPickerMonth(m);
+        }
+      }
+    } catch (e) {}
+    setDatePickerOpen(true);
+  };
+
   const fetchData = async () => {
     setLoading(true);
     setError('');
@@ -622,7 +660,8 @@ export default function SemestersScreen() {
       {/* Form Modal for Add/Edit Semester */}
       <Modal visible={modalOpen} transparent animationType="slide">
         <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="w-full max-w-2xl rounded-3xl bg-card border border-border p-6 shadow-xl max-h-[85%]">
+          <View className="w-full max-w-md md:max-w-4xl rounded-3xl bg-card border border-border p-6 shadow-xl max-h-[90%] md:max-h-[85%] flex-col">
+            {/* Header (sticky) */}
             <View className="flex-row items-center justify-between border-b border-border/50 pb-3.5 mb-4">
               <Text className="text-lg font-extrabold text-foreground">{editingSemester ? 'Edit Semester Session' : 'Create Semester Session'}</Text>
               <Pressable onPress={() => setModalOpen(false)} className="h-7 w-7 rounded-full bg-muted/30 items-center justify-center active:scale-90">
@@ -630,76 +669,91 @@ export default function SemestersScreen() {
               </Pressable>
             </View>
 
-            <ScrollView className="gap-4 pr-1" showsVerticalScrollIndicator={false}>
-              
-              <View className="flex-row gap-3.5 mb-2.5">
-                <View className="flex-1 gap-1.5">
-                  <Label className="text-xs font-bold text-muted-foreground">Level</Label>
-                  <Dropdown
-                    value={level}
-                    onValueChange={setLevel}
-                    options={LEVELS}
-                  />
+            {/* Scrollable Content */}
+            <ScrollView className="flex-1 mb-4" showsVerticalScrollIndicator={false}>
+              <View className={`flex-col ${width >= 768 ? 'flex-row gap-6' : 'gap-4'}`}>
+                {/* Left Column: Form Settings */}
+                <View className={`gap-4 ${width >= 768 ? 'w-[260px]' : ''}`}>
+                  <View className="flex-row gap-3.5">
+                    <View className="flex-1 gap-1.5">
+                      <Label className="text-xs font-bold text-muted-foreground">Level</Label>
+                      <Dropdown
+                        value={level}
+                        onValueChange={setLevel}
+                        options={LEVELS}
+                      />
+                    </View>
+                    <View className="flex-1 gap-1.5">
+                      <Label className="text-xs font-bold text-muted-foreground">Semester</Label>
+                      <Dropdown
+                        value={semester}
+                        onValueChange={setSemester}
+                        options={SEMESTERS}
+                      />
+                    </View>
+                  </View>
+
+                  <View className="gap-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Start Date</Label>
+                    <Pressable onPress={handleOpenStartDatePicker} className="relative justify-center">
+                      <Input
+                        placeholder="YYYY-MM-DD"
+                        value={startDateStr}
+                        editable={false}
+                        className="rounded-xl h-11 border-border/80 text-foreground bg-muted/10 pr-10"
+                      />
+                      <Calendar size={16} className="absolute right-3.5 text-muted-foreground" />
+                    </Pressable>
+                  </View>
+
+                  <View className="gap-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">End Date</Label>
+                    <Pressable onPress={handleOpenEndDatePicker} className="relative justify-center">
+                      <Input
+                        placeholder="YYYY-MM-DD"
+                        value={endDateStr}
+                        editable={false}
+                        className="rounded-xl h-11 border-border/80 text-foreground bg-muted/10 pr-10"
+                      />
+                      <Calendar size={16} className="absolute right-3.5 text-muted-foreground" />
+                    </Pressable>
+                  </View>
                 </View>
-                <View className="flex-1 gap-1.5">
-                  <Label className="text-xs font-bold text-muted-foreground">Semester</Label>
-                  <Dropdown
-                    value={semester}
-                    onValueChange={setSemester}
-                    options={SEMESTERS}
-                  />
+
+                {/* Right Column: Selectors */}
+                <View className={`flex-1 gap-4 ${width >= 768 ? 'flex-row' : 'flex-col'}`}>
+                  <View className="flex-1 gap-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Select Enrolled Students</Label>
+                    <StudentSelector
+                      students={students}
+                      selectedIds={selectedStudentIds}
+                      onToggle={toggleStudentSelection}
+                      maxHeight={width >= 768 ? 240 : 160}
+                    />
+                  </View>
+
+                  <View className="flex-1 gap-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Select Semester Courses</Label>
+                    <CourseSelector
+                      courseInfos={courseInfos}
+                      selectedIds={selectedCourseInfoIds}
+                      onToggle={toggleCourseSelection}
+                      maxHeight={width >= 768 ? 240 : 160}
+                    />
+                  </View>
                 </View>
               </View>
+            </ScrollView>
 
-              <View className="gap-1.5 mb-2.5">
-                <Label htmlFor="startDate" className="text-xs font-bold text-muted-foreground">Start Date</Label>
-                <Input
-                  id="startDate"
-                  placeholder="YYYY-MM-DD"
-                  value={startDateStr}
-                  onChangeText={setStartDateStr}
-                  className="rounded-xl h-11 border-border/80 focus:border-primary"
-                />
-              </View>
-
-              <View className="gap-1.5 mb-3.5">
-                <Label htmlFor="endDate" className="text-xs font-bold text-muted-foreground">End Date</Label>
-                <Input
-                  id="endDate"
-                  placeholder="YYYY-MM-DD"
-                  value={endDateStr}
-                  onChangeText={setEndDateStr}
-                  className="rounded-xl h-11 border-border/80 focus:border-primary"
-                />
-              </View>
-
-              <View className="gap-1.5 mb-3">
-                <Label className="text-xs font-bold text-muted-foreground">Select Enrolled Students</Label>
-                <StudentSelector
-                  students={students}
-                  selectedIds={selectedStudentIds}
-                  onToggle={toggleStudentSelection}
-                  maxHeight={160}
-                />
-              </View>
-
-              <View className="gap-1.5 mb-4">
-                <Label className="text-xs font-bold text-muted-foreground">Select Semester Courses</Label>
-                <CourseSelector
-                  courseInfos={courseInfos}
-                  selectedIds={selectedCourseInfoIds}
-                  onToggle={toggleCourseSelection}
-                  maxHeight={160}
-                />
-              </View>
-
+            {/* Footer (sticky) */}
+            <View className="border-t border-border/50 pt-4">
               <Button
-                className="w-full mb-4 rounded-xl h-11 active:scale-95 transition-transform"
+                className="w-full rounded-xl h-11 active:scale-95 transition-transform"
                 onPress={handleSaveSemester}
                 disabled={submitting}>
                 <Text className="font-bold text-sm text-primary-foreground">{submitting ? 'Saving...' : (editingSemester ? 'Save Changes' : 'Create Semester')}</Text>
               </Button>
-            </ScrollView>
+            </View>
           </View>
         </View>
       </Modal>
@@ -757,6 +811,142 @@ export default function SemestersScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Date Picker Modal */}
+      <Modal visible={datePickerOpen} transparent animationType="fade">
+        <Pressable 
+          className="flex-1 items-center justify-center bg-black/50 p-6"
+          onPress={() => setDatePickerOpen(false)}
+        >
+          <View 
+            className="w-full max-w-sm rounded-3xl bg-card border border-border p-5 shadow-2xl"
+            onStartShouldSetResponder={() => true}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            <View className="flex-row items-center justify-between mb-4 border-b border-border/40 pb-3">
+              <Text className="text-sm font-black text-foreground uppercase tracking-wide">
+                Select {pickerTarget === 'start' ? 'Start' : 'End'} Date
+              </Text>
+              <Pressable onPress={() => setDatePickerOpen(false)} className="h-6 w-6 rounded-full bg-muted/30 items-center justify-center">
+                <X size={12} className="text-muted-foreground" />
+              </Pressable>
+            </View>
+
+            <View className="flex-row items-center justify-between mb-3.5 px-1">
+              <Text className="text-sm font-extrabold text-foreground">
+                {(() => {
+                  const monthNames = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                  ];
+                  return monthNames[pickerMonth];
+                })()} {pickerYear}
+              </Text>
+              <View className="flex-row gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 rounded-lg px-2.5 bg-muted/20 border-border/80" 
+                  onPress={() => {
+                    if (pickerMonth === 0) {
+                      setPickerMonth(11);
+                      setPickerYear(prev => prev - 1);
+                    } else {
+                      setPickerMonth(prev => prev - 1);
+                    }
+                  }}
+                >
+                  <Text className="font-bold text-xs text-foreground">←</Text>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 rounded-lg px-2.5 bg-muted/20 border-border/80" 
+                  onPress={() => {
+                    if (pickerMonth === 11) {
+                      setPickerMonth(0);
+                      setPickerYear(prev => prev + 1);
+                    } else {
+                      setPickerMonth(prev => prev + 1);
+                    }
+                  }}
+                >
+                  <Text className="font-bold text-xs text-foreground">→</Text>
+                </Button>
+              </View>
+            </View>
+
+            <View className="flex-row mb-2 border-b border-border/40 pb-1.5">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                <View key={d} className="flex-1 items-center">
+                  <Text className="text-[9px] font-bold text-muted-foreground uppercase">{d}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View className="flex-row flex-wrap">
+              {(() => {
+                const totalDays = new Date(pickerYear, pickerMonth + 1, 0).getDate();
+                const firstDayIndex = new Date(pickerYear, pickerMonth, 1).getDay();
+
+                const calendarCells = [];
+                for (let i = 0; i < firstDayIndex; i++) {
+                  calendarCells.push({ key: `empty-${i}`, day: null });
+                }
+                for (let day = 1; day <= totalDays; day++) {
+                  calendarCells.push({ key: `day-${day}`, day });
+                }
+
+                return calendarCells.map((cell) => {
+                  const isEmpty = cell.day === null;
+                  const isSelected = !isEmpty && (() => {
+                    const currentStr = pickerTarget === 'start' ? startDateStr : endDateStr;
+                    const monthStr = (pickerMonth + 1).toString().padStart(2, '0');
+                    const dayStr = cell.day!.toString().padStart(2, '0');
+                    return currentStr === `${pickerYear}-${monthStr}-${dayStr}`;
+                  })();
+
+                  return (
+                    <Pressable
+                      key={cell.key}
+                      disabled={isEmpty}
+                      onPress={() => {
+                        if (cell.day) {
+                          const monthStr = (pickerMonth + 1).toString().padStart(2, '0');
+                          const dayStr = cell.day.toString().padStart(2, '0');
+                          const dateString = `${pickerYear}-${monthStr}-${dayStr}`;
+                          if (pickerTarget === 'start') {
+                            setStartDateStr(dateString);
+                          } else {
+                            setEndDateStr(dateString);
+                          }
+                          setDatePickerOpen(false);
+                        }
+                      }}
+                      style={{ width: `${100 / 7}%` }}
+                      className={`items-center justify-center p-1.5 rounded-lg border min-h-[36px] ${
+                        isEmpty ? 'opacity-0 border-transparent' : 'active:scale-95'
+                      } ${
+                        isSelected 
+                          ? 'bg-primary border-primary' 
+                          : 'border-transparent hover:bg-muted/30'
+                      }`}
+                    >
+                      {!isEmpty && (
+                        <Text className={`text-xs font-semibold ${
+                          isSelected ? 'text-primary-foreground font-black' : 'text-foreground'
+                        }`}>
+                          {cell.day}
+                        </Text>
+                      )}
+                    </Pressable>
+                  );
+                });
+              })()}
+            </View>
+          </View>
+        </Pressable>
       </Modal>
     </View>
   );
