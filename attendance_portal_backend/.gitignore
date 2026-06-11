@@ -13,3 +13,5 @@ dist/
 build/
 .idea/
 .vscode/
+apps/academic/urls/teacher.py
+apps/academic/views/teacher.py
