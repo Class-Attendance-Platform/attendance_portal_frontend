@@ -85,7 +85,7 @@ export const sessionService = {
 // ── Report Service ───────────────────────────────────────────────────────────
 export const reportService = {
   getExportUrl: (courseInfoId: string, format: string, date?: string | null) => {
-    let url = `${API_BASE}/api/reports/course-info/${courseInfoId}/export/?format=${format}`;
+    let url = `${API_BASE}/api/reports/course-info/${courseInfoId}/export/?export_format=${format}`;
     if (date) {
       url += `&date=${date}`;
     }

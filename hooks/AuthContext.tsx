@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Platform } from 'react-native';
-import { api } from '../lib/api';
+import { setTokens } from '../lib/api';
+import { authService } from '../lib/services';
 
 export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
 
@@ -34,7 +35,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const stored = localStorage.getItem('portal_user');
         if (stored) {
-          setUser(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          // If stored session uses the new token-wrap format
+          if (parsed && parsed.user) {
+            setUser(parsed.user);
+            setTokens(parsed.accessToken || null, parsed.refreshToken || null);
+          } else {
+            setUser(parsed);
+          }
         }
       } catch (e) {
         console.error("Failed to load user session from localStorage.", e);
@@ -46,15 +54,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<User> => {
     setIsLoading(true);
     try {
-      const res = await api.post('/api/auth/login', { email, password });
+      const res = await authService.login(email, password);
       if (res.success && res.user) {
         const loggedUser: User = {
           ...res.user,
           role: res.user.role.toUpperCase() as UserRole
         };
         setUser(loggedUser);
+        
+        // Save SimpleJWT tokens
+        const access = res.access || null;
+        const refresh = res.refresh || null;
+        setTokens(access, refresh);
+
         if (Platform.OS === 'web') {
-          localStorage.setItem('portal_user', JSON.stringify(loggedUser));
+          localStorage.setItem('portal_user', JSON.stringify({
+            user: loggedUser,
+            accessToken: access,
+            refreshToken: refresh,
+          }));
         }
         setIsLoading(false);
         return loggedUser;
@@ -68,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
+    setTokens(null, null);
     if (Platform.OS === 'web') {
       localStorage.removeItem('portal_user');
     }

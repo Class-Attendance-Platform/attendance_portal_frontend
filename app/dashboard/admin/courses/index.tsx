@@ -21,7 +21,7 @@ import { Dropdown } from '@/components/custom/dropdown';
 import { CourseCard } from '@/components/custom/coursecard';
 import TopPanel from '@/components/custom/toppanel';
 import { Course } from '@/types/course';
-import { api } from '@/lib/api';
+import { configService, adminService } from '@/lib/services';
 
 function humanize(str: string): string {
   if (!str) return '';
@@ -74,9 +74,9 @@ export default function CoursesScreen() {
   const fetchConfig = async () => {
     try {
       const [creditsRes, facultiesRes, deptsRes] = await Promise.all([
-        api.get('/api/config/credits'),
-        api.get('/api/config/faculties'),
-        api.get('/api/config/departments'),
+        configService.getCredits(),
+        configService.getFaculties(),
+        configService.getDepartments(),
       ]);
       if (creditsRes.success) {
         setCreditEnumMap(creditsRes.creditEnumMap);
@@ -122,7 +122,7 @@ export default function CoursesScreen() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/api/admin/courses');
+      const res = await adminService.getCourses();
       if (res.success) {
         setCourses(res.courses || []);
       }
@@ -148,9 +148,12 @@ export default function CoursesScreen() {
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
+      const titleStr = course.title || '';
+      const codeStr = course.code || '';
+      const query = searchQuery.toLowerCase();
+
       const matchesSearch =
-        course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        course.code.toLowerCase().includes(searchQuery.toLowerCase());
+        titleStr.toLowerCase().includes(query) || codeStr.toLowerCase().includes(query);
 
       const rawSelFaculty = facultyMap[selectedFaculty] || selectedFaculty;
       const matchesFaculty = selectedFaculty === 'ALL' || course.faculty === rawSelFaculty;
@@ -206,9 +209,9 @@ export default function CoursesScreen() {
       };
 
       if (editingCourse) {
-        res = await api.put(`/api/admin/courses/${editingCourse.id}`, body);
+        res = await adminService.updateCourse(editingCourse.id, body);
       } else {
-        res = await api.post('/api/admin/courses', body);
+        res = await adminService.createCourse(body);
       }
 
       if (res.success) {
@@ -233,7 +236,7 @@ export default function CoursesScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const res = await api.delete(`/api/admin/courses/${id}`);
+              const res = await adminService.deleteCourse(id);
               if (res.success) {
                 fetchCourses();
               }

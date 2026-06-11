@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
 import { StudentCard } from '@/components/custom/studentcard';
 import { Student } from '@/types/student';
-import { api } from '@/lib/api';
+import { adminService, configService } from '@/lib/services';
 import { LEVELS, SEMESTERS, Level, SemesterName } from '@/types/common';
 
 function humanize(str: string): string {
@@ -74,8 +74,8 @@ export default function StudentsScreen() {
   const fetchConfig = async () => {
     try {
       const [facultiesRes, deptsRes] = await Promise.all([
-        api.get('/api/config/faculties'),
-        api.get('/api/config/departments'),
+        configService.getFaculties(),
+        configService.getDepartments(),
       ]);
       if (facultiesRes.success && facultiesRes.faculties) {
         const map: Record<string, string> = {};
@@ -116,7 +116,7 @@ export default function StudentsScreen() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/api/admin/students');
+      const res = await adminService.getStudents();
       if (res.success) {
         setStudents(res.students || []);
       }
@@ -134,10 +134,16 @@ export default function StudentsScreen() {
 
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
+      const name = s.userName || '';
+      const emailAddr = s.email || '';
+      const query = searchQuery.toLowerCase();
+
       const matchSearch =
-        s.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.studentId && s.studentId.toString().includes(searchQuery));
+        name.toLowerCase().includes(query) ||
+        emailAddr.toLowerCase().includes(query) ||
+        (s.studentId !== undefined &&
+          s.studentId !== null &&
+          s.studentId.toString().includes(searchQuery));
 
       const matchFaculty =
         selectedFaculty === 'ALL' || revFacultyMap[s.faculty || ''] === selectedFaculty;
@@ -188,27 +194,32 @@ export default function StudentsScreen() {
     setError('');
     setModalOpen(true);
   };
-
   const handleSaveStudent = async () => {
     setSubmitting(true);
     setError('');
+    const nameParts = userName.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const body = {
+      username: email,
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      faculty: facultyMap[faculty] || faculty,
+      department: deptMap[department] || department,
+      student_id: studentId ? parseInt(studentId, 10) : undefined,
+      current_level: currentLevel,
+      current_semester: currentSemester,
+      ...(password ? { password } : {}),
+    };
+
     try {
       let res;
-      const body = {
-        userName,
-        email,
-        studentId: studentId ? parseInt(studentId, 10) : undefined,
-        faculty: facultyMap[faculty] || faculty,
-        department: deptMap[department] || department,
-        currentLevel,
-        currentSemester,
-        ...(password ? { password } : {}),
-      };
-
       if (editingStudent) {
-        res = await api.put(`/api/admin/students/${editingStudent.id}`, body);
+        res = await adminService.updateStudent(editingStudent.id, body);
       } else {
-        res = await api.post('/api/admin/students', body);
+        res = await adminService.createStudent(body);
       }
 
       if (res.success) {
@@ -233,7 +244,7 @@ export default function StudentsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const res = await api.delete(`/api/admin/students/${id}`);
+              const res = await adminService.deleteStudent(id);
               if (res.success) {
                 fetchStudents();
               }

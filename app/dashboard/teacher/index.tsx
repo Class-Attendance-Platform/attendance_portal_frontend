@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/AuthContext';
-import { api, API_BASE } from '@/lib/api';
+import { teacherService, sessionService, reportService } from '@/lib/services';
+import { API_BASE } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ export default function TeacherDashboard() {
   const [sessionTimeLeft, setSessionTimeLeft] = useState(300);
   const [sessionSubmissions, setSessionSubmissions] = useState<Array<{ studentId: number; userName: string }>>([]);
   const [sessionRunning, setSessionRunning] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -48,7 +50,7 @@ export default function TeacherDashboard() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get(`/api/teacher/${user.id}/courses`);
+      const res = await teacherService.getTeacherCourses(user.id);
       if (res.success) {
         const list = [...(res.currentCourses || []), ...(res.previousCourses || [])];
         setCourses(list);
@@ -68,7 +70,7 @@ export default function TeacherDashboard() {
     setDetailsLoading(true);
     setError('');
     try {
-      const res = await api.get(`/api/teacher/course-info/${id}`);
+      const res = await teacherService.getCourseDetails(id);
       if (res.success) {
         const ci: CourseInfo = res.courseInfo;
         const total = ci.attendance.totalClasses;
@@ -116,10 +118,11 @@ export default function TeacherDashboard() {
     }
 
     try {
-      const res = await api.post(`/api/teacher/course-info/${activeCourseId}/history-session`, {
-        date: selectedHistoryDate,
-        presentStudentIds: newPresentIds
-      });
+      const res = await teacherService.saveHistorySession(
+        activeCourseId,
+        selectedHistoryDate!,
+        newPresentIds
+      );
       if (res.success) {
         fetchCourseDetails(activeCourseId);
       }
@@ -140,7 +143,7 @@ export default function TeacherDashboard() {
           onPress: async () => {
             if (!activeCourseId) return;
             try {
-              const res = await api.delete(`/api/teacher/course-info/${activeCourseId}/history-session/${date}`);
+              const res = await teacherService.deleteHistorySession(activeCourseId, date);
               if (res.success) {
                 if (selectedHistoryDate === date) {
                   setSelectedHistoryDate(null);
@@ -160,21 +163,22 @@ export default function TeacherDashboard() {
     setError('');
     try {
       const durationMs = 300000;
-      const res = await api.post(`/api/teacher/course-info/${activeCourseId}/session/start`, { duration: durationMs });
+      const res = await sessionService.startSession(activeCourseId, durationMs / 1000);
       if (res.success && res.session) {
+        setActiveSessionId(res.session.id);
         const secondsLeft = Math.ceil(res.session.timeLeft / 1000);
         setSessionTimeLeft(secondsLeft);
         setSessionModalOpen(true);
         setSessionRunning(true);
         setSessionSubmissions([]);
-        startSessionTimers(secondsLeft);
+        startSessionTimers(secondsLeft, res.session.id);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to start attendance session.');
     }
   };
 
-  const startSessionTimers = (initSeconds: number) => {
+  const startSessionTimers = (initSeconds: number, sessId: string) => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
 
@@ -185,15 +189,15 @@ export default function TeacherDashboard() {
         if (prev <= 1) {
           stopSessionTimers();
           setSessionRunning(false);
-          finalizeSessionOnServer();
+          finalizeSessionOnServer(sessId);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
 
-    pollSessionStatus();
-    pollRef.current = setInterval(pollSessionStatus, 2000);
+    pollSessionStatus(sessId);
+    pollRef.current = setInterval(() => pollSessionStatus(sessId), 2000);
   };
 
   const stopSessionTimers = () => {
@@ -201,17 +205,18 @@ export default function TeacherDashboard() {
     if (pollRef.current) clearInterval(pollRef.current);
   };
 
-  const pollSessionStatus = async () => {
-    if (!activeCourseId) return;
+  const pollSessionStatus = async (sessId?: string | null) => {
+    const sId = sessId || activeSessionId;
+    if (!sId) return;
     try {
-      const res = await api.get(`/api/teacher/course-info/${activeCourseId}/session/status`);
+      const res = await sessionService.getSessionStatus(sId);
       if (res.success) {
         if (res.active) {
           setSessionSubmissions(res.session.submissions || []);
         } else {
           stopSessionTimers();
           setSessionRunning(false);
-          fetchCourseDetails(activeCourseId);
+          if (activeCourseId) fetchCourseDetails(activeCourseId);
         }
       }
     } catch (e) {
@@ -219,11 +224,12 @@ export default function TeacherDashboard() {
     }
   };
 
-  const finalizeSessionOnServer = async () => {
-    if (!activeCourseId) return;
+  const finalizeSessionOnServer = async (sessId?: string | null) => {
+    const sId = sessId || activeSessionId;
+    if (!sId) return;
     try {
-      await api.post(`/api/teacher/course-info/${activeCourseId}/session/stop`);
-      fetchCourseDetails(activeCourseId);
+      await sessionService.stopSession(sId);
+      if (activeCourseId) fetchCourseDetails(activeCourseId);
     } catch (e) {
       console.error("Error finalizing session:", e);
     }
@@ -232,13 +238,13 @@ export default function TeacherDashboard() {
   const handleStopSessionManually = () => {
     stopSessionTimers();
     setSessionRunning(false);
-    finalizeSessionOnServer();
+    finalizeSessionOnServer(activeSessionId);
     setSessionModalOpen(false);
   };
 
   const handleExport = (format: 'pdf' | 'xlsx' | 'csv') => {
     if (!activeCourseId) return;
-    const url = `${API_BASE}/api/teacher/course-info/${activeCourseId}/export?format=${format}`;
+    const url = reportService.getExportUrl(activeCourseId, format);
     if (Platform.OS === 'web') {
       window.open(url, '_blank');
     } else {
@@ -248,7 +254,7 @@ export default function TeacherDashboard() {
 
   const handleExportDate = (format: 'pdf' | 'xlsx' | 'csv') => {
     if (!activeCourseId || !selectedHistoryDate) return;
-    const url = `${API_BASE}/api/teacher/course-info/${activeCourseId}/export?format=${format}&date=${selectedHistoryDate}`;
+    const url = reportService.getExportUrl(activeCourseId, format, selectedHistoryDate);
     if (Platform.OS === 'web') {
       window.open(url, '_blank');
     } else {

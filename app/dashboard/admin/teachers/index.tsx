@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
 import { TeacherCard } from '@/components/custom/teachercard';
 import { Teacher } from '@/types/teacher';
-import { api } from '@/lib/api';
+import { adminService, configService } from '@/lib/services';
 
 function humanize(str: string): string {
   if (!str) return '';
@@ -67,8 +67,8 @@ export default function TeachersScreen() {
   const fetchConfig = async () => {
     try {
       const [facultiesRes, deptsRes] = await Promise.all([
-        api.get('/api/config/faculties'),
-        api.get('/api/config/departments'),
+        configService.getFaculties(),
+        configService.getDepartments(),
       ]);
       if (facultiesRes.success && facultiesRes.faculties) {
         const map: Record<string, string> = {};
@@ -109,7 +109,7 @@ export default function TeachersScreen() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/api/admin/teachers');
+      const res = await adminService.getTeachers();
       if (res.success) {
         setTeachers(res.teachers || []);
       }
@@ -135,8 +135,12 @@ export default function TeachersScreen() {
 
   const filteredTeachers = useMemo(() => {
     return teachers.filter((teacher) => {
-      const nameMatch = teacher.userName.toLowerCase().includes(searchQuery.toLowerCase());
-      const emailMatch = teacher.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const name = teacher.userName || '';
+      const emailAddr = teacher.email || '';
+      const query = searchQuery.toLowerCase();
+
+      const nameMatch = name.toLowerCase().includes(query);
+      const emailMatch = emailAddr.toLowerCase().includes(query);
 
       const rawSelFaculty = facultyMap[selectedFaculty] || selectedFaculty;
       const matchesFaculty = selectedFaculty === 'ALL' || teacher.faculty === rawSelFaculty;
@@ -188,9 +192,9 @@ export default function TeachersScreen() {
       };
 
       if (editingTeacher) {
-        res = await api.put(`/api/admin/teachers/${editingTeacher.id}`, body);
+        res = await adminService.updateTeacher(editingTeacher.id, body);
       } else {
-        res = await api.post('/api/admin/teachers', body);
+        res = await adminService.createTeacher(body);
       }
 
       if (res.success) {
@@ -212,7 +216,7 @@ export default function TeachersScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await api.delete(`/api/admin/teachers/${id}`);
+            const res = await adminService.deleteTeacher(id);
             if (res.success) {
               fetchTeachers();
             }

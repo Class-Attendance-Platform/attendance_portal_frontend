@@ -1,56 +1,190 @@
+import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getBaseUrl = () => {
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-      return `http://${window.location.hostname}:5000`;
+      return `http://${window.location.hostname}:8000`;
     }
-    return 'http://localhost:5000';
+    return 'http://localhost:8000';
   }
   const hostUri = Constants.expoConfig?.hostUri || '';
   const host = hostUri.split(':')[0];
   if (host) {
-    return `http://${host}:5000`;
+    return `http://${host}:8000`;
   }
-  return 'http://127.0.0.1:5000';
+  return 'http://127.0.0.1:8000';
 };
 
 export const API_BASE = getBaseUrl();
 
-async function request(path: string, options: RequestInit = {}) {
-  const url = `${API_BASE}${path}`;
-  
-  const headers = new Headers(options.headers);
-  if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
-    options.body = JSON.stringify(options.body);
-  }
-  
-  options.headers = headers;
+let accessToken: string | null = null;
+let refreshToken: string | null = null;
 
-  console.log(`API [${options.method || 'GET'}] ${url}`);
-  const response = await fetch(url, options);
-  
-  if (!response.ok) {
-    let errMsg = `Request failed with status ${response.status}`;
-    try {
-      const errJson = await response.json();
-      if (errJson && errJson.message) errMsg = errJson.message;
-    } catch (_) {}
-    throw new Error(errMsg);
-  }
+export const setTokens = (access: string | null, refresh: string | null) => {
+  accessToken = access;
+  refreshToken = refresh;
+};
 
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    return response.json();
+// Create Axios Instance
+const axiosInstance = axios.create({
+  baseURL: API_BASE,
+});
+
+// Helper function to format path with trailing slash before query/hash (required by Django)
+function formatPath(path: string): string {
+  const queryIdx = path.indexOf('?');
+  const hashIdx = path.indexOf('#');
+  const splitIdx = queryIdx !== -1 ? queryIdx : (hashIdx !== -1 ? hashIdx : -1);
+
+  let basePart = splitIdx !== -1 ? path.slice(0, splitIdx) : path;
+  const suffixPart = splitIdx !== -1 ? path.slice(splitIdx) : '';
+
+  if (!basePart.endsWith('/')) {
+    basePart = `${basePart}/`;
   }
-  return response;
+  return `${basePart}${suffixPart}`;
 }
 
+// Request Interceptor
+axiosInstance.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    if (config.url) {
+      config.url = formatPath(config.url);
+    }
+    if (accessToken) {
+      config.headers.set('Authorization', `Bearer ${accessToken}`);
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (isRefreshing) {
+    return new Promise((resolve) => {
+      refreshSubscribers.push((token) => {
+        resolve(!!token);
+      });
+    });
+  }
+
+  isRefreshing = true;
+  try {
+    const refreshUrl = `${API_BASE}/api/auth/refresh/`;
+    console.log('Sending refresh token request to backend...', refreshUrl);
+    // Use raw axios to prevent request interceptor formatting and headers
+    const response = await axios.post(refreshUrl, { refresh: refreshToken });
+
+    if (response.status === 200 && response.data && response.data.access) {
+      accessToken = response.data.access;
+      // Save to localStorage if on Web
+      if (Platform.OS === 'web') {
+        try {
+          const stored = localStorage.getItem('portal_user');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            parsed.accessToken = accessToken;
+            localStorage.setItem('portal_user', JSON.stringify(parsed));
+          }
+        } catch (e) {
+          console.error('Failed to update localStorage with refreshed access token', e);
+        }
+      }
+
+      isRefreshing = false;
+      const subscribers = refreshSubscribers;
+      refreshSubscribers = [];
+      subscribers.forEach((callback) => callback(accessToken!));
+      return true;
+    }
+  } catch (err) {
+    console.error('Error refreshing token', err);
+  }
+
+  isRefreshing = false;
+  refreshSubscribers = [];
+  return false;
+}
+
+// Response Interceptor to handle auto-refresh & response normalization
+axiosInstance.interceptors.response.use(
+  (response) => {
+    return response.data;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Check for 401 Unauthorized to trigger token refresh, but avoid infinite loops
+    if (
+      error.response &&
+      error.response.status === 401 &&
+      refreshToken &&
+      originalRequest &&
+      !originalRequest._retry &&
+      originalRequest.url !== '/api/auth/refresh/' &&
+      originalRequest.url !== '/api/auth/login/'
+    ) {
+      originalRequest._retry = true;
+      console.log('Access token expired or unauthorized, attempting refresh...');
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+        console.log(`Retrying API [${originalRequest.method?.toUpperCase() || 'GET'}] ${originalRequest.url}`);
+        return axiosInstance(originalRequest);
+      }
+    }
+
+    // Format error message to throw descriptive standard errors as expected by the frontend code
+    let errMsg = `Request failed with status ${error.response?.status || error.message}`;
+    if (error.response && error.response.data) {
+      const data = error.response.data;
+      if (data && typeof data === 'object') {
+        if (data.message) {
+          errMsg = data.message;
+        } else if (data.detail) {
+          errMsg = data.detail;
+        } else if (data.errors) {
+          if (typeof data.errors === 'object') {
+            const firstKey = Object.keys(data.errors)[0];
+            const firstVal = data.errors[firstKey];
+            if (Array.isArray(firstVal)) {
+              errMsg = `${firstKey}: ${firstVal[0]}`;
+            } else {
+              errMsg = `${firstKey}: ${JSON.stringify(firstVal)}`;
+            }
+          } else {
+            errMsg = JSON.stringify(data.errors);
+          }
+        } else {
+          const keys = Object.keys(data).filter((k) => k !== 'success');
+          if (keys.length > 0) {
+            const firstKey = keys[0];
+            const firstVal = (data as any)[firstKey];
+            if (Array.isArray(firstVal)) {
+              errMsg = `${firstKey}: ${firstVal[0]}`;
+            } else if (typeof firstVal === 'string') {
+              errMsg = `${firstKey}: ${firstVal}`;
+            } else {
+              errMsg = `${firstKey}: ${JSON.stringify(firstVal)}`;
+            }
+          }
+        }
+      }
+    }
+    return Promise.reject(new Error(errMsg));
+  }
+);
+
 export const api = {
-  get: (path: string, options?: RequestInit) => request(path, { ...options, method: 'GET' }),
-  post: (path: string, body?: any, options?: RequestInit) => request(path, { ...options, method: 'POST', body }),
-  put: (path: string, body?: any, options?: RequestInit) => request(path, { ...options, method: 'PUT', body }),
-  delete: (path: string, options?: RequestInit) => request(path, { ...options, method: 'DELETE' }),
+  get: (path: string, options?: AxiosRequestConfig): Promise<any> => axiosInstance.get(path, options) as any,
+  post: (path: string, body?: any, options?: AxiosRequestConfig): Promise<any> => axiosInstance.post(path, body, options) as any,
+  put: (path: string, body?: any, options?: AxiosRequestConfig): Promise<any> => axiosInstance.put(path, body, options) as any,
+  delete: (path: string, options?: AxiosRequestConfig): Promise<any> => axiosInstance.delete(path, options) as any,
 };

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/AuthContext';
-import { api } from '@/lib/api';
+import { studentService } from '@/lib/services';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -41,7 +41,7 @@ export default function StudentDashboard() {
     else setLoading(true);
     setError('');
     try {
-      const res = await api.get(`/api/student/${user.id}/semesters`);
+      const res = await studentService.getSemesters(user.id);
       if (res.success) {
         setSemesters(res.semesters || []);
       } else {

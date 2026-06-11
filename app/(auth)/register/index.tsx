@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { Dropdown } from '@/components/custom/dropdown';
-import { api } from '@/lib/api';
+import { configService, authService } from '@/lib/services';
 
 const ROLES = ['Student', 'Teacher', 'Admin'];
 
@@ -56,8 +56,8 @@ export default function SignUpScreen() {
     async function loadConfig() {
       try {
         const [facRes, deptRes] = await Promise.all([
-          api.get('/api/config/faculties'),
-          api.get('/api/config/departments'),
+          configService.getFaculties(),
+          configService.getDepartments(),
         ]);
 
         if (facRes.success && facRes.faculties) {
@@ -111,20 +111,27 @@ export default function SignUpScreen() {
     setError('');
     setSuccess('');
 
+    const nameParts = userName.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     const payload = {
-      userName,
+      username: email,
       email,
       password,
-      role: selectedRole.toLowerCase(),
+      role: selectedRole.toUpperCase(),
+      first_name: firstName,
+      last_name: lastName,
       faculty: facultyMap[selectedFaculty] || selectedFaculty,
       department: deptMap[selectedDept] || selectedDept,
-      studentId: selectedRole === 'Student' ? parseInt(studentId, 10) : undefined,
-      currentLevel: selectedRole === 'Student' ? selectedLevel : undefined,
-      currentSemester: selectedRole === 'Student' ? selectedSemester : undefined,
+      student_id: selectedRole === 'Student' ? parseInt(studentId, 10) : undefined,
+      current_level: selectedRole === 'Student' ? selectedLevel : undefined,
+      current_semester: selectedRole === 'Student' ? selectedSemester : undefined,
+      employee_id: selectedRole === 'Teacher' ? `EMP-${Date.now()}` : undefined,
     };
 
     try {
-      const res = await api.post('/api/auth/register', payload);
+      const res = await authService.register(payload);
       if (res.success) {
         setSuccess('Registration successful! Redirecting to login...');
         setTimeout(() => {
