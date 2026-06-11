@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+attendance_portal_backend/
 
 # Expo
 .expo/
