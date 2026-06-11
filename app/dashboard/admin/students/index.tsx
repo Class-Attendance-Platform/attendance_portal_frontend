@@ -285,7 +285,7 @@ export default function StudentsScreen() {
             variant="default"
             className="h-11 flex-row gap-2 rounded-xl px-4"
             onPress={handleOpenAddModal}>
-            <Plus size={16} />
+            <Plus size={16} className="text-background" />
             <Text className="font-semibold">Add Student</Text>
           </Button>
         </View>

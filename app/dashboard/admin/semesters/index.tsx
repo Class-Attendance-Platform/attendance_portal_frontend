@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useMemo, useState, useEffect } from 'react';
 import {
-  FlatList,
   View,
   useWindowDimensions,
   ActivityIndicator,
@@ -20,7 +19,6 @@ import {
   Users,
   Pencil,
   GraduationCap,
-  ChevronRight,
   UserPlus,
   UserMinus,
   ArrowUpCircle,
@@ -32,7 +30,8 @@ import { Text } from '@/components/ui/text';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
 import { Card } from '@/components/ui/card';
-import { adminService, teacherService } from '@/lib/services';
+import { Badge } from '@/components/ui/badge';
+import { adminService } from '@/lib/services';
 import { Semester } from '@/types/semester';
 import { Student } from '@/types/student';
 import { CourseInfo } from '@/types/course';
@@ -58,11 +57,9 @@ export default function SemestersScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Selected active semester details
   const [activeSemesterId, setActiveSemesterId] = useState<string>('');
   const [rosterSearchQuery, setRosterSearchQuery] = useState('');
 
-  // Modals state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSemester, setEditingSemester] = useState<Semester | null>(null);
 
@@ -74,28 +71,22 @@ export default function SemestersScreen() {
   const [selectedCourseInfoIds, setSelectedCourseInfoIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Promotion Modal
   const [promotionModalOpen, setPromotionModalOpen] = useState(false);
   const [targetLevel, setTargetLevel] = useState<Level>('Third');
   const [targetSemester, setTargetSemester] = useState<SemesterName>('I');
 
-  // Calendar Date Picker states
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'start' | 'end'>('start');
-  const [pickerMonth, setPickerMonth] = useState(4);
-  const [pickerYear, setPickerYear] = useState(2026);
+  const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
+  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
 
   const handleOpenStartDatePicker = () => {
     setPickerTarget('start');
     try {
       const parts = startDateStr.split('-');
       if (parts.length === 3) {
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1;
-        if (!isNaN(y) && !isNaN(m)) {
-          setPickerYear(y);
-          setPickerMonth(m);
-        }
+        setPickerYear(parseInt(parts[0], 10));
+        setPickerMonth(parseInt(parts[1], 10) - 1);
       }
     } catch (e) {}
     setDatePickerOpen(true);
@@ -106,12 +97,8 @@ export default function SemestersScreen() {
     try {
       const parts = endDateStr.split('-');
       if (parts.length === 3) {
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1;
-        if (!isNaN(y) && !isNaN(m)) {
-          setPickerYear(y);
-          setPickerMonth(m);
-        }
+        setPickerYear(parseInt(parts[0], 10));
+        setPickerMonth(parseInt(parts[1], 10) - 1);
       }
     } catch (e) {}
     setDatePickerOpen(true);
@@ -121,59 +108,27 @@ export default function SemestersScreen() {
     setLoading(true);
     setError('');
     try {
-      const semRes = await adminService.getSemesters();
-      const studRes = await adminService.getStudents();
-      const teachRes = await adminService.getTeachers();
+      const [semRes, studRes, ciRes] = await Promise.all([
+        adminService.getSemesters(),
+        adminService.getStudents(),
+        adminService.getCourseInfos(),
+      ]);
 
       if (semRes.success) {
-        setSemesters(semRes.semesters || []);
-        if (semRes.semesters && semRes.semesters.length > 0) {
-          setActiveSemesterId((prev) => {
-            if (prev && semRes.semesters.some((s: Semester) => s.id === prev)) return prev;
-            return semRes.semesters[0].id;
-          });
+        const mappedSemesters = (semRes.semesters || []).map((s: any) => ({
+          ...s,
+          startDate: s.start_date || s.startDate,
+          endDate: s.end_date || s.endDate,
+        }));
+        setSemesters(mappedSemesters);
+        if (mappedSemesters.length > 0 && !activeSemesterId) {
+          setActiveSemesterId(mappedSemesters[0].id);
         }
       }
-      if (studRes.success) {
-        setStudents(studRes.students || []);
-      }
-
-      const ciList: CourseInfo[] = [];
-      if (teachRes.success && teachRes.teachers) {
-        for (const t of teachRes.teachers) {
-          try {
-            const tCoursesRes = await teacherService.getTeacherCourses(t.id);
-            if (tCoursesRes.success) {
-              const currentList = tCoursesRes.currentCourses || [];
-              const prevList = tCoursesRes.previousCourses || [];
-              [...currentList, ...prevList].forEach((c) => {
-                if (!ciList.some((item) => item.id === c.id)) {
-                  ciList.push({
-                    id: c.id,
-                    course: {
-                      id: c.course.id,
-                      code: c.course.code,
-                      title: c.course.title,
-                      content: c.course.content || '',
-                      credits: c.course.credits,
-                      faculty: c.course.faculty || '',
-                      department: c.course.department || '',
-                    },
-                    teacher: { userName: t.userName, id: t.id },
-                    attendance: c.attendance,
-                    students: c.students || [],
-                  });
-                }
-              });
-            }
-          } catch (e) {
-            console.error('Error loading teacher courses', e);
-          }
-        }
-      }
-      setCourseInfos(ciList);
+      if (studRes.success) setStudents(studRes.students || []);
+      if (ciRes.success) setCourseInfos(ciRes.course_infos || []);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch semesters.');
+      setError(err.message || 'Failed to fetch data.');
     } finally {
       setLoading(false);
     }
@@ -183,37 +138,30 @@ export default function SemestersScreen() {
     fetchData();
   }, []);
 
-  const activeSemester = useMemo(() => {
-    return semesters.find((s) => s.id === activeSemesterId);
-  }, [semesters, activeSemesterId]);
+  const activeSemester = useMemo(
+    () => semesters.find((s) => s.id === activeSemesterId),
+    [semesters, activeSemesterId]
+  );
 
-  // Resolve courses in semester
   const resolvedCourses = useMemo(() => {
     if (!activeSemester) return [];
     return (activeSemester.courses || [])
-      .map((ciId) => {
-        return courseInfos.find((ci) => ci.id === ciId);
-      })
+      .map((id) => courseInfos.find((ci) => ci.id === id))
       .filter(Boolean);
   }, [activeSemester, courseInfos]);
 
-  // Resolve students in semester with search filter
   const resolvedStudents = useMemo(() => {
     if (!activeSemester) return [];
     return (activeSemester.students || [])
-      .map((sid) => {
-        return students.find((s) => s.id === sid);
-      })
+      .map((id) => students.find((s) => s.id === id))
       .filter((s): s is Student => !!s)
       .filter((s) => {
         if (!rosterSearchQuery) return true;
-        const name = s.userName || '';
-        const emailAddr = s.email || '';
-        const query = rosterSearchQuery.toLowerCase();
+        const q = rosterSearchQuery.toLowerCase();
         return (
-          name.toLowerCase().includes(query) ||
-          (s.studentId && s.studentId.toString().includes(rosterSearchQuery)) ||
-          emailAddr.toLowerCase().includes(query)
+          (s.userName || '').toLowerCase().includes(q) ||
+          (s.studentId || '').toString().includes(q) ||
+          (s.email || '').toLowerCase().includes(q)
         );
       });
   }, [activeSemester, students, rosterSearchQuery]);
@@ -234,7 +182,6 @@ export default function SemestersScreen() {
     setEditingSemester(sem);
     setLevel(sem.level);
     setSemester(sem.semester);
-
     setStartDateStr(formatDateArray(sem.startDate));
     setEndDateStr(formatDateArray(sem.endDate));
     setSelectedStudentIds(sem.students || []);
@@ -245,596 +192,551 @@ export default function SemestersScreen() {
 
   const handleSaveSemester = async () => {
     setSubmitting(true);
-    setError('');
     try {
-      const startParts = parseDateString(startDateStr);
-      const endParts = parseDateString(endDateStr);
-
       const body = {
         level,
         semester,
-        startDate: startParts,
-        endDate: endParts,
+        start_date: startDateStr,
+        end_date: endDateStr,
         students: selectedStudentIds,
         courses: selectedCourseInfoIds,
       };
-
-      let res;
-      if (editingSemester) {
-        res = await adminService.updateSemester(editingSemester.id, body);
-      } else {
-        res = await adminService.createSemester(body);
-      }
-
+      let res = editingSemester
+        ? await adminService.updateSemester(editingSemester.id, body)
+        : await adminService.createSemester(body);
       if (res.success) {
         setModalOpen(false);
-        setSelectedStudentIds([]);
-        setSelectedCourseInfoIds([]);
         fetchData();
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to save semester.');
+      setError(err.message || 'Error saving semester.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteSemester = (id: string) => {
-    Alert.alert(
-      'Delete Semester Config',
-      'Are you sure you want to delete this semester configuration? Students enrolled in this semester will need to be reallocated.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await adminService.deleteSemester(id);
-              if (res.success) {
-                if (activeSemesterId === id) {
-                  setActiveSemesterId('');
-                }
-                fetchData();
-              }
-            } catch (err: any) {
-              setError(err.message || 'Failed to delete semester.');
-            }
-          },
+    Alert.alert('Delete Semester', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if ((await adminService.deleteSemester(id)).success) {
+            if (activeSemesterId === id) setActiveSemesterId('');
+            fetchData();
+          }
         },
-      ]
-    );
-  };
-
-  const handleRemoveStudentFromSemester = async (studentId: string) => {
-    if (!activeSemester) return;
-
-    Alert.alert(
-      'Remove Student',
-      'Are you sure you want to remove this student from the current semester session?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const updatedStudents = activeSemester.students.filter((id) => id !== studentId);
-              const res = await adminService.updateSemester(activeSemester.id, {
-                students: updatedStudents,
-              });
-              if (res.success) {
-                fetchData();
-              }
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to remove student');
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   const handlePromoteSession = async () => {
     if (!activeSemester) return;
     setSubmitting(true);
     try {
-      // Create a new semester session with the same students but updated level/semester
-      const body = {
+      const res = await adminService.createSemester({
         level: targetLevel,
         semester: targetSemester,
-        startDate: parseDateString('2026-08-20'), // Default future dates
-        endDate: parseDateString('2027-02-20'),
+        start_date: '2026-08-20',
+        end_date: '2027-02-20',
         students: activeSemester.students,
-        courses: [], // Courses should be selected for new semester
-      };
-
-      const res = await adminService.createSemester(body);
+        courses: [],
+      });
       if (res.success) {
         setPromotionModalOpen(false);
         fetchData();
-        Alert.alert(
-          'Success',
-          `Students promoted to Level ${targetLevel} Semester ${targetSemester}`
-        );
+        Alert.alert('Success', 'Promotion complete.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to promote session');
+      Alert.alert('Error', 'Promotion failed.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleRemoveStudentFromSemester = async (studentId: string) => {
+    if (!activeSemester) return;
+    Alert.alert('Remove Student', 'Remove student from this semester?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          const updated = (activeSemester.students || []).filter((id) => id !== studentId);
+          const res = await adminService.updateSemester(activeSemester.id, { students: updated });
+          if (res.success) fetchData();
+        },
+      },
+    ]);
+  };
+
   const toggleStudentSelection = (id: string) => {
     setSelectedStudentIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
 
   const toggleCourseSelection = (id: string) => {
     setSelectedCourseInfoIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
 
-  if (loading) {
+  if (loading)
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" />
-        <Text className="mt-2 text-muted-foreground">Loading semesters...</Text>
       </View>
     );
-  }
 
   return (
     <View className="flex-1 bg-background">
       <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
-        {/* Sidebar: Semester Selection */}
         <View
-          className={`border-border bg-card ${
-            isMobile ? 'w-full border-b' : 'h-full w-80 border-r'
-          }`}>
-          <View className={`flex-col p-4 ${isMobile ? 'h-auto' : 'flex-1'}`}>
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Semester Sessions
-              </Text>
+          className={`${isMobile ? 'w-full border-b' : 'w-80 border-r'} border-border bg-card/20`}>
+          <View className="p-6">
+            <View className="mb-6 flex-row items-center justify-between">
+              <View>
+                <Text className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/70">
+                  Academic Sessions
+                </Text>
+                <Text className="text-xl font-black text-foreground">Semesters</Text>
+              </View>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 flex-row gap-1 rounded-xl border-primary/20 bg-primary/10 px-2.5"
+                className="h-10 w-10 rounded-2xl border-primary/20 bg-primary/10 p-0"
                 onPress={handleOpenAddModal}>
-                <Plus size={12} className="text-primary" />
-                <Text className="text-[10px] font-bold text-primary">Add New</Text>
+                <Plus size={20} className="text-primary" />
               </Button>
             </View>
-
-            {semesters.length === 0 ? (
-              <Text className="mt-4 px-2 text-xs italic text-muted-foreground">
-                No semesters configured.
-              </Text>
-            ) : isMobile ? (
-              <View className="mb-2">
-                <Dropdown
-                  value={
-                    activeSemester
-                      ? `Level ${activeSemester.level} • Semester ${activeSemester.semester}`
-                      : 'Select Session'
-                  }
-                  onValueChange={(val) => {
-                    const found = semesters.find(
-                      (s) => `Level ${s.level} • Semester ${s.semester}` === val
-                    );
-                    if (found) {
-                      setActiveSemesterId(found.id);
-                      setRosterSearchQuery('');
-                    }
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {semesters.map((sem) => (
+                <Pressable
+                  key={sem.id}
+                  onPress={() => {
+                    setActiveSemesterId(sem.id);
+                    setRosterSearchQuery('');
                   }}
-                  options={semesters.map((s) => `Level ${s.level} • Semester ${s.semester}`)}
-                />
-              </View>
-            ) : (
-              <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                {semesters.map((sem) => {
-                  const isSelected = activeSemesterId === sem.id;
-                  const start = formatDateArray(sem.startDate);
-                  const end = formatDateArray(sem.endDate);
-
-                  return (
-                    <Pressable
-                      key={sem.id}
-                      onPress={() => {
-                        setActiveSemesterId(sem.id);
-                        setRosterSearchQuery('');
-                      }}
-                      className={`mb-2.5 w-full rounded-2xl border px-4 py-3 ${
-                        isSelected
-                          ? 'border-primary/20 bg-primary/10'
-                          : 'border-transparent bg-muted/10 hover:bg-muted/20'
+                  className={`mb-3 rounded-3xl border p-4 shadow-sm transition-all ${
+                    activeSemesterId === sem.id
+                      ? 'border-primary/40 bg-primary/5'
+                      : 'border-transparent bg-muted/20 hover:bg-muted/30'
+                  }`}>
+                  <View className="flex-row items-center justify-between">
+                    <Text
+                      className={`text-base font-black ${
+                        activeSemesterId === sem.id ? 'text-primary' : 'text-foreground'
                       }`}>
-                      <View className="flex-row items-center justify-between">
-                        <Text
-                          className={`text-sm font-extrabold ${isSelected ? 'text-primary' : 'text-foreground'}`}>
-                          Level {sem.level} • Semester {sem.semester}
-                        </Text>
-                        {isSelected && <View className="h-2 w-2 rounded-full bg-primary" />}
-                      </View>
-
-                      <Text className="mt-1 flex-row items-center gap-1 text-[10px] text-muted-foreground">
-                        {start} - {end}
+                      Level {sem.level} • {sem.semester}
+                    </Text>
+                    {activeSemesterId === sem.id && (
+                      <View className="h-2 w-2 rounded-full bg-primary shadow-sm shadow-primary" />
+                    )}
+                  </View>
+                  <View className="mt-3 flex-row gap-4 border-t border-border/30 pt-3">
+                    <View className="flex-row items-center gap-2">
+                      <Users size={14} className="text-muted-foreground" />
+                      <Text className="text-xs font-bold text-foreground/80">
+                        {sem.students?.length || 0}
                       </Text>
-
-                      <View className="mt-2 flex-row gap-3 border-t border-border/40 pt-2">
-                        <View className="flex-row items-center gap-1">
-                          <Users size={10} className="text-muted-foreground" />
-                          <Text className="text-[10px] font-bold text-foreground/80">
-                            {sem.students ? sem.students.length : 0} Students
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center gap-1">
-                          <BookOpen size={10} className="text-muted-foreground" />
-                          <Text className="text-[10px] font-bold text-foreground/80">
-                            {sem.courses ? sem.courses.length : 0} Courses
-                          </Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            )}
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <BookOpen size={14} className="text-muted-foreground" />
+                      <Text className="text-xs font-bold text-foreground/80">
+                        {sem.courses?.length || 0}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
         </View>
 
-        {/* Right Workspace: Selected Semester Details */}
-        <View style={{ paddingRight: isMobile ? 0 : 320 }} className="flex-1 bg-background/30">
+        <View className="flex-1 bg-background/30">
           {activeSemester ? (
-            <ScrollView
-              className="flex-1"
-              contentContainerStyle={{ padding: 24 }}
-              showsVerticalScrollIndicator={false}>
-              {/* Header with Title and Control Buttons */}
-              <View
-                className={`mb-6 flex-col gap-4 border-b border-border/45 pb-5 ${width >= 1280 ? 'flex-row items-center justify-between' : ''}`}>
-                <View>
-                  <View className="flex-row items-center gap-2">
-                    <Text className="text-2xl font-black tracking-tight text-foreground">
-                      Level {activeSemester.level} Semester {activeSemester.semester}
-                    </Text>
-                    <View className="rounded-full bg-primary/10 px-2.5 py-0.5">
-                      <Text className="text-[10px] font-bold text-primary">Active Session</Text>
+            <ScrollView className="flex-1" contentContainerStyle={{ padding: isMobile ? 16 : 32 }}>
+              <View className="mb-8 flex-col gap-6 border-b border-border/40 pb-8 sm:flex-row sm:items-end sm:justify-between">
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-3">
+                    <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                      <Calendar size={28} className="text-primary" />
+                    </View>
+                    <View>
+                      <View className="flex-row items-center gap-3">
+                        <Text className="text-3xl font-black tracking-tight text-foreground">
+                          Level {activeSemester.level} {activeSemester.semester}
+                        </Text>
+                        <Badge
+                          variant="outline"
+                          className="h-7 rounded-full border-emerald-500/20 bg-emerald-500/10 px-4 py-1">
+                          <Text className="text-xs font-black text-emerald-600">ACTIVE</Text>
+                        </Badge>
+                      </View>
+                      <Text className="mt-1.5 text-sm font-semibold text-muted-foreground">
+                        {formatDateArray(activeSemester.startDate)} —{' '}
+                        {formatDateArray(activeSemester.endDate)}
+                      </Text>
                     </View>
                   </View>
-                  <Text className="mt-1.5 flex-row items-center gap-1 text-xs text-muted-foreground">
-                    <Calendar size={12} className="text-muted-foreground" />
-                    Session Dates:{' '}
-                    {Array.isArray(activeSemester.startDate)
-                      ? activeSemester.startDate.join('/')
-                      : activeSemester.startDate}{' '}
-                    to{' '}
-                    {Array.isArray(activeSemester.endDate)
-                      ? activeSemester.endDate.join('/')
-                      : activeSemester.endDate}
-                  </Text>
                 </View>
-
-                <View className="flex-row flex-wrap gap-2">
+                <View className="flex-row flex-wrap gap-3">
                   <Button
                     variant="outline"
-                    className="h-10 flex-row gap-1.5 rounded-xl border-primary/20 bg-primary/5 px-4 transition-transform active:scale-95"
+                    className="h-11 flex-row gap-2 rounded-[20px] border-primary/20 bg-primary/5 px-5"
                     onPress={() => {
                       setTargetLevel(activeSemester.level);
                       setTargetSemester(activeSemester.semester === 'I' ? 'II' : 'I');
                       if (activeSemester.semester === 'II') {
-                        const nextLevelIdx = LEVELS.indexOf(activeSemester.level) + 1;
-                        if (nextLevelIdx < LEVELS.length) {
-                          setTargetLevel(LEVELS[nextLevelIdx]);
-                        }
+                        const idx = LEVELS.indexOf(activeSemester.level) + 1;
+                        if (idx < LEVELS.length) setTargetLevel(LEVELS[idx]);
                       }
                       setPromotionModalOpen(true);
                     }}>
-                    <ArrowUpCircle size={14} className="text-primary" />
-                    <Text className="text-xs font-bold text-primary">Promote Session</Text>
+                    <ArrowUpCircle size={18} className="text-primary" />
+                    <Text className="text-xs font-black uppercase tracking-wider text-primary">
+                      Promote Session
+                    </Text>
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-10 flex-row gap-1.5 rounded-xl border-border/80 bg-card px-4 transition-transform active:scale-95"
+                    className="h-11 w-11 rounded-[20px] border-border/80 bg-card p-0"
                     onPress={() => handleOpenEditModal(activeSemester)}>
-                    <Pencil size={14} className="text-foreground" />
-                    <Text className="text-xs font-bold text-foreground">Edit Config</Text>
+                    <Pencil size={20} className="text-foreground" />
                   </Button>
                   <Button
                     variant="destructive"
-                    className="h-10 flex-row gap-1.5 rounded-xl px-4 transition-transform active:scale-95"
+                    className="h-11 w-11 rounded-[20px] p-0"
                     onPress={() => handleDeleteSemester(activeSemester.id)}>
-                    <Trash2 size={14} className="text-destructive-foreground" />
-                    <Text className="text-xs font-bold text-destructive-foreground">Delete</Text>
+                    <Trash2 size={20} className="text-destructive-foreground" />
                   </Button>
                 </View>
               </View>
 
-              {/* Stat Cards Row */}
-              <View className="mb-6 flex-col gap-4 sm:flex-row">
-                <Card className="flex-1 flex-row items-center gap-3.5 rounded-3xl border border-border/80 bg-card p-4 shadow-sm">
-                  <View className="h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
-                    <Users size={20} className="text-primary" />
+              <View className="mb-10 flex-col gap-5 sm:flex-row">
+                <Card className="flex-1 flex-row items-center gap-5 rounded-[32px] border-border/60 bg-card p-6 shadow-sm">
+                  <View className="h-14 w-14 items-center justify-center rounded-3xl bg-primary/10">
+                    <Users size={32} className="text-primary" />
                   </View>
                   <View>
-                    <Text className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/80">
                       Enrolled Students
                     </Text>
-                    <Text className="text-lg font-black text-foreground">
-                      {activeSemester.students ? activeSemester.students.length : 0} Enrolled
+                    <Text className="text-3xl font-black text-foreground">
+                      {activeSemester.students?.length || 0}
                     </Text>
                   </View>
                 </Card>
-
-                <Card className="flex-1 flex-row items-center gap-3.5 rounded-3xl border border-border/80 bg-card p-4 shadow-sm">
-                  <View className="h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
-                    <BookOpen size={20} className="text-primary" />
+                <Card className="flex-1 flex-row items-center gap-5 rounded-[32px] border-border/60 bg-card p-6 shadow-sm">
+                  <View className="h-14 w-14 items-center justify-center rounded-3xl bg-indigo-500/10">
+                    <BookOpen size={32} className="text-indigo-600" />
                   </View>
                   <View>
-                    <Text className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/80">
                       Active Courses
                     </Text>
-                    <Text className="text-lg font-black text-foreground">
-                      {activeSemester.courses ? activeSemester.courses.length : 0} Courses
+                    <Text className="text-3xl font-black text-foreground">
+                      {activeSemester.courses?.length || 0}
                     </Text>
                   </View>
                 </Card>
               </View>
 
-              {/* Split Workspace Sections */}
-              <View className={`flex-col gap-6 ${width >= 1280 ? 'flex-row' : ''}`}>
-                {/* Left pane: Active Courses List */}
-                <View className="flex-1 gap-4">
-                  <View className="flex-row items-center gap-2 border-b border-border/40 pb-2">
-                    <BookOpen size={16} className="text-muted-foreground" />
-                    <Text className="text-sm font-extrabold uppercase tracking-wider text-foreground">
-                      Active Courses
+              <View className={`flex-1 ${width >= 1280 ? 'flex-row' : 'flex-col'} gap-10`}>
+                <View className="flex-1 gap-5">
+                  <View className="flex-row items-center gap-3 border-b border-border/30 pb-4">
+                    <View className="h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10">
+                      <BookOpen size={16} className="text-indigo-600" />
+                    </View>
+                    <Text className="text-xs font-black uppercase tracking-[0.2em] text-foreground">
+                      Scheduled Courses
                     </Text>
                   </View>
-
-                  {resolvedCourses.length === 0 ? (
-                    <Card className="items-center justify-center rounded-3xl border border-border/85 bg-card p-6">
-                      <Text className="text-xs italic text-muted-foreground">
-                        No courses scheduled for this session.
-                      </Text>
-                    </Card>
-                  ) : (
-                    resolvedCourses.map(
-                      (rc, idx) =>
-                        rc && (
-                          <Card
-                            key={rc.id}
-                            className="relative flex-row items-center justify-between overflow-hidden rounded-3xl border border-border/80 bg-card p-4 shadow-sm">
-                            {/* Course visual accent line */}
-                            <View className="absolute bottom-0 left-0 top-0 w-1 bg-primary/30" />
-
-                            <View className="flex-1 pl-2 pr-4">
-                              <Text className="text-sm font-extrabold text-foreground">
-                                {rc.course.code}
-                              </Text>
-                              <Text
-                                className="mt-0.5 text-xs font-semibold text-foreground/80"
-                                numberOfLines={1}>
-                                {rc.course.title}
-                              </Text>
-                              <Text className="mt-1.5 text-[10px] text-muted-foreground">
-                                Instructor: {rc.teacher.userName}
-                              </Text>
-                            </View>
-
-                            <View className="flex-none rounded-full border border-border/80 bg-secondary px-3 py-1">
-                              <Text className="text-[10px] font-bold text-foreground">
-                                {rc.course.credits
-                                  ? rc.course.credits.replace('CREDIT_', '').replace('_', '.')
-                                  : '2.00'}{' '}
-                                CR
-                              </Text>
-                            </View>
-                          </Card>
-                        )
-                    )
-                  )}
+                  <View className="gap-4">
+                    {resolvedCourses.length === 0 ? (
+                      <Card className="items-center rounded-[32px] border-dashed border-border/60 bg-transparent p-12">
+                        <Text className="text-sm font-medium italic text-muted-foreground/60">
+                          No courses assigned to this session.
+                        </Text>
+                      </Card>
+                    ) : (
+                      resolvedCourses.map(
+                        (rc) =>
+                          rc && (
+                            <Card
+                              key={rc.id}
+                              className="group relative flex-row items-center justify-between overflow-hidden rounded-[28px] border-border/60 bg-card p-5 shadow-sm">
+                              <View className="absolute bottom-0 left-0 top-0 w-1.5 bg-indigo-500/30" />
+                              <View className="flex-1 pl-3">
+                                <Text className="text-lg font-black leading-tight text-foreground">
+                                  {rc.course.code}
+                                </Text>
+                                <Text
+                                  className="mt-0.5 text-xs font-bold text-muted-foreground"
+                                  numberOfLines={1}>
+                                  {rc.course.title}
+                                </Text>
+                                <View className="mt-3 flex-row items-center gap-2">
+                                  <View className="h-6 w-6 items-center justify-center rounded-full bg-muted/30">
+                                    <Users size={12} className="text-muted-foreground" />
+                                  </View>
+                                  <Text className="text-[11px] font-bold text-muted-foreground">
+                                    Instructor: {rc.teacher.userName}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Badge
+                                variant="secondary"
+                                className="rounded-2xl border-indigo-500/10 bg-indigo-500/5 px-4 py-2">
+                                <Text className="text-[11px] font-black text-indigo-700">
+                                  {(rc.course.credits || '')
+                                    .replace('CREDIT_', '')
+                                    .replace('_', '.') || '3.0'}{' '}
+                                  CR
+                                </Text>
+                              </Badge>
+                            </Card>
+                          )
+                      )
+                    )}
+                  </View>
                 </View>
 
-                {/* Right pane: Student Roster List with search filter */}
-                <View className="flex-1 gap-4">
-                  <View className="flex-col gap-3 border-b border-border/40 pb-3">
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center gap-2">
-                        <GraduationCap size={18} className="text-muted-foreground" />
-                        <Text className="text-sm font-extrabold uppercase tracking-wider text-foreground">
-                          Roster ({resolvedStudents.length})
-                        </Text>
+                <View className="flex-1 gap-5">
+                  <View className="flex-row items-center justify-between border-b border-border/30 pb-4">
+                    <View className="flex-row items-center gap-3">
+                      <View className="h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10">
+                        <GraduationCap size={16} className="text-emerald-600" />
                       </View>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 flex-row gap-1 rounded-xl border-emerald-500/20 bg-emerald-500/10 px-2.5"
-                        onPress={() => handleOpenEditModal(activeSemester)}>
-                        <UserPlus size={12} className="text-emerald-600" />
-                        <Text className="text-[10px] font-bold text-emerald-600">Add Student</Text>
-                      </Button>
-                    </View>
-
-                    {/* Search bar */}
-                    <View className="max-w-[200px] flex-1 flex-row items-center rounded-xl border border-border/70 bg-muted/40 px-2.5 py-1.5">
-                      <Search size={12} className="mr-1.5 text-muted-foreground" />
-                      <Input
-                        placeholder="Search roster..."
-                        value={rosterSearchQuery}
-                        onChangeText={setRosterSearchQuery}
-                        className="h-4 flex-1 border-0 bg-transparent p-0 text-[10px] font-semibold text-foreground"
-                      />
-                    </View>
-                  </View>
-
-                  {resolvedStudents.length === 0 ? (
-                    <Card className="items-center justify-center rounded-3xl border border-border/85 bg-card p-6">
-                      <Text className="text-xs italic text-muted-foreground">
-                        No students matching search.
+                      <Text className="text-xs font-black uppercase tracking-[0.2em] text-foreground">
+                        Student Roster ({resolvedStudents.length})
                       </Text>
-                    </Card>
-                  ) : (
-                    <View className="gap-2">
-                      {resolvedStudents.map((stud) => (
-                        <Card
-                          key={stud.id}
-                          className="relative flex-row items-center justify-between overflow-hidden rounded-2xl border border-border/80 bg-card p-3 shadow-sm">
-                          {/* Student visual accent line */}
-                          <View className="absolute bottom-0 left-0 top-0 w-1 bg-emerald-500/20" />
-
-                          <View className="flex-1 flex-row items-center pl-2">
-                            <View className="flex-1">
-                              <Text className="text-xs font-bold text-foreground">
-                                {stud.userName}
-                              </Text>
-                              <Text className="mt-0.5 text-[10px] text-muted-foreground/80">
-                                ID: {stud.studentId} • {stud.email}
-                              </Text>
-                            </View>
-
-                            <View className="mr-2 rounded-full border border-primary/10 bg-primary/5 px-2.5 py-0.5">
-                              <Text className="text-[9px] font-bold text-primary">
-                                {stud.department
-                                  ? stud.department
-                                      .split('_')
-                                      .map((w) => w[0])
-                                      .join('')
-                                  : 'N/A'}
-                              </Text>
-                            </View>
-
-                            <Pressable
-                              onPress={() => handleRemoveStudentFromSemester(stud.id)}
-                              className="h-8 w-8 items-center justify-center rounded-full bg-destructive/10 active:bg-destructive/20">
-                              <UserMinus size={14} className="text-destructive" />
-                            </Pressable>
-                          </View>
-                        </Card>
-                      ))}
                     </View>
-                  )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-xl border-emerald-500/20 bg-emerald-500/5 px-4"
+                      onPress={() => handleOpenEditModal(activeSemester)}>
+                      <UserPlus size={16} className="mr-2 text-emerald-600" />
+                      <Text className="text-[11px] font-black uppercase text-emerald-600">
+                        Enroll
+                      </Text>
+                    </Button>
+                  </View>
+                  <View className="relative mb-2">
+                    <Search
+                      size={18}
+                      className="absolute left-4 top-3.5 z-10 text-muted-foreground/60"
+                    />
+                    <Input
+                      placeholder="Search roster by name or ID..."
+                      value={rosterSearchQuery}
+                      onChangeText={setRosterSearchQuery}
+                      className="h-12 rounded-2xl border-transparent bg-muted/30 pl-12 pr-5 text-sm font-bold text-foreground"
+                    />
+                  </View>
+                  <View className="gap-3.5">
+                    {resolvedStudents.length === 0 ? (
+                      <Card className="items-center rounded-[32px] border-dashed border-border/60 bg-transparent p-12">
+                        <Text className="text-sm font-medium italic text-muted-foreground/60">
+                          {rosterSearchQuery
+                            ? 'No students match your search.'
+                            : 'No students enrolled in this session.'}
+                        </Text>
+                      </Card>
+                    ) : (
+                      resolvedStudents.map((s) => (
+                        <Card
+                          key={s.id}
+                          className="relative flex-row items-center gap-4 overflow-hidden rounded-[28px] border-border/60 bg-card p-5 shadow-sm">
+                          <View className="absolute bottom-0 left-0 top-0 w-1.5 bg-emerald-500/30" />
+                          <View className="flex-1 pl-3">
+                            <Text className="text-base font-black leading-tight text-foreground">
+                              {s.userName}
+                            </Text>
+                            <View className="mt-1.5 flex-row items-center gap-3">
+                              <Badge className="rounded-lg border-0 bg-muted/40 px-2.5 py-0.5">
+                                <Text className="text-[10px] font-black text-muted-foreground">
+                                  ID: {s.studentId}
+                                </Text>
+                              </Badge>
+                              <Text className="text-xs font-bold text-muted-foreground">
+                                {s.email}
+                              </Text>
+                            </View>
+                          </View>
+                          <Pressable
+                            className="h-11 w-11 items-center justify-center rounded-2xl bg-destructive/10 active:scale-95 active:bg-destructive/20"
+                            onPress={() => handleRemoveStudentFromSemester(s.id)}>
+                            <UserMinus size={20} className="text-destructive" />
+                          </Pressable>
+                        </Card>
+                      ))
+                    )}
+                  </View>
                 </View>
               </View>
             </ScrollView>
           ) : (
-            <View className="min-h-[400px] flex-1 items-center justify-center rounded-3xl border border-dashed border-border bg-card p-8">
-              <GraduationCap size={48} className="mb-3 text-muted-foreground/35" />
-              <Text className="text-center text-lg font-bold text-foreground">
-                No Academic Session Selected
-              </Text>
-              <Text className="mt-1 max-w-[280px] text-center text-xs leading-normal text-muted-foreground">
-                Select a level and semester configuration from the sidebar list on the left to view
-                scheduled courses, student roster list, and session details.
+            <View className="flex-1 items-center justify-center bg-background/50 p-12">
+              <View className="mb-6 h-24 w-24 items-center justify-center rounded-[40px] bg-muted/20">
+                <GraduationCap size={48} className="text-muted-foreground/30" />
+              </View>
+              <Text className="text-xl font-black text-foreground">Select an Academic Session</Text>
+              <Text className="mt-2 max-w-xs text-center text-sm font-medium leading-relaxed text-muted-foreground">
+                Choose a level and semester from the sidebar to manage scheduled courses and student
+                enrollment.
               </Text>
             </View>
           )}
         </View>
       </View>
 
-      {/* Form Modal for Add/Edit Semester */}
       <Modal visible={modalOpen} transparent animationType="slide">
-        <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="max-h-[90%] w-full max-w-md flex-col rounded-3xl border border-border bg-card p-6 shadow-xl md:max-h-[85%] md:max-w-4xl">
-            {/* Header (sticky) */}
-            <View className="mb-4 flex-row items-center justify-between border-b border-border/50 pb-3.5">
-              <Text className="text-lg font-extrabold text-foreground">
-                {editingSemester ? 'Edit Semester Session' : 'Create Semester Session'}
-              </Text>
+        <View className="flex-1 items-center justify-center bg-black/60 p-4">
+          <View className="w-full max-w-5xl overflow-hidden rounded-[40px] border border-border bg-card shadow-2xl">
+            <View className="flex-row items-center justify-between border-b border-border/50 bg-muted/5 p-6">
+              <View>
+                <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">
+                  Semester Management
+                </Text>
+                <Text className="text-2xl font-black text-foreground">
+                  {editingSemester ? 'Edit Academic Session' : 'Create New Session'}
+                </Text>
+              </View>
               <Pressable
-                onPress={() => setModalOpen(false)}
-                className="h-7 w-7 items-center justify-center rounded-full bg-muted/30 active:scale-90">
-                <X size={15} className="text-muted-foreground" />
+                className="h-12 w-12 items-center justify-center rounded-2xl bg-muted/30 active:scale-90"
+                onPress={() => setModalOpen(false)}>
+                <X size={24} className="text-muted-foreground" />
               </Pressable>
             </View>
+            <ScrollView className="max-h-[85vh] p-8">
+              <View className={`flex-col ${width >= 768 ? 'flex-row gap-10' : 'gap-8'}`}>
+                <View className={`gap-6 ${width >= 768 ? 'w-72' : ''}`}>
+                  <View className="rounded-[32px] border border-border/60 bg-muted/10 p-6">
+                    <Text className="mb-5 text-[11px] font-black uppercase tracking-widest text-primary">
+                      Basic Configuration
+                    </Text>
 
-            {/* Scrollable Content */}
-            <ScrollView className="mb-4 flex-1" showsVerticalScrollIndicator={false}>
-              <View className={`flex-col ${width >= 768 ? 'flex-row gap-6' : 'gap-4'}`}>
-                {/* Left Column: Form Settings */}
-                <View className={`gap-4 ${width >= 768 ? 'w-[260px]' : ''}`}>
-                  <View className="flex-row gap-3.5">
-                    <View className="flex-1 gap-1.5">
-                      <Label className="text-xs font-bold text-muted-foreground">Level</Label>
-                      <Dropdown value={level} onValueChange={setLevel} options={LEVELS} />
+                    <View className="mb-5 flex-row gap-4">
+                      <View className="flex-1 gap-2">
+                        <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                          Level
+                        </Label>
+                        <Dropdown value={level} onValueChange={setLevel} options={LEVELS} />
+                      </View>
+                      <View className="flex-1 gap-2">
+                        <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                          Term
+                        </Label>
+                        <Dropdown
+                          value={semester}
+                          onValueChange={setSemester}
+                          options={SEMESTERS}
+                        />
+                      </View>
                     </View>
-                    <View className="flex-1 gap-1.5">
-                      <Label className="text-xs font-bold text-muted-foreground">Semester</Label>
-                      <Dropdown value={semester} onValueChange={setSemester} options={SEMESTERS} />
+
+                    <View className="mb-5 gap-2">
+                      <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                        Start Date
+                      </Label>
+                      <Pressable
+                        onPress={handleOpenStartDatePicker}
+                        className="relative justify-center">
+                        <Input
+                          value={startDateStr}
+                          editable={false}
+                          className="h-12 rounded-2xl border-border bg-background pr-12 text-sm font-bold text-foreground"
+                        />
+                        <Calendar size={18} className="absolute right-4 text-muted-foreground/60" />
+                      </Pressable>
+                    </View>
+
+                    <View className="gap-2">
+                      <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                        End Date
+                      </Label>
+                      <Pressable
+                        onPress={handleOpenEndDatePicker}
+                        className="relative justify-center">
+                        <Input
+                          value={endDateStr}
+                          editable={false}
+                          className="h-12 rounded-2xl border-border bg-background pr-12 text-sm font-bold text-foreground"
+                        />
+                        <Calendar size={18} className="absolute right-4 text-muted-foreground/60" />
+                      </Pressable>
                     </View>
                   </View>
-
-                  <View className="gap-1.5">
-                    <Label className="text-xs font-bold text-muted-foreground">Start Date</Label>
-                    <Pressable
-                      onPress={handleOpenStartDatePicker}
-                      className="relative justify-center">
-                      <Input
-                        placeholder="YYYY-MM-DD"
-                        value={startDateStr}
-                        editable={false}
-                        className="h-11 rounded-xl border-border/80 bg-muted/10 pr-10 text-foreground"
-                      />
-                      <Calendar size={16} className="absolute right-3.5 text-muted-foreground" />
-                    </Pressable>
-                  </View>
-
-                  <View className="gap-1.5">
-                    <Label className="text-xs font-bold text-muted-foreground">End Date</Label>
-                    <Pressable
-                      onPress={handleOpenEndDatePicker}
-                      className="relative justify-center">
-                      <Input
-                        placeholder="YYYY-MM-DD"
-                        value={endDateStr}
-                        editable={false}
-                        className="h-11 rounded-xl border-border/80 bg-muted/10 pr-10 text-foreground"
-                      />
-                      <Calendar size={16} className="absolute right-3.5 text-muted-foreground" />
-                    </Pressable>
-                  </View>
+                  {error ? (
+                    <Text className="rounded-2xl bg-destructive/10 px-2 py-3 text-center text-xs font-black text-destructive">
+                      {error}
+                    </Text>
+                  ) : null}
                 </View>
 
-                {/* Right Column: Selectors */}
-                <View className={`flex-1 gap-4 ${width >= 768 ? 'flex-row' : 'flex-col'}`}>
-                  <View className="flex-1 gap-1.5">
-                    <Label className="text-xs font-bold text-muted-foreground">
-                      Select Enrolled Students
-                    </Label>
+                <View className={`flex-1 gap-8 ${width >= 1024 ? 'flex-row' : 'flex-col'}`}>
+                  <View className="flex-1 gap-3">
+                    <View className="mb-1 flex-row items-center justify-between px-2">
+                      <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                        Student Roster
+                      </Text>
+                      <Badge className="bg-primary/10 px-3 py-1">
+                        <Text className="text-[10px] font-black text-primary">
+                          {selectedStudentIds.length} Selected
+                        </Text>
+                      </Badge>
+                    </View>
                     <StudentSelector
                       students={students}
                       selectedIds={selectedStudentIds}
-                      onToggle={toggleStudentSelection}
-                      maxHeight={width >= 768 ? 240 : 160}
+                      onToggle={setSelectedStudentIds}
+                      maxHeight={width >= 768 ? 320 : 200}
                     />
                   </View>
-
-                  <View className="flex-1 gap-1.5">
-                    <Label className="text-xs font-bold text-muted-foreground">
-                      Select Semester Courses
-                    </Label>
+                  <View className="flex-1 gap-3">
+                    <View className="mb-1 flex-row items-center justify-between px-2">
+                      <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                        Assigned Courses
+                      </Text>
+                      <Badge className="bg-indigo-500/10 px-3 py-1">
+                        <Text className="text-[10px] font-black text-indigo-600">
+                          {selectedCourseInfoIds.length} Selected
+                        </Text>
+                      </Badge>
+                    </View>
                     <CourseSelector
                       courseInfos={courseInfos}
                       selectedIds={selectedCourseInfoIds}
-                      onToggle={toggleCourseSelection}
-                      maxHeight={width >= 768 ? 240 : 160}
+                      onToggle={setSelectedCourseInfoIds}
+                      maxHeight={width >= 768 ? 320 : 200}
                     />
                   </View>
                 </View>
               </View>
             </ScrollView>
-
-            {/* Footer (sticky) */}
-            <View className="border-t border-border/50 pt-4">
+            <View className="flex-row gap-4 border-t border-border/50 bg-muted/5 p-6">
               <Button
-                className="h-11 w-full rounded-xl transition-transform active:scale-95"
+                variant="outline"
+                className="h-14 flex-1 rounded-[24px] active:scale-95"
+                onPress={() => setModalOpen(false)}>
+                <Text className="text-sm font-black uppercase tracking-[0.15em] text-foreground">
+                  Cancel
+                </Text>
+              </Button>
+              <Button
+                className="h-14 flex-[2] rounded-[24px] shadow-xl shadow-primary/20 transition-transform active:scale-95"
                 onPress={handleSaveSemester}
                 disabled={submitting}>
-                <Text className="text-sm font-bold text-primary-foreground">
-                  {submitting ? 'Saving...' : editingSemester ? 'Save Changes' : 'Create Semester'}
+                <Text className="text-sm font-black uppercase tracking-[0.15em] text-primary-foreground">
+                  {submitting
+                    ? 'Processing...'
+                    : editingSemester
+                      ? 'Update Academic Session'
+                      : 'Save New Session'}
                 </Text>
               </Button>
             </View>
@@ -842,55 +744,58 @@ export default function SemestersScreen() {
         </View>
       </Modal>
 
-      {/* Promotion Modal */}
       <Modal visible={promotionModalOpen} transparent animationType="fade">
-        <View className="flex-1 items-center justify-center bg-black/50 p-6">
-          <View className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-xl">
-            <View className="mb-6 items-center">
-              <View className="mb-4 h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                <ArrowUpCircle size={32} className="text-primary" />
+        <View className="flex-1 items-center justify-center bg-black/70 p-6">
+          <View className="w-full max-w-md rounded-[40px] border border-border bg-card p-10 shadow-2xl">
+            <View className="mb-8 items-center">
+              <View className="mb-6 h-20 w-20 items-center justify-center rounded-[32px] bg-primary/10 shadow-sm shadow-primary/10">
+                <ArrowUpCircle size={40} className="text-primary" />
               </View>
-              <Text className="text-center text-lg font-black text-foreground">
-                Promote Session
+              <Text className="text-center text-2xl font-black text-foreground">
+                Batch Promotion
               </Text>
-              <Text className="mt-2 text-center text-xs leading-relaxed text-muted-foreground">
-                This will create a new academic session with the current roster. You can then assign
-                new courses to this session.
+              <Text className="mt-3 px-4 text-center text-sm font-semibold leading-relaxed text-muted-foreground">
+                Create a new academic session for the current roster. This will move all selected
+                students to the target level.
               </Text>
             </View>
-
-            <View className="mb-6 gap-4">
-              <View className="gap-1.5">
-                <Label className="text-xs font-bold text-muted-foreground">Target Level</Label>
+            <View className="mb-10 gap-6 rounded-[32px] border border-border/50 bg-muted/10 p-6">
+              <View className="gap-2">
+                <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                  Target Level
+                </Label>
                 <Dropdown
                   value={targetLevel}
-                  onValueChange={(val: any) => setTargetLevel(val)}
+                  onValueChange={(v: any) => setTargetLevel(v)}
                   options={LEVELS}
                 />
               </View>
-              <View className="gap-1.5">
-                <Label className="text-xs font-bold text-muted-foreground">Target Semester</Label>
+              <View className="gap-2">
+                <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                  Target Term
+                </Label>
                 <Dropdown
                   value={targetSemester}
-                  onValueChange={(val: any) => setTargetSemester(val)}
+                  onValueChange={(v: any) => setTargetSemester(v)}
                   options={SEMESTERS}
                 />
               </View>
             </View>
-
-            <View className="flex-row gap-3">
+            <View className="flex-row gap-4">
               <Button
                 variant="outline"
-                className="h-11 flex-1 rounded-xl"
+                className="h-12 flex-1 rounded-2xl active:scale-95"
                 onPress={() => setPromotionModalOpen(false)}>
-                <Text className="text-sm font-bold text-foreground">Cancel</Text>
+                <Text className="text-sm font-black uppercase tracking-widest text-foreground">
+                  Cancel
+                </Text>
               </Button>
               <Button
-                className="h-11 flex-1 rounded-xl transition-transform active:scale-95"
+                className="h-12 flex-1 rounded-2xl shadow-lg shadow-primary/20 transition-transform active:scale-95"
                 onPress={handlePromoteSession}
                 disabled={submitting}>
-                <Text className="text-sm font-bold text-primary-foreground">
-                  {submitting ? 'Processing...' : 'Promote Now'}
+                <Text className="text-sm font-black uppercase tracking-widest text-primary-foreground">
+                  Confirm
                 </Text>
               </Button>
             </View>
@@ -898,30 +803,29 @@ export default function SemestersScreen() {
         </View>
       </Modal>
 
-      {/* Date Picker Modal */}
       <Modal visible={datePickerOpen} transparent animationType="fade">
         <Pressable
-          className="flex-1 items-center justify-center bg-black/50 p-6"
+          className="flex-1 items-center justify-center bg-black/60 p-6"
           onPress={() => setDatePickerOpen(false)}>
           <View
-            className="w-full max-w-sm rounded-3xl border border-border bg-card p-5 shadow-2xl"
+            className="w-full max-w-sm rounded-[40px] border border-border bg-card p-8 shadow-2xl"
             onStartShouldSetResponder={() => true}
             onTouchEnd={(e) => e.stopPropagation()}>
-            <View className="mb-4 flex-row items-center justify-between border-b border-border/40 pb-3">
-              <Text className="text-sm font-black uppercase tracking-wide text-foreground">
+            <View className="mb-6 flex-row items-center justify-between border-b border-border/40 pb-4">
+              <Text className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
                 Select {pickerTarget === 'start' ? 'Start' : 'End'} Date
               </Text>
               <Pressable
-                onPress={() => setDatePickerOpen(false)}
-                className="h-6 w-6 items-center justify-center rounded-full bg-muted/30">
-                <X size={12} className="text-muted-foreground" />
+                className="h-8 w-8 items-center justify-center rounded-xl bg-muted/40"
+                onPress={() => setDatePickerOpen(false)}>
+                <X size={16} className="text-muted-foreground" />
               </Pressable>
             </View>
 
-            <View className="mb-3.5 flex-row items-center justify-between px-1">
-              <Text className="text-sm font-extrabold text-foreground">
-                {(() => {
-                  const monthNames = [
+            <View className="mb-6 flex-row items-center justify-between px-2">
+              <Text className="text-lg font-black text-foreground">
+                {
+                  [
                     'January',
                     'February',
                     'March',
@@ -934,111 +838,76 @@ export default function SemestersScreen() {
                     'October',
                     'November',
                     'December',
-                  ];
-                  return monthNames[pickerMonth];
-                })()}{' '}
+                  ][pickerMonth]
+                }{' '}
                 {pickerYear}
               </Text>
               <View className="flex-row gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 rounded-lg border-border/80 bg-muted/20 px-2.5"
+                  className="h-9 w-9 rounded-xl border-border/60 bg-muted/20 p-0"
                   onPress={() => {
                     if (pickerMonth === 0) {
                       setPickerMonth(11);
-                      setPickerYear((prev) => prev - 1);
-                    } else {
-                      setPickerMonth((prev) => prev - 1);
-                    }
+                      setPickerYear((y) => y - 1);
+                    } else setPickerMonth((m) => m - 1);
                   }}>
-                  <Text className="text-xs font-bold text-foreground">←</Text>
+                  <Text className="text-lg font-bold text-foreground">←</Text>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 rounded-lg border-border/80 bg-muted/20 px-2.5"
+                  className="h-9 w-9 rounded-xl border-border/60 bg-muted/20 p-0"
                   onPress={() => {
                     if (pickerMonth === 11) {
                       setPickerMonth(0);
-                      setPickerYear((prev) => prev + 1);
-                    } else {
-                      setPickerMonth((prev) => prev + 1);
-                    }
+                      setPickerYear((y) => y + 1);
+                    } else setPickerMonth((m) => m + 1);
                   }}>
-                  <Text className="text-xs font-bold text-foreground">→</Text>
+                  <Text className="text-lg font-bold text-foreground">→</Text>
                 </Button>
               </View>
             </View>
 
-            <View className="mb-2 flex-row border-b border-border/40 pb-1.5">
+            <View className="mb-3 flex-row border-b border-border/30 pb-2">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
                 <View key={d} className="flex-1 items-center">
-                  <Text className="text-[9px] font-bold uppercase text-muted-foreground">{d}</Text>
+                  <Text className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                    {d[0]}
+                  </Text>
                 </View>
               ))}
             </View>
 
             <View className="flex-row flex-wrap">
               {(() => {
-                const totalDays = new Date(pickerYear, pickerMonth + 1, 0).getDate();
-                const firstDayIndex = new Date(pickerYear, pickerMonth, 1).getDay();
-
-                const calendarCells = [];
-                for (let i = 0; i < firstDayIndex; i++) {
-                  calendarCells.push({ key: `empty-${i}`, day: null });
-                }
-                for (let day = 1; day <= totalDays; day++) {
-                  calendarCells.push({ key: `day-${day}`, day });
-                }
-
-                return calendarCells.map((cell) => {
-                  const isEmpty = cell.day === null;
-                  const isSelected =
-                    !isEmpty &&
-                    (() => {
-                      const currentStr = pickerTarget === 'start' ? startDateStr : endDateStr;
-                      const monthStr = (pickerMonth + 1).toString().padStart(2, '0');
-                      const dayStr = cell.day!.toString().padStart(2, '0');
-                      return currentStr === `${pickerYear}-${monthStr}-${dayStr}`;
-                    })();
-
-                  return (
+                const total = new Date(pickerYear, pickerMonth + 1, 0).getDate();
+                const startIdx = new Date(pickerYear, pickerMonth, 1).getDay();
+                const cells = [];
+                for (let i = 0; i < startIdx; i++)
+                  cells.push(<View key={`e-${i}`} style={{ width: '14.28%' }} />);
+                for (let d = 1; d <= total; d++) {
+                  const curr = `${pickerYear}-${(pickerMonth + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+                  const isSel = (pickerTarget === 'start' ? startDateStr : endDateStr) === curr;
+                  cells.push(
                     <Pressable
-                      key={cell.key}
-                      disabled={isEmpty}
+                      key={d}
+                      style={{ width: '14.28%' }}
+                      className={`h-11 items-center justify-center rounded-2xl ${isSel ? 'bg-primary shadow-md shadow-primary/20' : 'hover:bg-muted/30'}`}
                       onPress={() => {
-                        if (cell.day) {
-                          const monthStr = (pickerMonth + 1).toString().padStart(2, '0');
-                          const dayStr = cell.day.toString().padStart(2, '0');
-                          const dateString = `${pickerYear}-${monthStr}-${dayStr}`;
-                          if (pickerTarget === 'start') {
-                            setStartDateStr(dateString);
-                          } else {
-                            setEndDateStr(dateString);
-                          }
-                          setDatePickerOpen(false);
-                        }
-                      }}
-                      style={{ width: `${100 / 7}%` }}
-                      className={`min-h-[36px] items-center justify-center rounded-lg border p-1.5 ${
-                        isEmpty ? 'border-transparent opacity-0' : 'active:scale-95'
-                      } ${
-                        isSelected
-                          ? 'border-primary bg-primary'
-                          : 'border-transparent hover:bg-muted/30'
-                      }`}>
-                      {!isEmpty && (
-                        <Text
-                          className={`text-xs font-semibold ${
-                            isSelected ? 'font-black text-primary-foreground' : 'text-foreground'
-                          }`}>
-                          {cell.day}
-                        </Text>
-                      )}
+                        if (pickerTarget === 'start') setStartDateStr(curr);
+                        else setEndDateStr(curr);
+                        setDatePickerOpen(false);
+                      }}>
+                      <Text
+                        className={`text-sm font-black ${isSel ? 'text-primary-foreground' : 'text-foreground'}`}>
+                        {d}
+                      </Text>
                     </Pressable>
                   );
-                });
+                }
+                return cells;
               })()}
             </View>
           </View>

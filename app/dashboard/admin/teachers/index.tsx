@@ -49,6 +49,7 @@ export default function TeachersScreen() {
 
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
 
   // Dynamic configuration states
   const [facultyMap, setFacultyMap] = useState<Record<string, string>>({});
@@ -156,6 +157,7 @@ export default function TeachersScreen() {
     setEditingTeacher(null);
     setUserName('');
     setEmail('');
+    setEmployeeId('');
     setFaculty(facultyOptions[0] || '');
     setDepartment(deptOptions[0] || '');
     setPassword('');
@@ -167,6 +169,7 @@ export default function TeachersScreen() {
     setEditingTeacher(teacher);
     setUserName(teacher.userName);
     setEmail(teacher.email);
+    setEmployeeId(teacher.employeeId || '');
     setFaculty(revFacultyMap[teacher.faculty] || teacher.faculty);
     setDepartment(revDeptMap[teacher.department] || teacher.department);
     setPassword('');
@@ -183,9 +186,16 @@ export default function TeachersScreen() {
     setError('');
     try {
       let res;
+      const nameParts = userName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || '';
+
       const body = {
-        userName,
+        username: email,
         email,
+        first_name: firstName,
+        last_name: lastName,
+        employee_id: employeeId || undefined,
         faculty: facultyMap[faculty] || faculty,
         department: deptMap[department] || department,
         password: password || undefined,
@@ -256,7 +266,7 @@ export default function TeachersScreen() {
             variant="default"
             className="h-11 flex-row gap-2 rounded-xl px-4"
             onPress={handleOpenAddModal}>
-            <Plus size={16} />
+            <Plus size={16} className="text-background" />
             <Text className="font-semibold">Add Teacher</Text>
           </Button>
         </View>
@@ -348,6 +358,16 @@ export default function TeachersScreen() {
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   keyboardType="email-address"
+                />
+              </View>
+
+              <View className="mb-2 gap-1.5">
+                <Label htmlFor="employeeId">Employee ID</Label>
+                <Input
+                  id="employeeId"
+                  placeholder="e.g. EMP-101"
+                  value={employeeId}
+                  onChangeText={setEmployeeId}
                 />
               </View>
 

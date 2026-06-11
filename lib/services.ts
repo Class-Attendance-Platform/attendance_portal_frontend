@@ -30,6 +30,23 @@ export const adminService = {
   updateSemester: (id: string, body: any) => api.put(`/api/admin/semesters/${id}/`, body),
   deleteSemester: (id: string) => api.delete(`/api/admin/semesters/${id}/`),
 
+  // Classrooms
+  getClassrooms: () => api.get('/api/admin/classrooms/'),
+  createClassroom: (body: any) => api.post('/api/admin/classrooms/', body),
+  updateClassroom: (id: string, body: any) => api.put(`/api/admin/classrooms/${id}/`, body),
+  deleteClassroom: (id: string) => api.delete(`/api/admin/classrooms/${id}/`),
+  getClassroomStudents: (id: string) => api.get(`/api/admin/classrooms/${id}/students/`),
+  addClassroomStudents: (id: string, studentIds: string[]) =>
+    api.post(`/api/admin/classrooms/${id}/students/`, { student_ids: studentIds }),
+  removeClassroomStudents: (id: string, studentIds: string[]) =>
+    api.delete(`/api/admin/classrooms/${id}/students/`, { data: { student_ids: studentIds } }),
+
+  // CourseInfo
+  getCourseInfos: () => api.get('/api/admin/course-info/'),
+  createCourseInfo: (body: any) => api.post('/api/admin/course-info/', body),
+  updateCourseInfo: (id: string, body: any) => api.put(`/api/admin/course-info/${id}/`, body),
+  deleteCourseInfo: (id: string) => api.delete(`/api/admin/course-info/${id}/`),
+
   // Students
   getStudents: () => api.get('/api/admin/students/'),
   createStudent: (body: any) => api.post('/api/admin/students/', body),
