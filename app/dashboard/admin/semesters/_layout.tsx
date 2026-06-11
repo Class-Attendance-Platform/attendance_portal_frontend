@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 export default function RootLayout() {
     return (
-        <View className="w-screen h-screen">
+        <View className="flex-1">
             <Slot />
         </View>
     );
