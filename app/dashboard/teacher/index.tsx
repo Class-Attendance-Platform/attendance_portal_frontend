@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as ExpoLinking from 'expo-linking';
 import { useAuth } from '@/hooks/AuthContext';
 import { teacherService, sessionService, reportService } from '@/lib/services';
-import { API_BASE } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
-import { BookOpen, Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search } from 'lucide-react-native';
+import { Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search } from 'lucide-react-native';
 import TopPanel from '@/components/custom/toppanel';
 
 import { StudentRow } from '@/types/student';
@@ -42,6 +42,7 @@ export default function TeacherDashboard() {
   const [sessionSubmissions, setSessionSubmissions] = useState<Array<{ studentId: number; userName: string }>>([]);
   const [sessionRunning, setSessionRunning] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionToken, setActiveSessionToken] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -75,10 +76,12 @@ export default function TeacherDashboard() {
         const ci: CourseInfo = res.courseInfo;
         const total = ci.attendance.totalClasses;
         ci.students = (ci.students || []).map(s => {
-          const count = ci.attendance.attendanceMap[s.studentId] || 0;
+          const studentId = s.studentId ?? s.student_id ?? 0;
+          const count = ci.attendance.attendanceMap[studentId] || 0;
           const pct = total > 0 ? (count / total) * 100 : 0;
           return {
             ...s,
+            studentId,
             attendanceCount: count,
             percentage: parseFloat(pct.toFixed(2))
           };
@@ -158,6 +161,28 @@ export default function TeacherDashboard() {
       ]
     );
   };
+
+  const getSessionSecondsLeft = (session: any, fallbackSeconds = 300) => {
+    const rawTimeLeft = Number(session?.timeLeft ?? session?.time_left);
+    if (Number.isFinite(rawTimeLeft) && rawTimeLeft > 0) {
+      return Math.ceil(rawTimeLeft > 10000 ? rawTimeLeft / 1000 : rawTimeLeft);
+    }
+
+    const rawEndTime = session?.endTime ?? session?.end_time;
+    if (rawEndTime) {
+      const endTime = typeof rawEndTime === 'number'
+        ? rawEndTime
+        : new Date(rawEndTime).getTime();
+      const normalizedEndTime = endTime < 10000000000 ? endTime * 1000 : endTime;
+      const secondsLeft = Math.ceil((normalizedEndTime - Date.now()) / 1000);
+      if (Number.isFinite(secondsLeft) && secondsLeft > 0) {
+        return secondsLeft;
+      }
+    }
+
+    return fallbackSeconds;
+  };
+
   const startAttendanceSession = async () => {
     if (!activeCourseId) return;
     setError('');
@@ -165,13 +190,15 @@ export default function TeacherDashboard() {
       const durationMs = 300000;
       const res = await sessionService.startSession(activeCourseId, durationMs / 1000);
       if (res.success && res.session) {
-        setActiveSessionId(res.session.id);
-        const secondsLeft = Math.ceil(res.session.timeLeft / 1000);
+        const sessionId = res.session.id || res.session.sessionId || res.session.session_id || activeCourseId;
+        setActiveSessionId(sessionId);
+        setActiveSessionToken(res.session.qr_token || res.session.qrToken || null);
+        const secondsLeft = getSessionSecondsLeft(res.session, durationMs / 1000);
         setSessionTimeLeft(secondsLeft);
         setSessionModalOpen(true);
         setSessionRunning(true);
         setSessionSubmissions([]);
-        startSessionTimers(secondsLeft, res.session.id);
+        startSessionTimers(secondsLeft, sessionId);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to start attendance session.');
@@ -182,9 +209,7 @@ export default function TeacherDashboard() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
 
-    let secs = initSeconds;
     timerRef.current = setInterval(() => {
-      secs--;
       setSessionTimeLeft(prev => {
         if (prev <= 1) {
           stopSessionTimers();
@@ -212,7 +237,10 @@ export default function TeacherDashboard() {
       const res = await sessionService.getSessionStatus(sId);
       if (res.success) {
         if (res.active) {
-          setSessionSubmissions(res.session.submissions || []);
+          setSessionSubmissions((res.session.submissions || []).map((submission: any) => ({
+            studentId: submission.studentId ?? submission.student_id,
+            userName: submission.userName ?? submission.name,
+          })));
         } else {
           stopSessionTimers();
           setSessionRunning(false);
@@ -239,27 +267,49 @@ export default function TeacherDashboard() {
     stopSessionTimers();
     setSessionRunning(false);
     finalizeSessionOnServer(activeSessionId);
+    setActiveSessionToken(null);
     setSessionModalOpen(false);
   };
 
-  const handleExport = (format: 'pdf' | 'xlsx' | 'csv') => {
+  useEffect(() => {
+    return () => stopSessionTimers();
+  }, []);
+
+  const downloadReport = async (format: 'pdf' | 'xlsx' | 'csv', date?: string | null) => {
     if (!activeCourseId) return;
-    const url = reportService.getExportUrl(activeCourseId, format);
-    if (Platform.OS === 'web') {
-      window.open(url, '_blank');
-    } else {
-      Linking.openURL(url);
+    setError('');
+
+    if (Platform.OS !== 'web') {
+      Linking.openURL(reportService.getExportUrl(activeCourseId, format, date));
+      return;
+    }
+
+    try {
+      const response = await reportService.downloadExport(activeCourseId, format, date);
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition') || '';
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+      const filename = filenameMatch?.[1] || `${courseInfo?.course.code || 'course'}-${date || 'summary'}.${format}`;
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err: any) {
+      setError(err.message || 'Failed to export course data.');
     }
   };
 
+  const handleExport = (format: 'pdf' | 'xlsx' | 'csv') => {
+    downloadReport(format);
+  };
+
   const handleExportDate = (format: 'pdf' | 'xlsx' | 'csv') => {
-    if (!activeCourseId || !selectedHistoryDate) return;
-    const url = reportService.getExportUrl(activeCourseId, format, selectedHistoryDate);
-    if (Platform.OS === 'web') {
-      window.open(url, '_blank');
-    } else {
-      Linking.openURL(url);
-    }
+    if (!selectedHistoryDate) return;
+    downloadReport(format, selectedHistoryDate);
   };
 
   const formatTime = (seconds: number) => {
@@ -268,7 +318,15 @@ export default function TeacherDashboard() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const submissionUrl = `${API_BASE}/attendance/submit?courseInfoId=${activeCourseId}`;
+  const submissionParams = new URLSearchParams();
+  if (activeCourseId) submissionParams.set('courseInfoId', activeCourseId);
+  if (activeSessionId) submissionParams.set('sessionId', activeSessionId);
+  if (activeSessionToken) submissionParams.set('qrToken', activeSessionToken);
+  const submissionPath = `/attendance/submit?${submissionParams.toString()}`;
+  const submissionUrl =
+    Platform.OS === 'web' && typeof window !== 'undefined'
+      ? `${window.location.origin}${submissionPath}`
+      : ExpoLinking.createURL(submissionPath.replace(/^\//, ''));
 
   // Custom Month Calendar Rendering
   const renderCalendar = () => {
@@ -406,7 +464,8 @@ export default function TeacherDashboard() {
   // Filter students based on search query
   const filteredStudents = courseInfo?.students.filter(student => {
     const query = searchQuery.toLowerCase();
-    return student.userName.toLowerCase().includes(query) || student.studentId.toString().includes(query) || student.email.toLowerCase().includes(query);
+    const studentId = student.studentId?.toString() || '';
+    return student.userName.toLowerCase().includes(query) || studentId.includes(query) || student.email.toLowerCase().includes(query);
   }) || [];
 
   // Overall statistics for the summary view
@@ -514,10 +573,9 @@ export default function TeacherDashboard() {
                 </View>
               </View>
 
-              {/* Core Attendance Scanner Tools (QR Code & ESP32 Device Info) */}
-              <View className="flex-col gap-4 md:flex-row mt-6">
-                {/* Tool 1: QR Code Scanner */}
-                <Card className="flex-1 rounded-3xl shadow-sm border border-border bg-card p-5">
+              {/* Core Attendance Scanner Tool */}
+              <View className="mt-6">
+                <Card className="rounded-3xl shadow-sm border border-border bg-card p-5">
                   <View className="flex-row items-center gap-3 mb-2">
                     <View className="p-2.5 rounded-2xl bg-primary/10">
                       <QrCode size={20} className="text-primary" />
@@ -537,42 +595,6 @@ export default function TeacherDashboard() {
                     className="rounded-xl self-start px-5 shadow-sm"
                   >
                     <Text className="font-semibold text-primary-foreground text-xs">Start QR Session</Text>
-                  </Button>
-                </Card>
-
-                {/* Tool 2: ESP32 Hardware IoT Device integration */}
-                <Card className="flex-1 rounded-3xl shadow-sm border border-border bg-card p-5">
-                  <View className="flex-row items-center gap-3 mb-2">
-                    <View className="p-2.5 rounded-2xl bg-emerald-500/10">
-                      <BookOpen size={20} className="text-emerald-600" />
-                    </View>
-                    <View className="flex-1">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-sm font-bold text-foreground">ESP32 IoT Sync</Text>
-                        <View className="bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex-row items-center gap-1">
-                          <View className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <Text className="text-[8px] font-extrabold text-emerald-600 uppercase">Active</Text>
-                        </View>
-                      </View>
-                      <Text className="text-[10px] text-muted-foreground uppercase font-semibold">RFID Device Integration</Text>
-                    </View>
-                  </View>
-                  <Text className="text-xs text-muted-foreground leading-normal mb-4">
-                    Students scan their RFID ID cards on the esp32 receiver node. The hardware connects over Wi-Fi to sync scans with active sessions.
-                  </Text>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onPress={() => {
-                      Alert.alert(
-                        'ESP32 IoT Syncer Specs',
-                        `ESP32 Hardware RFID receiver is active and listening.\n\nLocal Endpoint:\nPOST /api/esp32/attendance\n\nEnsure card scanned logs contain studentId and courseInfoId in POST request bodies.`,
-                        [{ text: 'Close' }]
-                      );
-                    }}
-                    className="rounded-xl self-start px-5 bg-muted/20 border-border/80"
-                  >
-                    <Text className="font-semibold text-foreground text-xs">View API Docs</Text>
                   </Button>
                 </Card>
               </View>
@@ -778,10 +800,11 @@ export default function TeacherDashboard() {
                           </View>
 
                           {filteredStudents.map((s) => {
-                            const isPresent = activeSessionDetails.presentStudents?.includes(s.studentId);
+                            const studentId = s.studentId ?? s.student_id;
+                            const isPresent = studentId ? activeSessionDetails.presentStudents?.includes(studentId) : false;
                             return (
                               <View key={s.id} className="flex-row items-center px-3.5 py-1.5 border-b border-border/40 last:border-0">
-                                <Text className="w-20 text-xs font-bold text-foreground">{s.studentId}</Text>
+                                <Text className="w-20 text-xs font-bold text-foreground">{studentId || '-'}</Text>
                                 <Text className="flex-1 text-xs font-semibold text-foreground" numberOfLines={1}>{s.userName}</Text>
                                 <View className="w-16 items-center">
                                   <View className={`rounded-full px-2 py-0.5 ${isPresent ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
@@ -792,7 +815,8 @@ export default function TeacherDashboard() {
                                 </View>
                                 <View className="w-16 items-center">
                                   <Pressable
-                                    onPress={() => handleTogglePresenceOnDate(s.studentId)}
+                                    disabled={!studentId}
+                                    onPress={() => studentId && handleTogglePresenceOnDate(studentId)}
                                     className="active:scale-90"
                                   >
                                     {isPresent ? (

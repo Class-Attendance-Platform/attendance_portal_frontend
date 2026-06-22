@@ -13,7 +13,8 @@ export interface Student extends BaseUser {
 export interface StudentRow {
   id: string;
   userName: string;
-  studentId: number;
+  studentId?: number;
+  student_id?: number;
   email: string;
   currentLevel: Level;
   currentSemester: SemesterName;

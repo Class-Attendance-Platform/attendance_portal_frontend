@@ -1,4 +1,4 @@
-import { api, API_BASE } from './api';
+import { api, API_BASE, getAccessToken } from './api';
 
 // ── Auth Service ─────────────────────────────────────────────────────────────
 export const authService = {
@@ -97,6 +97,38 @@ export const sessionService = {
 
   getCourseHistory: (courseInfoId: string) =>
     api.get(`/api/sessions/course-info/${courseInfoId}/history/`),
+
+  submitAttendance: async (
+    sessionId: string,
+    studentId: number,
+    qrToken: string,
+    macAddress: string
+  ) => {
+    const accessToken = getAccessToken();
+    const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/checkin/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({
+        student_id: studentId,
+        mac_address: macAddress,
+        qr_token: qrToken,
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message = data?.message || data?.detail || 'Attendance submission failed.';
+      if (response.status === 409 && message.toLowerCase().includes('already submitted')) {
+        return { success: true, message };
+      }
+      throw new Error(message);
+    }
+
+    return data || { success: true };
+  },
 };
 
 // ── Report Service ───────────────────────────────────────────────────────────
@@ -107,5 +139,19 @@ export const reportService = {
       url += `&date=${date}`;
     }
     return url;
+  },
+
+  downloadExport: async (courseInfoId: string, format: string, date?: string | null) => {
+    const accessToken = getAccessToken();
+    const response = await fetch(reportService.getExportUrl(courseInfoId, format, date), {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
+
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      throw new Error(message || `Failed to export ${format.toUpperCase()} report.`);
+    }
+
+    return response;
   },
 };

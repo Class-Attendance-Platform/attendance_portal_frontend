@@ -27,6 +27,8 @@ export const setTokens = (access: string | null, refresh: string | null) => {
   refreshToken = refresh;
 };
 
+export const getAccessToken = () => accessToken;
+
 // Create Axios Instance
 const axiosInstance = axios.create({
   baseURL: API_BASE,
