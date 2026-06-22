@@ -1,35 +1,34 @@
 import * as React from 'react';
 import { useState, useMemo } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
-import { Search, Check, BookOpen } from 'lucide-react-native';
+import { Search, Check } from 'lucide-react-native';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { CourseInfo } from '@/types/course';
+import { Course } from '@/types/course';
 
 interface CourseSelectorProps {
-  courseInfos: CourseInfo[];
+  courses: Course[];
   selectedIds: string[];
   onToggle: (id: string) => void;
   maxHeight?: number;
 }
 
 export function CourseSelector({
-  courseInfos,
+  courses,
   selectedIds,
   onToggle,
   maxHeight = 128,
 }: CourseSelectorProps) {
   const [search, setSearch] = useState('');
   const filteredCourses = useMemo(() => {
-    return courseInfos.filter((ci) => {
-      const code = ci.course?.code?.toLowerCase() || '';
-      const title = ci.course?.title?.toLowerCase() || '';
-      const teacherName = ci.teacher?.userName?.toLowerCase() || '';
+    return courses.filter((c) => {
+      const code = c.code?.toLowerCase() || '';
+      const title = c.title?.toLowerCase() || '';
       const s = search.toLowerCase();
 
-      return code.includes(s) || title.includes(s) || teacherName.includes(s);
+      return code.includes(s) || title.includes(s);
     });
-  }, [courseInfos, search]);
+  }, [courses, search]);
 
   return (
     <View className="gap-2">
@@ -50,24 +49,24 @@ export function CourseSelector({
               No courses found
             </Text>
           ) : (
-            filteredCourses.map((ci) => {
-              const isSelected = selectedIds.includes(ci.id);
+            filteredCourses.map((c) => {
+              const isSelected = selectedIds.includes(c.id);
               return (
                 <Pressable
-                  key={ci.id}
-                  onPress={() => onToggle(ci.id)}
+                  key={c.id}
+                  onPress={() => onToggle(c.id)}
                   className={`mb-1.5 flex-row items-center justify-between rounded-xl border p-2.5 ${
                     isSelected ? 'border-primary/25 bg-primary/10' : 'border-transparent bg-card'
                   }`}>
                   <View className="flex-1 pr-2">
-                    <Text className="text-xs font-bold text-foreground">{ci.course.code}</Text>
+                    <Text className="text-xs font-bold text-foreground">{c.code}</Text>
                     <Text
                       className="line-clamp-1 text-[10px] text-muted-foreground"
                       numberOfLines={1}>
-                      {ci.course.title}
+                      {c.title}
                     </Text>
                     <Text className="mt-0.5 text-[10px] font-semibold text-primary/80">
-                      {ci.teacher?.userName || 'No teacher assigned'}
+                      {c.credits ? c.credits.replace('CREDIT_', '').replace('_', '.') + ' Credits' : ''}
                     </Text>
                   </View>
                   {isSelected && (

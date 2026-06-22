@@ -34,7 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { adminService } from '@/lib/services';
 import { Semester } from '@/types/semester';
 import { Student } from '@/types/student';
-import { CourseInfo } from '@/types/course';
+import { CourseInfo, Course } from '@/types/course';
 import {
   LEVELS,
   SEMESTERS,
@@ -66,6 +66,7 @@ export default function SemestersScreen() {
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [courseInfos, setCourseInfos] = useState<CourseInfo[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -136,10 +137,11 @@ export default function SemestersScreen() {
     setLoading(true);
     setError('');
     try {
-      const [semRes, studRes, ciRes] = await Promise.all([
+      const [semRes, studRes, ciRes, cRes] = await Promise.all([
         adminService.getSemesters(),
         adminService.getStudents(),
         adminService.getCourseInfos(),
+        adminService.getCourses(),
       ]);
 
       if (semRes.success) {
@@ -155,6 +157,7 @@ export default function SemestersScreen() {
       }
       if (studRes.success) setStudents(studRes.students || []);
       if (ciRes.success) setCourseInfos(ciRes.course_infos || []);
+      if (cRes.success) setCourses(cRes.courses || []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch data.');
     } finally {
@@ -213,7 +216,10 @@ export default function SemestersScreen() {
     setStartDateStr(formatDateArray(sem.startDate));
     setEndDateStr(formatDateArray(sem.endDate));
     setSelectedStudentIds(sem.students || []);
-    setSelectedCourseInfoIds(sem.courses || []);
+    const courseIds = (sem.courses || [])
+      .map((ciId) => courseInfos.find((ci) => ci.id === ciId)?.course?.id)
+      .filter(Boolean) as string[];
+    setSelectedCourseInfoIds(courseIds);
     setError('');
     setModalOpen(true);
   };
@@ -730,7 +736,7 @@ export default function SemestersScreen() {
                       </Badge>
                     </View>
                     <CourseSelector
-                      courseInfos={courseInfos}
+                      courses={courses}
                       selectedIds={selectedCourseInfoIds}
                       onToggle={toggleCourseSelection}
                       maxHeight={width >= 768 ? 320 : 200}
