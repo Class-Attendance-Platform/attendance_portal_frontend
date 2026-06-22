@@ -35,8 +35,8 @@ import { adminService } from '@/lib/services';
 import { Semester } from '@/types/semester';
 import { Student } from '@/types/student';
 import { CourseInfo, Course } from '@/types/course';
-import {
-  LEVELS,
+import { Teacher } from '@/types/teacher';
+import {  LEVELS,
   SEMESTERS,
   Level,
   SemesterName,
@@ -67,6 +67,8 @@ export default function SemestersScreen() {
   const [students, setStudents] = useState<Student[]>([]);
   const [courseInfos, setCourseInfos] = useState<CourseInfo[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [courseTeacherMap, setCourseTeacherMap] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -137,11 +139,12 @@ export default function SemestersScreen() {
     setLoading(true);
     setError('');
     try {
-      const [semRes, studRes, ciRes, cRes] = await Promise.all([
+      const [semRes, studRes, ciRes, cRes, teachRes] = await Promise.all([
         adminService.getSemesters(),
         adminService.getStudents(),
         adminService.getCourseInfos(),
         adminService.getCourses(),
+        adminService.getTeachers(),
       ]);
 
       if (semRes.success) {
@@ -158,6 +161,7 @@ export default function SemestersScreen() {
       if (studRes.success) setStudents(studRes.students || []);
       if (ciRes.success) setCourseInfos(ciRes.course_infos || []);
       if (cRes.success) setCourses(cRes.courses || []);
+      if (teachRes.success) setTeachers(teachRes.teachers || []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch data.');
     } finally {
@@ -205,6 +209,7 @@ export default function SemestersScreen() {
     setEndDateStr('2026-08-20');
     setSelectedStudentIds([]);
     setSelectedCourseInfoIds([]);
+    setCourseTeacherMap({});
     setError('');
     setModalOpen(true);
   };
@@ -220,6 +225,16 @@ export default function SemestersScreen() {
       .map((ciId) => courseInfos.find((ci) => ci.id === ciId)?.course?.id)
       .filter(Boolean) as string[];
     setSelectedCourseInfoIds(courseIds);
+
+    const initialMap: Record<string, string> = {};
+    (sem.courses || []).forEach((ciId) => {
+      const ci = courseInfos.find((c) => c.id === ciId);
+      if (ci && ci.course && ci.teacher) {
+        initialMap[ci.course.id] = ci.teacher.id || '';
+      }
+    });
+    setCourseTeacherMap(initialMap);
+
     setError('');
     setModalOpen(true);
   };
@@ -233,7 +248,10 @@ export default function SemestersScreen() {
         start_date: startDateStr,
         end_date: endDateStr,
         students: selectedStudentIds,
-        courses: selectedCourseInfoIds,
+        courses: selectedCourseInfoIds.map((cid) => ({
+          course: cid,
+          teacher: courseTeacherMap[cid] || null,
+        })),
       };
       let res = editingSemester
         ? await adminService.updateSemester(editingSemester.id, body)
@@ -640,72 +658,75 @@ export default function SemestersScreen() {
               </Pressable>
             </View>
             <ScrollView className="max-h-[85vh] p-8">
-              <View className={`flex-col ${width >= 768 ? 'flex-row gap-10' : 'gap-8'}`}>
-                <View className={`gap-6 ${width >= 768 ? 'w-72' : ''}`}>
-                  <View className="rounded-[32px] border border-border/60 bg-muted/10 p-6">
-                    <Text className="mb-5 text-[11px] font-black uppercase tracking-widest text-primary">
-                      Basic Configuration
-                    </Text>
+              <View className="gap-8">
+                {/* Row 1: Basic Configuration & Student Roster */}
+                <View className={`flex-col ${width >= 768 ? 'flex-row gap-10' : 'gap-8'}`}>
+                  {/* Basic Configuration */}
+                  <View className={`gap-6 ${width >= 768 ? 'w-72' : ''}`}>
+                    <View className="rounded-[32px] border border-border/60 bg-muted/10 p-6">
+                      <Text className="mb-5 text-[11px] font-black uppercase tracking-widest text-primary">
+                        Basic Configuration
+                      </Text>
 
-                    <View className="mb-5 flex-row gap-4">
-                      <View className="flex-1 gap-2">
-                        <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                          Level
-                        </Label>
-                        <Dropdown value={level} onValueChange={setLevel} options={LEVELS} />
+                      <View className="mb-5 flex-row gap-4">
+                        <View className="flex-1 gap-2">
+                          <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                            Level
+                          </Label>
+                          <Dropdown value={level} onValueChange={setLevel} options={LEVELS} />
+                        </View>
+                        <View className="flex-1 gap-2">
+                          <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                            Term
+                          </Label>
+                          <Dropdown
+                            value={semester}
+                            onValueChange={setSemester}
+                            options={SEMESTERS}
+                          />
+                        </View>
                       </View>
-                      <View className="flex-1 gap-2">
+
+                      <View className="mb-5 gap-2">
                         <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                          Term
+                          Start Date
                         </Label>
-                        <Dropdown
-                          value={semester}
-                          onValueChange={setSemester}
-                          options={SEMESTERS}
-                        />
+                        <Pressable
+                          onPress={handleOpenStartDatePicker}
+                          className="relative justify-center">
+                          <Input
+                            value={startDateStr}
+                            editable={false}
+                            className="h-12 rounded-2xl border-border bg-background pr-12 text-sm font-bold text-foreground"
+                          />
+                          <Calendar size={18} className="absolute right-4 text-muted-foreground/60" />
+                        </Pressable>
+                      </View>
+
+                      <View className="gap-2">
+                        <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                          End Date
+                        </Label>
+                        <Pressable
+                          onPress={handleOpenEndDatePicker}
+                          className="relative justify-center">
+                          <Input
+                            value={endDateStr}
+                            editable={false}
+                            className="h-12 rounded-2xl border-border bg-background pr-12 text-sm font-bold text-foreground"
+                          />
+                          <Calendar size={18} className="absolute right-4 text-muted-foreground/60" />
+                        </Pressable>
                       </View>
                     </View>
-
-                    <View className="mb-5 gap-2">
-                      <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                        Start Date
-                      </Label>
-                      <Pressable
-                        onPress={handleOpenStartDatePicker}
-                        className="relative justify-center">
-                        <Input
-                          value={startDateStr}
-                          editable={false}
-                          className="h-12 rounded-2xl border-border bg-background pr-12 text-sm font-bold text-foreground"
-                        />
-                        <Calendar size={18} className="absolute right-4 text-muted-foreground/60" />
-                      </Pressable>
-                    </View>
-
-                    <View className="gap-2">
-                      <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                        End Date
-                      </Label>
-                      <Pressable
-                        onPress={handleOpenEndDatePicker}
-                        className="relative justify-center">
-                        <Input
-                          value={endDateStr}
-                          editable={false}
-                          className="h-12 rounded-2xl border-border bg-background pr-12 text-sm font-bold text-foreground"
-                        />
-                        <Calendar size={18} className="absolute right-4 text-muted-foreground/60" />
-                      </Pressable>
-                    </View>
+                    {error ? (
+                      <Text className="rounded-2xl bg-destructive/10 px-2 py-3 text-center text-xs font-black text-destructive">
+                        {error}
+                      </Text>
+                    ) : null}
                   </View>
-                  {error ? (
-                    <Text className="rounded-2xl bg-destructive/10 px-2 py-3 text-center text-xs font-black text-destructive">
-                      {error}
-                    </Text>
-                  ) : null}
-                </View>
 
-                <View className={`flex-1 gap-8 ${width >= 1024 ? 'flex-row' : 'flex-col'}`}>
+                  {/* Student Roster */}
                   <View className="flex-1 gap-3">
                     <View className="mb-1 flex-row items-center justify-between px-2">
                       <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
@@ -724,6 +745,11 @@ export default function SemestersScreen() {
                       maxHeight={width >= 768 ? 320 : 200}
                     />
                   </View>
+                </View>
+
+                {/* Row 2: Assigned Courses & Assign Instructors */}
+                <View className={`flex-col ${width >= 768 ? 'flex-row gap-10' : 'gap-8'}`}>
+                  {/* Left Column: Course Selector */}
                   <View className="flex-1 gap-3">
                     <View className="mb-1 flex-row items-center justify-between px-2">
                       <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
@@ -742,6 +768,64 @@ export default function SemestersScreen() {
                       maxHeight={width >= 768 ? 320 : 200}
                     />
                   </View>
+
+                  {/* Right Column: Assign Instructors */}
+                  {selectedCourseInfoIds.length > 0 ? (
+                    <View className="flex-1 gap-3">
+                      <View className="mb-1 px-2">
+                        <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                          Assign Instructors
+                        </Text>
+                      </View>
+                      <ScrollView style={{ maxHeight: width >= 768 ? 320 : 250 }} className="rounded-2xl border border-border bg-muted/5 p-3" nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                        <View className="gap-2.5">
+                          {selectedCourseInfoIds.map((cid) => {
+                            const course = courses.find((c) => c.id === cid);
+                            if (!course) return null;
+                            const currentTeacherId = courseTeacherMap[cid] || '';
+                            
+                            const teacherOptions = [
+                              'No Teacher Assigned',
+                              ...teachers.map((t) => t.userName),
+                            ];
+                            const currentTeacherName =
+                              teachers.find((t) => t.id === currentTeacherId)?.userName ||
+                              'No Teacher Assigned';
+
+                            const handleTeacherChange = (val: string) => {
+                              const selectedTeacher = teachers.find((t) => t.userName === val);
+                              setCourseTeacherMap((prev) => ({
+                                ...prev,
+                                [cid]: selectedTeacher ? selectedTeacher.id : '',
+                              }));
+                            };
+
+                            return (
+                              <View key={cid} className="flex-row items-center justify-between gap-3 border-b border-border/40 pb-2.5 last:border-b-0 last:pb-0">
+                                <View className="flex-1 pr-2">
+                                  <Text className="text-xs font-bold text-foreground">
+                                    {course.code}
+                                  </Text>
+                                  <Text className="text-[10px] text-muted-foreground" numberOfLines={1}>
+                                    {course.title}
+                                  </Text>
+                                </View>
+                                <View className="w-48">
+                                  <Dropdown
+                                    value={currentTeacherName}
+                                    onValueChange={handleTeacherChange}
+                                    options={teacherOptions}
+                                  />
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
+                    </View>
+                  ) : width >= 768 ? (
+                    <View className="flex-1" />
+                  ) : null}
                 </View>
               </View>
             </ScrollView>
