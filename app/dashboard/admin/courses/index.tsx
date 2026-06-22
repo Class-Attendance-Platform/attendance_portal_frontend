@@ -22,6 +22,8 @@ import { CourseCard } from '@/components/custom/coursecard';
 import TopPanel from '@/components/custom/toppanel';
 import { Course } from '@/types/course';
 import { configService, adminService } from '@/lib/services';
+import { webAlert } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/custom/confirm-dialog';
 
 function humanize(str: string): string {
   if (!str) return '';
@@ -41,6 +43,21 @@ export default function CoursesScreen() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmPress, setOnConfirmPress] = useState<() => void>(() => {});
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setOnConfirmPress(() => () => {
+      onConfirm();
+      setConfirmVisible(false);
+    });
+    setConfirmVisible(true);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState('ALL');
@@ -226,26 +243,19 @@ export default function CoursesScreen() {
   };
 
   const handleDeleteCourse = (id: string) => {
-    Alert.alert(
+    showConfirm(
       'Delete Course',
       'Are you sure you want to delete this course? This will remove it from the catalog.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await adminService.deleteCourse(id);
-              if (res.success) {
-                fetchCourses();
-              }
-            } catch (err: any) {
-              setError(err.message || 'Failed to delete course.');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const res = await adminService.deleteCourse(id);
+          if (res.success) {
+            fetchCourses();
+          }
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete course.');
+        }
+      }
     );
   };
 
@@ -417,6 +427,14 @@ export default function CoursesScreen() {
           </View>
         </View>
       </Modal>
+
+      <ConfirmDialog
+        visible={confirmVisible}
+        title={confirmTitle}
+        message={confirmMessage}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={onConfirmPress}
+      />
     </View>
   );
 }

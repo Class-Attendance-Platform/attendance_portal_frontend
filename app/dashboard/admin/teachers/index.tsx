@@ -20,6 +20,8 @@ import { Dropdown } from '@/components/custom/dropdown';
 import { TeacherCard } from '@/components/custom/teachercard';
 import { Teacher } from '@/types/teacher';
 import { adminService, configService } from '@/lib/services';
+import { webAlert } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/custom/confirm-dialog';
 
 function humanize(str: string): string {
   if (!str) return '';
@@ -38,6 +40,21 @@ export default function TeachersScreen() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmPress, setOnConfirmPress] = useState<() => void>(() => {});
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setOnConfirmPress(() => () => {
+      onConfirm();
+      setConfirmVisible(false);
+    });
+    setConfirmVisible(true);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState('ALL');
@@ -219,23 +236,20 @@ export default function TeachersScreen() {
   };
 
   const handleDeleteTeacher = (id: string) => {
-    Alert.alert('Delete Teacher', 'Are you sure you want to delete this teacher account?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const res = await adminService.deleteTeacher(id);
-            if (res.success) {
-              fetchTeachers();
-            }
-          } catch (err: any) {
-            setError(err.message || 'Failed to delete teacher.');
+    showConfirm(
+      'Delete Teacher',
+      'Are you sure you want to delete this teacher account?',
+      async () => {
+        try {
+          const res = await adminService.deleteTeacher(id);
+          if (res.success) {
+            fetchTeachers();
           }
-        },
-      },
-    ]);
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete teacher.');
+        }
+      }
+    );
   };
 
   if (loading) {
@@ -415,6 +429,14 @@ export default function TeachersScreen() {
           </View>
         </View>
       </Modal>
+
+      <ConfirmDialog
+        visible={confirmVisible}
+        title={confirmTitle}
+        message={confirmMessage}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={onConfirmPress}
+      />
     </View>
   );
 }

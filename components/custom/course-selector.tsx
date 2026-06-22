@@ -67,7 +67,7 @@ export function CourseSelector({
                       {ci.course.title}
                     </Text>
                     <Text className="mt-0.5 text-[10px] font-semibold text-primary/80">
-                      {ci.teacher.userName}
+                      {ci.teacher?.userName || 'No teacher assigned'}
                     </Text>
                   </View>
                   {isSelected && (

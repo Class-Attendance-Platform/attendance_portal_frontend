@@ -21,6 +21,8 @@ import { StudentCard } from '@/components/custom/studentcard';
 import { Student } from '@/types/student';
 import { adminService, configService } from '@/lib/services';
 import { LEVELS, SEMESTERS, Level, SemesterName } from '@/types/common';
+import { webAlert } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/custom/confirm-dialog';
 
 function humanize(str: string): string {
   if (!str) return '';
@@ -40,6 +42,21 @@ export default function StudentsScreen() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmPress, setOnConfirmPress] = useState<() => void>(() => {});
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setOnConfirmPress(() => () => {
+      onConfirm();
+      setConfirmVisible(false);
+    });
+    setConfirmVisible(true);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState('ALL');
@@ -234,26 +251,19 @@ export default function StudentsScreen() {
   };
 
   const handleDeleteStudent = (id: string) => {
-    Alert.alert(
+    showConfirm(
       'Delete Student',
       'Are you sure you want to delete this student? This will remove all their enrollment data.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await adminService.deleteStudent(id);
-              if (res.success) {
-                fetchStudents();
-              }
-            } catch (err: any) {
-              setError(err.message || 'Failed to delete student.');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const res = await adminService.deleteStudent(id);
+          if (res.success) {
+            fetchStudents();
+          }
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete student.');
+        }
+      }
     );
   };
 
@@ -475,6 +485,14 @@ export default function StudentsScreen() {
           </View>
         </View>
       </Modal>
+
+      <ConfirmDialog
+        visible={confirmVisible}
+        title={confirmTitle}
+        message={confirmMessage}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={onConfirmPress}
+      />
     </View>
   );
 }

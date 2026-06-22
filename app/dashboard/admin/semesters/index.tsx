@@ -45,6 +45,19 @@ import {
 } from '@/types/common';
 import { StudentSelector } from '@/components/custom/student-selector';
 import { CourseSelector } from '@/components/custom/course-selector';
+import { webAlert } from '@/lib/utils';
+import { Platform } from 'react-native';
+import { ConfirmDialog } from '@/components/custom/confirm-dialog';
+
+const getLevelNumber = (l: Level) => {
+  switch (l) {
+    case 'First': return '1';
+    case 'Second': return '2';
+    case 'Third': return '3';
+    case 'Fourth': return '4';
+    default: return l;
+  }
+};
 
 export default function SemestersScreen() {
   const { width } = useWindowDimensions();
@@ -56,6 +69,21 @@ export default function SemestersScreen() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmPress, setOnConfirmPress] = useState<() => void>(() => {});
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setOnConfirmPress(() => () => {
+      onConfirm();
+      setConfirmVisible(false);
+    });
+    setConfirmVisible(true);
+  };
 
   const [activeSemesterId, setActiveSemesterId] = useState<string>('');
   const [rosterSearchQuery, setRosterSearchQuery] = useState('');
@@ -216,19 +244,12 @@ export default function SemestersScreen() {
   };
 
   const handleDeleteSemester = (id: string) => {
-    Alert.alert('Delete Semester', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          if ((await adminService.deleteSemester(id)).success) {
-            if (activeSemesterId === id) setActiveSemesterId('');
-            fetchData();
-          }
-        },
-      },
-    ]);
+    showConfirm('Delete Semester', 'Are you sure you want to delete this semester?', async () => {
+      if ((await adminService.deleteSemester(id)).success) {
+        if (activeSemesterId === id) setActiveSemesterId('');
+        fetchData();
+      }
+    });
   };
 
   const handlePromoteSession = async () => {
@@ -244,12 +265,19 @@ export default function SemestersScreen() {
         courses: [],
       });
       if (res.success) {
+        // Delete the previous semester
+        await adminService.deleteSemester(activeSemester.id);
         setPromotionModalOpen(false);
-        fetchData();
-        Alert.alert('Success', 'Promotion complete.');
+        if (res.semester && res.semester.id) {
+          setActiveSemesterId(res.semester.id);
+        } else {
+          setActiveSemesterId('');
+        }
+        await fetchData();
+        webAlert('Success', 'Promotion complete. The previous semester has been deleted.');
       }
     } catch (err: any) {
-      Alert.alert('Error', 'Promotion failed.');
+      webAlert('Error', 'Promotion failed.');
     } finally {
       setSubmitting(false);
     }
@@ -257,18 +285,11 @@ export default function SemestersScreen() {
 
   const handleRemoveStudentFromSemester = async (studentId: string) => {
     if (!activeSemester) return;
-    Alert.alert('Remove Student', 'Remove student from this semester?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          const updated = (activeSemester.students || []).filter((id) => id !== studentId);
-          const res = await adminService.updateSemester(activeSemester.id, { students: updated });
-          if (res.success) fetchData();
-        },
-      },
-    ]);
+    showConfirm('Remove Student', 'Remove student from this semester?', async () => {
+      const updated = (activeSemester.students || []).filter((id) => id !== studentId);
+      const res = await adminService.updateSemester(activeSemester.id, { students: updated });
+      if (res.success) fetchData();
+    });
   };
 
   const toggleStudentSelection = (id: string) => {
@@ -319,32 +340,32 @@ export default function SemestersScreen() {
                     setActiveSemesterId(sem.id);
                     setRosterSearchQuery('');
                   }}
-                  className={`mb-3 rounded-3xl border p-4 shadow-sm transition-all ${
+                  className={`mb-2 rounded-2xl border p-3 shadow-sm transition-all ${
                     activeSemesterId === sem.id
                       ? 'border-primary/40 bg-primary/5'
                       : 'border-transparent bg-muted/20 hover:bg-muted/30'
                   }`}>
                   <View className="flex-row items-center justify-between">
                     <Text
-                      className={`text-base font-black ${
+                      className={`text-sm font-bold ${
                         activeSemesterId === sem.id ? 'text-primary' : 'text-foreground'
                       }`}>
-                      Level {sem.level} • {sem.semester}
+                      Level {getLevelNumber(sem.level)} Semester {sem.semester}
                     </Text>
                     {activeSemesterId === sem.id && (
                       <View className="h-2 w-2 rounded-full bg-primary shadow-sm shadow-primary" />
                     )}
                   </View>
-                  <View className="mt-3 flex-row gap-4 border-t border-border/30 pt-3">
+                  <View className="mt-2 flex-row gap-4 border-t border-border/30 pt-2">
                     <View className="flex-row items-center gap-2">
                       <Users size={14} className="text-muted-foreground" />
-                      <Text className="text-xs font-bold text-foreground/80">
+                      <Text className="text-[11px] font-bold text-foreground/80">
                         {sem.students?.length || 0}
                       </Text>
                     </View>
                     <View className="flex-row items-center gap-2">
                       <BookOpen size={14} className="text-muted-foreground" />
-                      <Text className="text-xs font-bold text-foreground/80">
+                      <Text className="text-[11px] font-bold text-foreground/80">
                         {sem.courses?.length || 0}
                       </Text>
                     </View>
@@ -354,7 +375,7 @@ export default function SemestersScreen() {
             </ScrollView>
           </View>
         </View>
-
+ 
         <View className="flex-1 bg-background/30">
           {activeSemester ? (
             <ScrollView className="flex-1" contentContainerStyle={{ padding: isMobile ? 16 : 32 }}>
@@ -366,8 +387,8 @@ export default function SemestersScreen() {
                     </View>
                     <View>
                       <View className="flex-row items-center gap-3">
-                        <Text className="text-3xl font-black tracking-tight text-foreground">
-                          Level {activeSemester.level} {activeSemester.semester}
+                        <Text className="text-2xl font-black tracking-tight text-foreground">
+                          Level {getLevelNumber(activeSemester.level)} Semester {activeSemester.semester}
                         </Text>
                         <Badge
                           variant="outline"
@@ -483,7 +504,7 @@ export default function SemestersScreen() {
                                     <Users size={12} className="text-muted-foreground" />
                                   </View>
                                   <Text className="text-[11px] font-bold text-muted-foreground">
-                                    Instructor: {rc.teacher.userName}
+                                    Instructor: {rc.teacher?.userName || 'No teacher assigned'}
                                   </Text>
                                 </View>
                               </View>
@@ -693,7 +714,7 @@ export default function SemestersScreen() {
                     <StudentSelector
                       students={students}
                       selectedIds={selectedStudentIds}
-                      onToggle={setSelectedStudentIds}
+                      onToggle={toggleStudentSelection}
                       maxHeight={width >= 768 ? 320 : 200}
                     />
                   </View>
@@ -711,7 +732,7 @@ export default function SemestersScreen() {
                     <CourseSelector
                       courseInfos={courseInfos}
                       selectedIds={selectedCourseInfoIds}
-                      onToggle={setSelectedCourseInfoIds}
+                      onToggle={toggleCourseSelection}
                       maxHeight={width >= 768 ? 320 : 200}
                     />
                   </View>
@@ -913,6 +934,14 @@ export default function SemestersScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      <ConfirmDialog
+        visible={confirmVisible}
+        title={confirmTitle}
+        message={confirmMessage}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={onConfirmPress}
+      />
     </View>
   );
 }
