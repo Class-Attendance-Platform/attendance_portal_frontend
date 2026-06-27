@@ -3,18 +3,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getBaseUrl = () => {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-      return `http://${window.location.hostname}:8000`;
-    }
-    return 'http://localhost:8000';
-  }
-  const hostUri = Constants.expoConfig?.hostUri || '';
-  const host = hostUri.split(':')[0];
-  if (host) {
-    return `http://${host}:8000`;
-  }
-  return 'http://127.0.0.1:8000';
+  return 'https://attendance-portal-backend-476r.onrender.com/';
 };
 
 export const API_BASE = getBaseUrl();
@@ -29,16 +18,14 @@ export const setTokens = (access: string | null, refresh: string | null) => {
 
 export const getAccessToken = () => accessToken;
 
-// Create Axios Instance
 const axiosInstance = axios.create({
   baseURL: API_BASE,
 });
 
-// Helper function to format path with trailing slash before query/hash (required by Django)
 function formatPath(path: string): string {
   const queryIdx = path.indexOf('?');
   const hashIdx = path.indexOf('#');
-  const splitIdx = queryIdx !== -1 ? queryIdx : (hashIdx !== -1 ? hashIdx : -1);
+  const splitIdx = queryIdx !== -1 ? queryIdx : hashIdx !== -1 ? hashIdx : -1;
 
   let basePart = splitIdx !== -1 ? path.slice(0, splitIdx) : path;
   const suffixPart = splitIdx !== -1 ? path.slice(splitIdx) : '';
@@ -49,7 +36,6 @@ function formatPath(path: string): string {
   return `${basePart}${suffixPart}`;
 }
 
-// Request Interceptor
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (config.url) {
@@ -81,12 +67,10 @@ async function refreshAccessToken(): Promise<boolean> {
   try {
     const refreshUrl = `${API_BASE}/api/auth/refresh/`;
     console.log('Sending refresh token request to backend...', refreshUrl);
-    // Use raw axios to prevent request interceptor formatting and headers
     const response = await axios.post(refreshUrl, { refresh: refreshToken });
 
     if (response.status === 200 && response.data && response.data.access) {
       accessToken = response.data.access;
-      // Save to localStorage if on Web
       if (Platform.OS === 'web') {
         try {
           const stored = localStorage.getItem('portal_user');
@@ -115,15 +99,13 @@ async function refreshAccessToken(): Promise<boolean> {
   return false;
 }
 
-// Response Interceptor to handle auto-refresh & response normalization
 axiosInstance.interceptors.response.use(
   (response) => {
     return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
-    
-    // Check for 401 Unauthorized to trigger token refresh, but avoid infinite loops
+
     if (
       error.response &&
       error.response.status === 401 &&
@@ -138,12 +120,13 @@ axiosInstance.interceptors.response.use(
       const refreshed = await refreshAccessToken();
       if (refreshed) {
         originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
-        console.log(`Retrying API [${originalRequest.method?.toUpperCase() || 'GET'}] ${originalRequest.url}`);
+        console.log(
+          `Retrying API [${originalRequest.method?.toUpperCase() || 'GET'}] ${originalRequest.url}`
+        );
         return axiosInstance(originalRequest);
       }
     }
 
-    // Format error message to throw descriptive standard errors as expected by the frontend code
     let errMsg = `Request failed with status ${error.response?.status || error.message}`;
     if (error.response && error.response.data) {
       const data = error.response.data;
@@ -185,8 +168,12 @@ axiosInstance.interceptors.response.use(
 );
 
 export const api = {
-  get: (path: string, options?: AxiosRequestConfig): Promise<any> => axiosInstance.get(path, options) as any,
-  post: (path: string, body?: any, options?: AxiosRequestConfig): Promise<any> => axiosInstance.post(path, body, options) as any,
-  put: (path: string, body?: any, options?: AxiosRequestConfig): Promise<any> => axiosInstance.put(path, body, options) as any,
-  delete: (path: string, options?: AxiosRequestConfig): Promise<any> => axiosInstance.delete(path, options) as any,
+  get: (path: string, options?: AxiosRequestConfig): Promise<any> =>
+    axiosInstance.get(path, options) as any,
+  post: (path: string, body?: any, options?: AxiosRequestConfig): Promise<any> =>
+    axiosInstance.post(path, body, options) as any,
+  put: (path: string, body?: any, options?: AxiosRequestConfig): Promise<any> =>
+    axiosInstance.put(path, body, options) as any,
+  delete: (path: string, options?: AxiosRequestConfig): Promise<any> =>
+    axiosInstance.delete(path, options) as any,
 };

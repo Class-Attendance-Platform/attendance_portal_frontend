@@ -36,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const stored = localStorage.getItem('portal_user');
         if (stored) {
           const parsed = JSON.parse(stored);
-          // If stored session uses the new token-wrap format
           if (parsed && parsed.user) {
             setUser(parsed.user);
             setTokens(parsed.accessToken || null, parsed.refreshToken || null);
@@ -45,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (e) {
-        console.error("Failed to load user session from localStorage.", e);
+        console.error('Failed to load user session from localStorage.', e);
       }
     }
     setIsLoading(false);
@@ -61,8 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: res.user.role.toUpperCase() as UserRole
         };
         setUser(loggedUser);
-        
-        // Save SimpleJWT tokens
+
         const access = res.access || null;
         const refresh = res.refresh || null;
         setTokens(access, refresh);
@@ -77,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return loggedUser;
       }
-      throw new Error(res.message || "Failed to log in.");
+      throw new Error(res.message || 'Failed to log in.');
     } catch (err: any) {
       setIsLoading(false);
       throw err;

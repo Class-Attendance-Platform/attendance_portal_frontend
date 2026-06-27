@@ -19,20 +19,17 @@ export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  
-  // Semester Navigation state
+
   const [selectedSemesterIdx, setSelectedSemesterIdx] = useState(0);
   const [semesters, setSemesters] = useState<SemesterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  // Selected Course details state for calendar
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Calendar state (defaults to May 2026, matching historical data month)
-  const [currentMonth, setCurrentMonth] = useState(4); // May
+
+  const [currentMonth, setCurrentMonth] = useState(4);
   const [currentYear, setCurrentYear] = useState(2026);
 
   const fetchStudentData = async (isRef = false) => {
@@ -61,7 +58,6 @@ export default function StudentDashboard() {
 
   const activeSemester = semesters[selectedSemesterIdx];
 
-  // Set default active course when semester changes
   useEffect(() => {
     if (activeSemester && activeSemester.courses.length > 0) {
       setActiveCourseId(activeSemester.courses[0].id);
@@ -81,16 +77,13 @@ export default function StudentDashboard() {
     ? activeSemester.courses.reduce((acc, c) => acc + c.percentage, 0) / activeSemester.courses.length
     : 0;
 
-  // Selected active course details
   const activeCourse = activeSemester?.courses.find(c => c.id === activeCourseId);
 
-  // Format department name to be readable
   const formatDepartment = (dept?: string) => {
     if (!dept) return 'N/A';
     return dept.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ');
   };
 
-  // Custom Calendar Rendering for Student
   const renderStudentCalendar = (course: CourseStat) => {
     const monthNames = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -167,31 +160,27 @@ export default function StudentDashboard() {
               <View
                 key={cell.key}
                 style={{ width: `${100 / 7}%` }}
-                className={`items-center justify-center p-2 rounded-xl border min-h-[42px] ${
-                  isDayEmpty ? 'opacity-0 border-transparent' : ''
-                } ${
-                  hasClass 
-                    ? isPresent 
-                      ? 'bg-emerald-500/10 border-emerald-500/25' 
+                className={`items-center justify-center p-2 rounded-xl border min-h-[42px] ${isDayEmpty ? 'opacity-0 border-transparent' : ''
+                  } ${hasClass
+                    ? isPresent
+                      ? 'bg-emerald-500/10 border-emerald-500/25'
                       : 'bg-destructive/10 border-destructive/25'
                     : 'border-transparent'
-                }`}
+                  }`}
               >
                 {!isDayEmpty && (
                   <View className="items-center justify-center relative w-full h-full">
-                    <Text className={`text-xs font-semibold ${
-                      hasClass 
-                        ? isPresent 
-                          ? 'text-emerald-600 font-bold' 
-                          : 'text-destructive font-bold'
-                        : 'text-foreground'
-                    }`}>
+                    <Text className={`text-xs font-semibold ${hasClass
+                      ? isPresent
+                        ? 'text-emerald-600 font-bold'
+                        : 'text-destructive font-bold'
+                      : 'text-foreground'
+                      }`}>
                       {cell.day}
                     </Text>
                     {hasClass && (
-                      <View className={`absolute bottom-[-3px] h-1.5 w-1.5 rounded-full ${
-                        isPresent ? 'bg-emerald-500' : 'bg-destructive'
-                      }`} />
+                      <View className={`absolute bottom-[-3px] h-1.5 w-1.5 rounded-full ${isPresent ? 'bg-emerald-500' : 'bg-destructive'
+                        }`} />
                     )}
                   </View>
                 )}
@@ -218,11 +207,10 @@ export default function StudentDashboard() {
 
       <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
         {/* Sidebar: Semester Selection & Enrolled Courses */}
-        <View className={`border-border bg-card p-4 ${
-          isMobile 
-            ? 'w-full border-b' 
-            : 'w-64 border-r'
-        }`}>
+        <View className={`border-border bg-card p-4 ${isMobile
+          ? 'w-full border-b'
+          : 'w-64 border-r'
+          }`}>
           {!isMobile && (
             <View className="flex-col items-center mb-6">
               <Image
@@ -239,7 +227,7 @@ export default function StudentDashboard() {
           <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Academic Session
           </Text>
-          
+
           {/* Semester dropdown/picker */}
           {semesters.length > 0 && (
             <View className="mb-4">
@@ -271,44 +259,39 @@ export default function StudentDashboard() {
                   <Pressable
                     key={item.id}
                     onPress={() => setActiveCourseId(item.id)}
-                    className={`rounded-xl px-4 py-3 active:opacity-75 w-full flex-row justify-between items-center ${
-                      isSelected
-                        ? 'bg-primary'
-                        : 'bg-muted/50 hover:bg-muted'
-                    }`}
+                    className={`rounded-xl px-4 py-3 active:opacity-75 w-full flex-row justify-between items-center ${isSelected
+                      ? 'bg-primary'
+                      : 'bg-muted/50 hover:bg-muted'
+                      }`}
                   >
                     <View className="flex-1 pr-2">
                       <Text
-                        className={`text-sm font-semibold ${
-                          isSelected ? 'text-primary-foreground' : 'text-foreground'
-                        }`}
+                        className={`text-sm font-semibold ${isSelected ? 'text-primary-foreground' : 'text-foreground'
+                          }`}
                         numberOfLines={1}
                       >
                         {item.course.code}
                       </Text>
                       <Text
-                        className={`text-xs mt-0.5 line-clamp-1 ${
-                          isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                        }`}
+                        className={`text-xs mt-0.5 line-clamp-1 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                          }`}
                         numberOfLines={1}
                       >
                         {item.course.title}
                       </Text>
                     </View>
-                    <View className={`rounded-full px-1.5 py-0.5 ${
-                      isSelected 
-                        ? 'bg-primary-foreground/20' 
-                        : isLow 
-                          ? 'bg-destructive/10' 
-                          : 'bg-emerald-500/10'
-                    }`}>
-                      <Text className={`text-[10px] font-bold ${
-                        isSelected 
-                          ? 'text-primary-foreground' 
-                          : isLow 
-                            ? 'text-destructive' 
-                            : 'text-emerald-600'
+                    <View className={`rounded-full px-1.5 py-0.5 ${isSelected
+                      ? 'bg-primary-foreground/20'
+                      : isLow
+                        ? 'bg-destructive/10'
+                        : 'bg-emerald-500/10'
                       }`}>
+                      <Text className={`text-[10px] font-bold ${isSelected
+                        ? 'text-primary-foreground'
+                        : isLow
+                          ? 'text-destructive'
+                          : 'text-emerald-600'
+                        }`}>
                         {item.percentage.toFixed(0)}%
                       </Text>
                     </View>
@@ -367,7 +350,7 @@ export default function StudentDashboard() {
                 {/* Column 1: Calendar View Card */}
                 <View className="w-full lg:w-[350px] gap-4">
                   {renderStudentCalendar(activeCourse)}
-                  
+
                   {/* Calendar Legend */}
                   <View className="flex-row items-center gap-4 px-2">
                     <View className="flex-row items-center gap-1.5">
@@ -438,11 +421,10 @@ export default function StudentDashboard() {
                                   <Text className="w-12 text-xs font-bold text-muted-foreground">#{lectureNo}</Text>
                                   <Text className="flex-1 text-xs font-semibold text-foreground">{session.date}</Text>
                                   <View className="w-24 items-center">
-                                    <View className={`rounded-full px-2.5 py-0.5 border flex-row items-center gap-1.5 ${
-                                      session.present 
-                                        ? 'bg-emerald-500/10 border-emerald-500/25' 
-                                        : 'bg-destructive/10 border-destructive/25'
-                                    }`}>
+                                    <View className={`rounded-full px-2.5 py-0.5 border flex-row items-center gap-1.5 ${session.present
+                                      ? 'bg-emerald-500/10 border-emerald-500/25'
+                                      : 'bg-destructive/10 border-destructive/25'
+                                      }`}>
                                       <View className={`h-1.5 w-1.5 rounded-full ${session.present ? 'bg-emerald-500' : 'bg-destructive'}`} />
                                       <Text className={`text-[9px] font-extrabold uppercase ${session.present ? 'text-emerald-600' : 'text-destructive'}`}>
                                         {session.present ? 'Present' : 'Absent'}

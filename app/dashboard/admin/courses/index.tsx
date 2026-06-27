@@ -70,7 +70,6 @@ export default function CoursesScreen() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
 
-  // Dynamic configuration states
   const [creditEnumMap, setCreditEnumMap] = useState<Record<string, string>>({});
   const [revCreditMap, setRevCreditMap] = useState<Record<string, string>>({});
   const [creditsOptions, setCreditsOptions] = useState<string[]>([]);

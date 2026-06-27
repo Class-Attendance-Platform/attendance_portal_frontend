@@ -28,15 +28,12 @@ export default function TeacherDashboard() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Selected date log detail state
   const [selectedHistoryDate, setSelectedHistoryDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Custom Calendar state (defaults to May 2026, the seeder month)
-  const [currentMonth, setCurrentMonth] = useState(4); // May
+  const [currentMonth, setCurrentMonth] = useState(4);
   const [currentYear, setCurrentYear] = useState(2026);
 
-  // Live session state
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionTimeLeft, setSessionTimeLeft] = useState(300);
   const [sessionSubmissions, setSessionSubmissions] = useState<Array<{ studentId: number; userName: string }>>([]);
@@ -107,7 +104,6 @@ export default function TeacherDashboard() {
     }
   }, [activeCourseId]);
 
-  // Toggle present/absent state directly inside the date sheet panel
   const handleTogglePresenceOnDate = async (studentId: number) => {
     if (!selectedHistoryDate || !activeCourseId || !courseInfo) return;
     const session = (courseInfo.attendance.history || []).find(h => h.date === selectedHistoryDate);
@@ -328,7 +324,6 @@ export default function TeacherDashboard() {
       ? `${window.location.origin}${submissionPath}`
       : ExpoLinking.createURL(submissionPath.replace(/^\//, ''));
 
-  // Custom Month Calendar Rendering
   const renderCalendar = () => {
     if (!courseInfo) return null;
 
@@ -412,31 +407,27 @@ export default function TeacherDashboard() {
                   setSelectedHistoryDate(cell.dateString);
                 }}
                 style={{ width: `${100 / 7}%` }}
-                className={`items-center justify-center p-2 rounded-xl border min-h-[42px] ${
-                  isDayEmpty ? 'opacity-0 border-transparent' : 'active:scale-95'
-                } ${
-                  isSelected 
-                    ? 'bg-primary border-primary' 
-                    : hasClass 
-                      ? 'bg-emerald-500/10 border-emerald-500/20' 
+                className={`items-center justify-center p-2 rounded-xl border min-h-[42px] ${isDayEmpty ? 'opacity-0 border-transparent' : 'active:scale-95'
+                  } ${isSelected
+                    ? 'bg-primary border-primary'
+                    : hasClass
+                      ? 'bg-emerald-500/10 border-emerald-500/20'
                       : 'border-transparent hover:bg-muted/30'
-                }`}
+                  }`}
               >
                 {!isDayEmpty && (
                   <View className="items-center justify-center relative w-full h-full">
-                    <Text className={`text-xs font-semibold ${
-                      isSelected 
-                        ? 'text-primary-foreground font-black' 
-                        : hasClass 
-                          ? 'text-emerald-600 font-bold' 
-                          : 'text-foreground'
-                    }`}>
+                    <Text className={`text-xs font-semibold ${isSelected
+                      ? 'text-primary-foreground font-black'
+                      : hasClass
+                        ? 'text-emerald-600 font-bold'
+                        : 'text-foreground'
+                      }`}>
                       {cell.day}
                     </Text>
                     {hasClass && (
-                      <View className={`absolute bottom-[-3px] h-1.5 w-1.5 rounded-full ${
-                        isSelected ? 'bg-primary-foreground' : 'bg-emerald-500'
-                      }`} />
+                      <View className={`absolute bottom-[-3px] h-1.5 w-1.5 rounded-full ${isSelected ? 'bg-primary-foreground' : 'bg-emerald-500'
+                        }`} />
                     )}
                   </View>
                 )}
@@ -457,21 +448,19 @@ export default function TeacherDashboard() {
     );
   }
 
-  const activeSessionDetails = selectedHistoryDate 
-    ? (courseInfo?.attendance.history || []).find(h => h.date === selectedHistoryDate) 
+  const activeSessionDetails = selectedHistoryDate
+    ? (courseInfo?.attendance.history || []).find(h => h.date === selectedHistoryDate)
     : null;
 
-  // Filter students based on search query
   const filteredStudents = courseInfo?.students.filter(student => {
     const query = searchQuery.toLowerCase();
     const studentId = student.studentId?.toString() || '';
     return student.userName.toLowerCase().includes(query) || studentId.includes(query) || student.email.toLowerCase().includes(query);
   }) || [];
 
-  // Overall statistics for the summary view
   const overallConducted = courseInfo?.attendance.totalClasses || 0;
-  const overallAvgRate = courseInfo?.students.length 
-    ? (courseInfo.students.reduce((acc, s) => acc + s.percentage, 0) / courseInfo.students.length) 
+  const overallAvgRate = courseInfo?.students.length
+    ? (courseInfo.students.reduce((acc, s) => acc + s.percentage, 0) / courseInfo.students.length)
     : 0;
   const overallLowAttendance = courseInfo?.students.filter(s => s.percentage < 75).length || 0;
 
@@ -481,11 +470,10 @@ export default function TeacherDashboard() {
 
       <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
         {/* Sidebar for courses */}
-        <View className={`border-border bg-card p-4 ${
-          isMobile
-            ? 'w-full border-b'
-            : 'w-64 border-r'
-        }`}>
+        <View className={`border-border bg-card p-4 ${isMobile
+          ? 'w-full border-b'
+          : 'w-64 border-r'
+          }`}>
           {!isMobile && (
             <View className="flex-col items-center mb-6">
               <Image
@@ -510,23 +498,20 @@ export default function TeacherDashboard() {
                 <Pressable
                   key={c.id}
                   onPress={() => setActiveCourseId(c.id)}
-                  className={`rounded-xl px-4 py-3 active:opacity-75 ${
-                    activeCourseId === c.id
-                      ? 'bg-primary'
-                      : 'bg-muted/50 hover:bg-muted'
-                  }`}
+                  className={`rounded-xl px-4 py-3 active:opacity-75 ${activeCourseId === c.id
+                    ? 'bg-primary'
+                    : 'bg-muted/50 hover:bg-muted'
+                    }`}
                 >
                   <Text
-                    className={`text-sm font-semibold ${
-                      activeCourseId === c.id ? 'text-primary-foreground' : 'text-foreground'
-                    }`}
+                    className={`text-sm font-semibold ${activeCourseId === c.id ? 'text-primary-foreground' : 'text-foreground'
+                      }`}
                   >
                     {c.course.code}
                   </Text>
                   <Text
-                    className={`text-xs mt-0.5 line-clamp-1 ${
-                      activeCourseId === c.id ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                    }`}
+                    className={`text-xs mt-0.5 line-clamp-1 ${activeCourseId === c.id ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                      }`}
                   >
                     {c.course.title}
                   </Text>
@@ -610,16 +595,16 @@ export default function TeacherDashboard() {
                 {/* Column 1: Calendar View Panel */}
                 <View className="w-full lg:w-[350px] gap-4">
                   {renderCalendar()}
-                  
+
                   {/* Calendar Legend and helper buttons */}
                   <View className="flex-row items-center justify-between px-2">
                     <View className="flex-row items-center gap-2">
                       <View className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
                       <Text className="text-[10px] font-semibold text-muted-foreground">Class Conducted</Text>
                     </View>
-                    
+
                     {selectedHistoryDate && (
-                      <Pressable 
+                      <Pressable
                         onPress={() => setSelectedHistoryDate(null)}
                         className="bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg active:scale-95"
                       >
@@ -691,7 +676,7 @@ export default function TeacherDashboard() {
                                     <Text className="text-xs font-semibold text-foreground">{student.userName}</Text>
                                     <Text className="text-[10px] text-muted-foreground/75 md:hidden">{student.email}</Text>
                                   </View>
-                                  
+
                                   <View className="flex-row items-center justify-between border-t border-border/30 pt-1.5 mt-1.5 md:border-0 md:pt-0 md:mt-0 md:w-60">
                                     <View className="md:w-20">
                                       <Text className="text-xs text-foreground text-left md:text-center">
@@ -842,19 +827,19 @@ export default function TeacherDashboard() {
                       <Text className="text-xs text-muted-foreground/85 text-center mt-1.5 max-w-sm leading-normal">
                         No class session was recorded on <Text className="font-bold text-foreground">{selectedHistoryDate}</Text>. Class logs are created automatically when sessions run. Manual log creation is disabled.
                       </Text>
-                      
+
                       <View className="flex-row gap-3 mt-5 flex-wrap justify-center">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onPress={() => setSelectedHistoryDate(null)}
                           className="rounded-xl bg-muted/20 border-border/80"
                         >
                           <Text className="font-semibold text-foreground text-xs">Back to Summary</Text>
                         </Button>
-                        <Button 
-                          variant="default" 
-                          size="sm" 
+                        <Button
+                          variant="default"
+                          size="sm"
                           onPress={startAttendanceSession}
                           className="rounded-xl px-4 shadow-sm"
                         >

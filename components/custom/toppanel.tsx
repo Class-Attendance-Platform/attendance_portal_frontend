@@ -47,7 +47,6 @@ export default function TopPanel() {
       </View>
 
       <View className="flex-row items-center gap-3">
-        {/* Color scheme toggle */}
         <Pressable
           onPress={toggleColorScheme}
           accessibilityRole="switch"
@@ -60,8 +59,7 @@ export default function TopPanel() {
           </Text>
         </Pressable>
 
-        {/* User avatar pressable */}
-        <Pressable 
+        <Pressable
           onPress={() => setMenuOpen(true)}
           className="rounded-full overflow-hidden active:scale-95 transition-transform"
         >
@@ -73,21 +71,20 @@ export default function TopPanel() {
         </Pressable>
       </View>
 
-      {/* Custom Dropdown Modal Menu */}
       <Modal
         visible={menuOpen}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setMenuOpen(false)}
       >
-        <Pressable 
-          className="flex-1 bg-black/10" 
+        <Pressable
+          className="flex-1 bg-black/10"
           onPress={() => setMenuOpen(false)}
         >
-          <View 
-            style={{ 
-              position: 'absolute', 
-              top: Platform.OS === 'web' ? 56 : 70, 
+          <View
+            style={{
+              position: 'absolute',
+              top: Platform.OS === 'web' ? 56 : 70,
               right: 16,
               zIndex: 1000
             }}
@@ -95,7 +92,6 @@ export default function TopPanel() {
             onStartShouldSetResponder={() => true}
             onTouchEnd={(e) => e.stopPropagation()}
           >
-            {/* User Info Header */}
             <View className="px-3 py-2">
               <Text className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Logged in as</Text>
               <Text className="text-sm font-bold text-foreground mt-0.5 truncate" numberOfLines={1}>{name}</Text>
@@ -108,8 +104,7 @@ export default function TopPanel() {
 
             <View className="my-1.5 h-px bg-border/60" />
 
-            {/* Menu Items */}
-            <Pressable 
+            <Pressable
               onPress={() => {
                 setMenuOpen(false);
                 setProfileModalOpen(true);
@@ -120,7 +115,7 @@ export default function TopPanel() {
               <Text className="text-sm font-medium text-foreground">My Profile</Text>
             </Pressable>
 
-            <Pressable 
+            <Pressable
               onPress={() => {
                 setMenuOpen(false);
                 setSettingsModalOpen(true);
@@ -133,7 +128,7 @@ export default function TopPanel() {
 
             <View className="my-1.5 h-px bg-border/60" />
 
-            <Pressable 
+            <Pressable
               onPress={handleLogout}
               className="flex-row items-center gap-3 rounded-lg px-3 py-2 active:bg-red-500/10"
             >
@@ -144,13 +139,12 @@ export default function TopPanel() {
         </Pressable>
       </Modal>
 
-      {/* Profile Details Modal */}
       <Modal visible={profileModalOpen} transparent={true} animationType="fade">
-        <Pressable 
+        <Pressable
           className="flex-1 items-center justify-center bg-black/60 p-6"
           onPress={() => setProfileModalOpen(false)}
         >
-          <View 
+          <View
             className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl"
             onStartShouldSetResponder={() => true}
             onTouchEnd={(e) => e.stopPropagation()}
@@ -200,13 +194,12 @@ export default function TopPanel() {
         </Pressable>
       </Modal>
 
-      {/* Settings Modal */}
       <Modal visible={settingsModalOpen} transparent={true} animationType="fade">
-        <Pressable 
+        <Pressable
           className="flex-1 items-center justify-center bg-black/60 p-6"
           onPress={() => setSettingsModalOpen(false)}
         >
-          <View 
+          <View
             className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl"
             onStartShouldSetResponder={() => true}
             onTouchEnd={(e) => e.stopPropagation()}

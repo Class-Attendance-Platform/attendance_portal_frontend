@@ -41,10 +41,8 @@ export default function DashboardLayout({
 
     return (
         <View className={`flex-1 flex-col bg-background ${className ?? ""}`}>
-            {/* Top Bar spans full width */}
             {topPanel ?? <TopPanel />}
 
-            {/* Sidebar + Main content below it */}
             <View className="flex-1 flex-row">
                 {!isMobile && (
                     <SideBar
