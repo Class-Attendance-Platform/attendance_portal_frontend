@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   Alert,
+  FlatList,
 } from 'react-native';
 import {
   Search,
@@ -36,7 +37,8 @@ import { Semester } from '@/types/semester';
 import { Student } from '@/types/student';
 import { CourseInfo, Course } from '@/types/course';
 import { Teacher } from '@/types/teacher';
-import {  LEVELS,
+import {
+  LEVELS,
   SEMESTERS,
   Level,
   SemesterName,
@@ -76,7 +78,7 @@ export default function SemestersScreen() {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState('');
   const [confirmMessage, setConfirmMessage] = useState('');
-  const [onConfirmPress, setOnConfirmPress] = useState<() => void>(() => {});
+  const [onConfirmPress, setOnConfirmPress] = useState<() => void>(() => { });
 
   const showConfirm = (title: string, message: string, onConfirm: () => void) => {
     setConfirmTitle(title);
@@ -119,7 +121,7 @@ export default function SemestersScreen() {
         setPickerYear(parseInt(parts[0], 10));
         setPickerMonth(parseInt(parts[1], 10) - 1);
       }
-    } catch (e) {}
+    } catch (e) { }
     setDatePickerOpen(true);
   };
 
@@ -131,7 +133,7 @@ export default function SemestersScreen() {
         setPickerYear(parseInt(parts[0], 10));
         setPickerMonth(parseInt(parts[1], 10) - 1);
       }
-    } catch (e) {}
+    } catch (e) { }
     setDatePickerOpen(true);
   };
 
@@ -328,7 +330,16 @@ export default function SemestersScreen() {
     );
   };
 
+
+  const numColumns = useMemo(() => {
+    if (width >= 1440) return 4;
+    if (width >= 1150) return 3;
+    if (width >= 768) return 2;
+    return 1;
+  }, [width]);
+
   if (loading)
+
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" />
@@ -337,426 +348,196 @@ export default function SemestersScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
-        <View
-          className={`${isMobile ? 'w-full border-b' : 'w-80 border-r'} border-border bg-card/20`}>
-          <View className="p-6">
-            <View className="mb-6 flex-row items-center justify-between">
-              <View>
-                <Text className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/70">
-                  Academic Sessions
-                </Text>
-                <Text className="text-xl font-black text-foreground">Semesters</Text>
-              </View>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-10 w-10 rounded-2xl border-primary/20 bg-primary/10 p-0"
-                onPress={handleOpenAddModal}>
-                <Plus size={20} className="text-primary" />
-              </Button>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {semesters.map((sem) => (
-                <Pressable
-                  key={sem.id}
-                  onPress={() => {
-                    setActiveSemesterId(sem.id);
-                    setRosterSearchQuery('');
-                  }}
-                  className={`mb-2 rounded-2xl border p-3 shadow-sm transition-all ${
-                    activeSemesterId === sem.id
-                      ? 'border-primary/40 bg-primary/5'
-                      : 'border-transparent bg-muted/20 hover:bg-muted/30'
-                  }`}>
-                  <View className="flex-row items-center justify-between">
-                    <Text
-                      className={`text-sm font-bold ${
-                        activeSemesterId === sem.id ? 'text-primary' : 'text-foreground'
-                      }`}>
-                      Level {getLevelNumber(sem.level)} Semester {sem.semester}
-                    </Text>
-                    {activeSemesterId === sem.id && (
-                      <View className="h-2 w-2 rounded-full bg-primary shadow-sm shadow-primary" />
-                    )}
-                  </View>
-                  <View className="mt-2 flex-row gap-4 border-t border-border/30 pt-2">
-                    <View className="flex-row items-center gap-2">
-                      <Users size={14} className="text-muted-foreground" />
-                      <Text className="text-[11px] font-bold text-foreground/80">
-                        {sem.students?.length || 0}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      <BookOpen size={14} className="text-muted-foreground" />
-                      <Text className="text-[11px] font-bold text-foreground/80">
-                        {sem.courses?.length || 0}
-                      </Text>
-                    </View>
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
+      <View className="z-10 border-b border-border bg-card">
+        <View className="flex-row items-center gap-2 px-4 pb-2 pt-4">
+          <View className="relative flex-1 justify-center">
+            <Text className="text-xl font-bold">Academic Semesters</Text>
           </View>
-        </View>
- 
-        <View className="flex-1 bg-background/30">
-          {activeSemester ? (
-            <ScrollView className="flex-1" contentContainerStyle={{ padding: isMobile ? 16 : 32 }}>
-              <View className="mb-8 flex-col gap-6 border-b border-border/40 pb-8 sm:flex-row sm:items-end sm:justify-between">
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-3">
-                    <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                      <Calendar size={28} className="text-primary" />
-                    </View>
-                    <View>
-                      <View className="flex-row items-center gap-3">
-                        <Text className="text-2xl font-black tracking-tight text-foreground">
-                          Level {getLevelNumber(activeSemester.level)} Semester {activeSemester.semester}
-                        </Text>
-                        <Badge
-                          variant="outline"
-                          className="h-7 rounded-full border-emerald-500/20 bg-emerald-500/10 px-4 py-1">
-                          <Text className="text-xs font-black text-emerald-600">ACTIVE</Text>
-                        </Badge>
-                      </View>
-                      <Text className="mt-1.5 text-sm font-semibold text-muted-foreground">
-                        {formatDateArray(activeSemester.startDate)} —{' '}
-                        {formatDateArray(activeSemester.endDate)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                <View className="flex-row flex-wrap gap-3">
-                  <Button
-                    variant="outline"
-                    className="h-11 flex-row gap-2 rounded-[20px] border-primary/20 bg-primary/5 px-5"
-                    onPress={() => {
-                      setTargetLevel(activeSemester.level);
-                      setTargetSemester(activeSemester.semester === 'I' ? 'II' : 'I');
-                      if (activeSemester.semester === 'II') {
-                        const idx = LEVELS.indexOf(activeSemester.level) + 1;
-                        if (idx < LEVELS.length) setTargetLevel(LEVELS[idx]);
-                      }
-                      setPromotionModalOpen(true);
-                    }}>
-                    <ArrowUpCircle size={18} className="text-primary" />
-                    <Text className="text-xs font-black uppercase tracking-wider text-primary">
-                      Promote Session
-                    </Text>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-11 w-11 rounded-[20px] border-border/80 bg-card p-0"
-                    onPress={() => handleOpenEditModal(activeSemester)}>
-                    <Pencil size={20} className="text-foreground" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="h-11 w-11 rounded-[20px] p-0"
-                    onPress={() => handleDeleteSemester(activeSemester.id)}>
-                    <Trash2 size={20} className="text-destructive-foreground" />
-                  </Button>
-                </View>
-              </View>
-
-              <View className="mb-10 flex-col gap-5 sm:flex-row">
-                <Card className="flex-1 flex-row items-center gap-5 rounded-[32px] border-border/60 bg-card p-6 shadow-sm">
-                  <View className="h-14 w-14 items-center justify-center rounded-3xl bg-primary/10">
-                    <Users size={32} className="text-primary" />
-                  </View>
-                  <View>
-                    <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/80">
-                      Enrolled Students
-                    </Text>
-                    <Text className="text-3xl font-black text-foreground">
-                      {activeSemester.students?.length || 0}
-                    </Text>
-                  </View>
-                </Card>
-                <Card className="flex-1 flex-row items-center gap-5 rounded-[32px] border-border/60 bg-card p-6 shadow-sm">
-                  <View className="h-14 w-14 items-center justify-center rounded-3xl bg-indigo-500/10">
-                    <BookOpen size={32} className="text-indigo-600" />
-                  </View>
-                  <View>
-                    <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/80">
-                      Active Courses
-                    </Text>
-                    <Text className="text-3xl font-black text-foreground">
-                      {activeSemester.courses?.length || 0}
-                    </Text>
-                  </View>
-                </Card>
-              </View>
-
-              <View className={`flex-1 ${width >= 1280 ? 'flex-row' : 'flex-col'} gap-10`}>
-                <View className="flex-1 gap-5">
-                  <View className="flex-row items-center gap-3 border-b border-border/30 pb-4">
-                    <View className="h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10">
-                      <BookOpen size={16} className="text-indigo-600" />
-                    </View>
-                    <Text className="text-xs font-black uppercase tracking-[0.2em] text-foreground">
-                      Scheduled Courses
-                    </Text>
-                  </View>
-                  <View className="gap-4">
-                    {resolvedCourses.length === 0 ? (
-                      <Card className="items-center rounded-[32px] border-dashed border-border/60 bg-transparent p-12">
-                        <Text className="text-sm font-medium italic text-muted-foreground/60">
-                          No courses assigned to this session.
-                        </Text>
-                      </Card>
-                    ) : (
-                      resolvedCourses.map(
-                        (rc) =>
-                          rc && (
-                            <Card
-                              key={rc.id}
-                              className="group relative flex-row items-center justify-between overflow-hidden rounded-[28px] border-border/60 bg-card p-5 shadow-sm">
-                              <View className="absolute bottom-0 left-0 top-0 w-1.5 bg-indigo-500/30" />
-                              <View className="flex-1 pl-3">
-                                <Text className="text-lg font-black leading-tight text-foreground">
-                                  {rc.course.code}
-                                </Text>
-                                <Text
-                                  className="mt-0.5 text-xs font-bold text-muted-foreground"
-                                  numberOfLines={1}>
-                                  {rc.course.title}
-                                </Text>
-                                <View className="mt-3 flex-row items-center gap-2">
-                                  <View className="h-6 w-6 items-center justify-center rounded-full bg-muted/30">
-                                    <Users size={12} className="text-muted-foreground" />
-                                  </View>
-                                  <Text className="text-[11px] font-bold text-muted-foreground">
-                                    Instructor: {rc.teacher?.userName || 'No teacher assigned'}
-                                  </Text>
-                                </View>
-                              </View>
-                              <Badge
-                                variant="secondary"
-                                className="rounded-2xl border-indigo-500/10 bg-indigo-500/5 px-4 py-2">
-                                <Text className="text-[11px] font-black text-indigo-700">
-                                  {(rc.course.credits || '')
-                                    .replace('CREDIT_', '')
-                                    .replace('_', '.') || '3.0'}{' '}
-                                  CR
-                                </Text>
-                              </Badge>
-                            </Card>
-                          )
-                      )
-                    )}
-                  </View>
-                </View>
-
-                <View className="flex-1 gap-5">
-                  <View className="flex-row items-center justify-between border-b border-border/30 pb-4">
-                    <View className="flex-row items-center gap-3">
-                      <View className="h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10">
-                        <GraduationCap size={16} className="text-emerald-600" />
-                      </View>
-                      <Text className="text-xs font-black uppercase tracking-[0.2em] text-foreground">
-                        Student Roster ({resolvedStudents.length})
-                      </Text>
-                    </View>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 rounded-xl border-emerald-500/20 bg-emerald-500/5 px-4"
-                      onPress={() => handleOpenEditModal(activeSemester)}>
-                      <UserPlus size={16} className="mr-2 text-emerald-600" />
-                      <Text className="text-[11px] font-black uppercase text-emerald-600">
-                        Enroll
-                      </Text>
-                    </Button>
-                  </View>
-                  <View className="relative mb-2">
-                    <Search
-                      size={18}
-                      className="absolute left-4 top-3.5 z-10 text-muted-foreground/60"
-                    />
-                    <Input
-                      placeholder="Search roster by name or ID..."
-                      value={rosterSearchQuery}
-                      onChangeText={setRosterSearchQuery}
-                      className="h-12 rounded-2xl border-transparent bg-muted/30 pl-12 pr-5 text-sm font-bold text-foreground"
-                    />
-                  </View>
-                  <View className="gap-3.5">
-                    {resolvedStudents.length === 0 ? (
-                      <Card className="items-center rounded-[32px] border-dashed border-border/60 bg-transparent p-12">
-                        <Text className="text-sm font-medium italic text-muted-foreground/60">
-                          {rosterSearchQuery
-                            ? 'No students match your search.'
-                            : 'No students enrolled in this session.'}
-                        </Text>
-                      </Card>
-                    ) : (
-                      resolvedStudents.map((s) => (
-                        <Card
-                          key={s.id}
-                          className="relative flex-row items-center gap-4 overflow-hidden rounded-[28px] border-border/60 bg-card p-5 shadow-sm">
-                          <View className="absolute bottom-0 left-0 top-0 w-1.5 bg-emerald-500/30" />
-                          <View className="flex-1 pl-3">
-                            <Text className="text-base font-black leading-tight text-foreground">
-                              {s.userName}
-                            </Text>
-                            <View className="mt-1.5 flex-row items-center gap-3">
-                              <Badge className="rounded-lg border-0 bg-muted/40 px-2.5 py-0.5">
-                                <Text className="text-[10px] font-black text-muted-foreground">
-                                  ID: {s.studentId}
-                                </Text>
-                              </Badge>
-                              <Text className="text-xs font-bold text-muted-foreground">
-                                {s.email}
-                              </Text>
-                            </View>
-                          </View>
-                          <Pressable
-                            className="h-11 w-11 items-center justify-center rounded-2xl bg-destructive/10 active:scale-95 active:bg-destructive/20"
-                            onPress={() => handleRemoveStudentFromSemester(s.id)}>
-                            <UserMinus size={20} className="text-destructive" />
-                          </Pressable>
-                        </Card>
-                      ))
-                    )}
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-          ) : (
-            <View className="flex-1 items-center justify-center bg-background/50 p-12">
-              <View className="mb-6 h-24 w-24 items-center justify-center rounded-[40px] bg-muted/20">
-                <GraduationCap size={48} className="text-muted-foreground/30" />
-              </View>
-              <Text className="text-xl font-black text-foreground">Select an Academic Session</Text>
-              <Text className="mt-2 max-w-xs text-center text-sm font-medium leading-relaxed text-muted-foreground">
-                Choose a level and semester from the sidebar to manage scheduled courses and student
-                enrollment.
-              </Text>
-            </View>
-          )}
+          <Button
+            variant="default"
+            className="h-11 flex-row gap-2 rounded-xl px-4"
+            onPress={handleOpenAddModal}>
+            <Plus size={16} className="text-background" />
+            <Text className="font-semibold">Add Semester</Text>
+          </Button>
         </View>
       </View>
 
+      <FlatList
+        data={semesters}
+        keyExtractor={(item) => item.id}
+        numColumns={numColumns}
+        key={numColumns}
+        contentContainerClassName="p-4 pb-8 gap-4"
+        columnWrapperClassName={numColumns > 1 ? "gap-4" : undefined}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View className="mt-10 flex-1 items-center justify-center p-8">
+            <Text className="text-center text-lg font-semibold text-foreground">
+              No sessions found.
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <View style={{ flex: 1, maxWidth: `${100 / numColumns}%` }}>
+            <Card className="flex-1 rounded-[24px] border-border/60 bg-card p-5 shadow-sm">
+              <View className="flex-row items-start justify-between">
+                <View>
+                  <Text className="text-lg font-black text-foreground">
+                    Level {getLevelNumber(item.level)} Semester {item.semester}
+                  </Text>
+                  <Text className="mt-1 text-xs font-semibold text-muted-foreground">
+                    {formatDateArray(item.startDate)} — {formatDateArray(item.endDate)}
+                  </Text>
+                </View>
+                <View className="flex-row gap-2">
+                  <Pressable
+                    className="h-8 w-8 items-center justify-center rounded-xl bg-muted/50"
+                    onPress={() => handleOpenEditModal(item)}>
+                    <Pencil size={14} className="text-foreground" />
+                  </Pressable>
+                  <Pressable
+                    className="h-8 w-8 items-center justify-center rounded-xl bg-destructive/10"
+                    onPress={() => handleDeleteSemester(item.id)}>
+                    <Trash2 size={14} className="text-destructive" />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View className="mt-4 flex-row gap-4 border-t border-border/40 pt-4">
+                <View className="flex-1 flex-row items-center gap-2">
+                  <View className="h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10">
+                    <Users size={14} className="text-emerald-600" />
+                  </View>
+                  <View>
+                    <Text className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Students</Text>
+                    <Text className="text-base font-black text-foreground">{item.students?.length || 0}</Text>
+                  </View>
+                </View>
+                <View className="flex-1 flex-row items-center gap-2">
+                  <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10">
+                    <BookOpen size={14} className="text-indigo-600" />
+                  </View>
+                  <View>
+                    <Text className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Courses</Text>
+                    <Text className="text-base font-black text-foreground">{item.courses?.length || 0}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View className="mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full flex-row gap-2 rounded-xl border-primary/20 bg-primary/5"
+                  onPress={() => {
+                    setTargetLevel(item.level);
+                    setTargetSemester(item.semester === 'I' ? 'II' : 'I');
+                    if (item.semester === 'II') {
+                      const idx = LEVELS.indexOf(item.level) + 1;
+                      if (idx < LEVELS.length) setTargetLevel(LEVELS[idx]);
+                    }
+                    setActiveSemesterId(item.id);
+                    setPromotionModalOpen(true);
+                  }}
+                >
+                  <ArrowUpCircle size={14} className="text-primary" />
+                  <Text className="text-xs font-black text-primary">Promote Session</Text>
+                </Button>
+              </View>
+            </Card>
+          </View>
+        )}
+      />
+
       <Modal visible={modalOpen} transparent animationType="slide">
         <View className="flex-1 items-center justify-center bg-black/60 p-4">
-          <View className="w-full max-w-5xl overflow-hidden rounded-[40px] border border-border bg-card shadow-2xl">
-            <View className="flex-row items-center justify-between border-b border-border/50 bg-muted/5 p-6">
+          <View className="w-full max-w-3xl overflow-hidden rounded-[32px] border border-border bg-card shadow-2xl">
+            <View className="flex-row items-center justify-between border-b border-border/50 bg-muted/5 p-5">
               <View>
-                <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">
-                  Semester Management
-                </Text>
-                <Text className="text-2xl font-black text-foreground">
+                <Text className="text-lg font-black text-foreground">
                   {editingSemester ? 'Edit Academic Session' : 'Create New Session'}
                 </Text>
               </View>
               <Pressable
-                className="h-12 w-12 items-center justify-center rounded-2xl bg-muted/30 active:scale-90"
+                className="h-10 w-10 items-center justify-center rounded-xl bg-muted/30 active:scale-90"
                 onPress={() => setModalOpen(false)}>
-                <X size={24} className="text-muted-foreground" />
+                <X size={20} className="text-muted-foreground" />
               </Pressable>
             </View>
-            <ScrollView className="max-h-[85vh] p-8">
-              <View className="gap-8">
-                {/* Row 1: Basic Configuration & Student Roster */}
-                <View className={`flex-col ${width >= 768 ? 'flex-row gap-10' : 'gap-8'}`}>
-                  {/* Basic Configuration */}
-                  <View className={`gap-6 ${width >= 768 ? 'w-72' : ''}`}>
-                    <View className="rounded-[32px] border border-border/60 bg-muted/10 p-6">
-                      <Text className="mb-5 text-[11px] font-black uppercase tracking-widest text-primary">
-                        Basic Configuration
-                      </Text>
+            <ScrollView className="max-h-[75vh] p-5">
+              <View className="gap-6 flex-col md:flex-row">
+                <View className="flex-1 gap-6">
+                  <View className="rounded-[24px] border border-border/60 bg-muted/10 p-5">
+                    <Text className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">
+                      Basic Configuration
+                    </Text>
 
-                      <View className="mb-5 flex-row gap-4">
-                        <View className="flex-1 gap-2">
-                          <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                            Level
-                          </Label>
-                          <Dropdown value={level} onValueChange={setLevel} options={LEVELS} />
-                        </View>
-                        <View className="flex-1 gap-2">
-                          <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                            Term
-                          </Label>
-                          <Dropdown
-                            value={semester}
-                            onValueChange={setSemester}
-                            options={SEMESTERS}
-                          />
-                        </View>
-                      </View>
-
-                      <View className="mb-5 gap-2">
-                        <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                          Start Date
+                    <View className="mb-4 flex-row gap-3">
+                      <View className="flex-1 gap-1.5">
+                        <Label className="ml-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          Level
                         </Label>
-                        <Pressable
-                          onPress={handleOpenStartDatePicker}
-                          className="relative justify-center">
-                          <Input
-                            value={startDateStr}
-                            editable={false}
-                            className="h-12 rounded-2xl border-border bg-background pr-12 text-sm font-bold text-foreground"
-                          />
-                          <Calendar size={18} className="absolute right-4 text-muted-foreground/60" />
-                        </Pressable>
+                        <Dropdown value={level} onValueChange={setLevel} options={LEVELS} />
                       </View>
-
-                      <View className="gap-2">
-                        <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                          End Date
+                      <View className="flex-1 gap-1.5">
+                        <Label className="ml-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          Term
                         </Label>
-                        <Pressable
-                          onPress={handleOpenEndDatePicker}
-                          className="relative justify-center">
-                          <Input
-                            value={endDateStr}
-                            editable={false}
-                            className="h-12 rounded-2xl border-border bg-background pr-12 text-sm font-bold text-foreground"
-                          />
-                          <Calendar size={18} className="absolute right-4 text-muted-foreground/60" />
-                        </Pressable>
+                        <Dropdown
+                          value={semester}
+                          onValueChange={setSemester}
+                          options={SEMESTERS}
+                        />
                       </View>
                     </View>
-                    {error ? (
-                      <Text className="rounded-2xl bg-destructive/10 px-2 py-3 text-center text-xs font-black text-destructive">
-                        {error}
-                      </Text>
-                    ) : null}
-                  </View>
 
-                  {/* Student Roster */}
-                  <View className="flex-1 gap-3">
-                    <View className="mb-1 flex-row items-center justify-between px-2">
-                      <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                        Student Roster
-                      </Text>
-                      <Badge className="bg-primary/10 px-3 py-1">
-                        <Text className="text-[10px] font-black text-primary">
-                          {selectedStudentIds.length} Selected
-                        </Text>
-                      </Badge>
+                    <View className="mb-4 gap-1.5">
+                      <Label className="ml-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Start Date
+                      </Label>
+                      <Pressable
+                        onPress={handleOpenStartDatePicker}
+                        className="relative justify-center">
+                        <Input
+                          value={startDateStr}
+                          editable={false}
+                          className="h-11 rounded-xl border-border bg-background pr-12 text-sm font-bold text-foreground"
+                        />
+                        <Calendar size={16} className="absolute right-4 text-muted-foreground/60" />
+                      </Pressable>
                     </View>
-                    <StudentSelector
-                      students={students}
-                      selectedIds={selectedStudentIds}
-                      onToggle={toggleStudentSelection}
-                      maxHeight={width >= 768 ? 320 : 200}
-                    />
-                  </View>
-                </View>
 
-                {/* Row 2: Assigned Courses & Assign Instructors */}
-                <View className={`flex-col ${width >= 768 ? 'flex-row gap-10' : 'gap-8'}`}>
-                  {/* Left Column: Course Selector */}
-                  <View className="flex-1 gap-3">
-                    <View className="mb-1 flex-row items-center justify-between px-2">
-                      <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                    <View className="gap-1.5">
+                      <Label className="ml-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        End Date
+                      </Label>
+                      <Pressable
+                        onPress={handleOpenEndDatePicker}
+                        className="relative justify-center">
+                        <Input
+                          value={endDateStr}
+                          editable={false}
+                          className="h-11 rounded-xl border-border bg-background pr-12 text-sm font-bold text-foreground"
+                        />
+                        <Calendar size={16} className="absolute right-4 text-muted-foreground/60" />
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {error ? (
+                    <Text className="rounded-xl bg-destructive/10 px-2 py-3 text-center text-xs font-black text-destructive">
+                      {error}
+                    </Text>
+                  ) : null}
+
+                  <View className="gap-2 border border-border/60 rounded-[24px] p-4 bg-card">
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                         Assigned Courses
                       </Text>
-                      <Badge className="bg-indigo-500/10 px-3 py-1">
-                        <Text className="text-[10px] font-black text-indigo-600">
+                      <Badge className="bg-indigo-500/10 px-2 py-0.5">
+                        <Text className="text-[9px] font-black text-indigo-600">
                           {selectedCourseInfoIds.length} Selected
                         </Text>
                       </Badge>
@@ -765,25 +546,42 @@ export default function SemestersScreen() {
                       courses={courses}
                       selectedIds={selectedCourseInfoIds}
                       onToggle={toggleCourseSelection}
-                      maxHeight={width >= 768 ? 320 : 200}
+                      maxHeight={200}
+                    />
+                  </View>
+                </View>
+
+                <View className="flex-1 gap-6">
+                  <View className="gap-2 border border-border/60 rounded-[24px] p-4 bg-card">
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Student Roster
+                      </Text>
+                      <Badge className="bg-primary/10 px-2 py-0.5">
+                        <Text className="text-[9px] font-black text-primary">
+                          {selectedStudentIds.length} Selected
+                        </Text>
+                      </Badge>
+                    </View>
+                    <StudentSelector
+                      students={students}
+                      selectedIds={selectedStudentIds}
+                      onToggle={toggleStudentSelection}
+                      maxHeight={200}
                     />
                   </View>
 
-                  {/* Right Column: Assign Instructors */}
-                  {selectedCourseInfoIds.length > 0 ? (
-                    <View className="flex-1 gap-3">
-                      <View className="mb-1 px-2">
-                        <Text className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                          Assign Instructors
-                        </Text>
-                      </View>
-                      <ScrollView style={{ maxHeight: width >= 768 ? 320 : 250 }} className="rounded-2xl border border-border bg-muted/5 p-3" nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                        <View className="gap-2.5">
+                  {selectedCourseInfoIds.length > 0 && (
+                    <View className="gap-2 border border-border/60 rounded-[24px] p-4 bg-card">
+                      <Text className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Assign Instructors
+                      </Text>
+                      <ScrollView style={{ maxHeight: 200 }} className="rounded-xl border border-border bg-muted/5 p-2" nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                        <View className="gap-2">
                           {selectedCourseInfoIds.map((cid) => {
                             const course = courses.find((c) => c.id === cid);
                             if (!course) return null;
                             const currentTeacherId = courseTeacherMap[cid] || '';
-                            
                             const teacherOptions = [
                               'No Teacher Assigned',
                               ...teachers.map((t) => t.userName),
@@ -801,53 +599,40 @@ export default function SemestersScreen() {
                             };
 
                             return (
-                              <View key={cid} className="flex-row items-center justify-between gap-3 border-b border-border/40 pb-2.5 last:border-b-0 last:pb-0">
-                                <View className="flex-1 pr-2">
-                                  <Text className="text-xs font-bold text-foreground">
-                                    {course.code}
-                                  </Text>
-                                  <Text className="text-[10px] text-muted-foreground" numberOfLines={1}>
-                                    {course.title}
-                                  </Text>
-                                </View>
-                                <View className="w-48">
-                                  <Dropdown
-                                    value={currentTeacherName}
-                                    onValueChange={handleTeacherChange}
-                                    options={teacherOptions}
-                                  />
-                                </View>
+                              <View key={cid} className="flex-col gap-1 border-b border-border/40 pb-2 last:border-b-0 last:pb-0">
+                                <Text className="text-xs font-bold text-foreground">
+                                  {course.code}
+                                </Text>
+                                <Dropdown
+                                  value={currentTeacherName}
+                                  onValueChange={handleTeacherChange}
+                                  options={teacherOptions}
+                                />
                               </View>
                             );
                           })}
                         </View>
                       </ScrollView>
                     </View>
-                  ) : width >= 768 ? (
-                    <View className="flex-1" />
-                  ) : null}
+                  )}
                 </View>
               </View>
             </ScrollView>
-            <View className="flex-row gap-4 border-t border-border/50 bg-muted/5 p-6">
+            <View className="flex-row gap-3 border-t border-border/50 bg-muted/5 p-5">
               <Button
                 variant="outline"
-                className="h-14 flex-1 rounded-[24px] active:scale-95"
+                className="h-12 flex-1 rounded-xl active:scale-95"
                 onPress={() => setModalOpen(false)}>
-                <Text className="text-sm font-black uppercase tracking-[0.15em] text-foreground">
+                <Text className="text-xs font-black uppercase tracking-widest text-foreground">
                   Cancel
                 </Text>
               </Button>
               <Button
-                className="h-14 flex-[2] rounded-[24px] shadow-xl shadow-primary/20 transition-transform active:scale-95"
+                className="h-12 flex-[2] rounded-xl shadow-lg shadow-primary/20 transition-transform active:scale-95"
                 onPress={handleSaveSemester}
                 disabled={submitting}>
-                <Text className="text-sm font-black uppercase tracking-[0.15em] text-primary-foreground">
-                  {submitting
-                    ? 'Processing...'
-                    : editingSemester
-                      ? 'Update Academic Session'
-                      : 'Save New Session'}
+                <Text className="text-xs font-black uppercase tracking-widest text-primary-foreground">
+                  {submitting ? 'Processing...' : 'Save'}
                 </Text>
               </Button>
             </View>
@@ -857,22 +642,22 @@ export default function SemestersScreen() {
 
       <Modal visible={promotionModalOpen} transparent animationType="fade">
         <View className="flex-1 items-center justify-center bg-black/70 p-6">
-          <View className="w-full max-w-md rounded-[40px] border border-border bg-card p-10 shadow-2xl">
-            <View className="mb-8 items-center">
-              <View className="mb-6 h-20 w-20 items-center justify-center rounded-[32px] bg-primary/10 shadow-sm shadow-primary/10">
-                <ArrowUpCircle size={40} className="text-primary" />
+          <View className="w-full max-w-sm rounded-[32px] border border-border bg-card p-6 shadow-2xl">
+            <View className="mb-6 items-center">
+              <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 shadow-sm shadow-primary/10">
+                <ArrowUpCircle size={32} className="text-primary" />
               </View>
-              <Text className="text-center text-2xl font-black text-foreground">
+              <Text className="text-center text-xl font-black text-foreground">
                 Batch Promotion
               </Text>
-              <Text className="mt-3 px-4 text-center text-sm font-semibold leading-relaxed text-muted-foreground">
+              <Text className="mt-2 px-2 text-center text-xs font-semibold leading-relaxed text-muted-foreground">
                 Create a new academic session for the current roster. This will move all selected
                 students to the target level.
               </Text>
             </View>
-            <View className="mb-10 gap-6 rounded-[32px] border border-border/50 bg-muted/10 p-6">
-              <View className="gap-2">
-                <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+            <View className="mb-6 gap-4 rounded-[24px] border border-border/50 bg-muted/10 p-5">
+              <View className="gap-1.5">
+                <Label className="ml-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                   Target Level
                 </Label>
                 <Dropdown
@@ -881,8 +666,8 @@ export default function SemestersScreen() {
                   options={LEVELS}
                 />
               </View>
-              <View className="gap-2">
-                <Label className="ml-1 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+              <View className="gap-1.5">
+                <Label className="ml-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                   Target Term
                 </Label>
                 <Dropdown
@@ -892,20 +677,20 @@ export default function SemestersScreen() {
                 />
               </View>
             </View>
-            <View className="flex-row gap-4">
+            <View className="flex-row gap-3">
               <Button
                 variant="outline"
-                className="h-12 flex-1 rounded-2xl active:scale-95"
+                className="h-11 flex-1 rounded-xl active:scale-95"
                 onPress={() => setPromotionModalOpen(false)}>
-                <Text className="text-sm font-black uppercase tracking-widest text-foreground">
+                <Text className="text-xs font-black uppercase tracking-widest text-foreground">
                   Cancel
                 </Text>
               </Button>
               <Button
-                className="h-12 flex-1 rounded-2xl shadow-lg shadow-primary/20 transition-transform active:scale-95"
+                className="h-11 flex-1 rounded-xl shadow-lg shadow-primary/20 transition-transform active:scale-95"
                 onPress={handlePromoteSession}
                 disabled={submitting}>
-                <Text className="text-sm font-black uppercase tracking-widest text-primary-foreground">
+                <Text className="text-xs font-black uppercase tracking-widest text-primary-foreground">
                   Confirm
                 </Text>
               </Button>
@@ -919,10 +704,10 @@ export default function SemestersScreen() {
           className="flex-1 items-center justify-center bg-black/60 p-6"
           onPress={() => setDatePickerOpen(false)}>
           <View
-            className="w-full max-w-sm rounded-[40px] border border-border bg-card p-8 shadow-2xl"
+            className="w-full max-w-sm rounded-[32px] border border-border bg-card p-6 shadow-2xl"
             onStartShouldSetResponder={() => true}
             onTouchEnd={(e) => e.stopPropagation()}>
-            <View className="mb-6 flex-row items-center justify-between border-b border-border/40 pb-4">
+            <View className="mb-5 flex-row items-center justify-between border-b border-border/40 pb-3">
               <Text className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
                 Select {pickerTarget === 'start' ? 'Start' : 'End'} Date
               </Text>
@@ -933,8 +718,8 @@ export default function SemestersScreen() {
               </Pressable>
             </View>
 
-            <View className="mb-6 flex-row items-center justify-between px-2">
-              <Text className="text-lg font-black text-foreground">
+            <View className="mb-4 flex-row items-center justify-between px-1">
+              <Text className="text-base font-black text-foreground">
                 {
                   [
                     'January',
@@ -957,31 +742,31 @@ export default function SemestersScreen() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 w-9 rounded-xl border-border/60 bg-muted/20 p-0"
+                  className="h-8 w-8 rounded-lg border-border/60 bg-muted/20 p-0"
                   onPress={() => {
                     if (pickerMonth === 0) {
                       setPickerMonth(11);
                       setPickerYear((y) => y - 1);
                     } else setPickerMonth((m) => m - 1);
                   }}>
-                  <Text className="text-lg font-bold text-foreground">←</Text>
+                  <Text className="text-base font-bold text-foreground">←</Text>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 w-9 rounded-xl border-border/60 bg-muted/20 p-0"
+                  className="h-8 w-8 rounded-lg border-border/60 bg-muted/20 p-0"
                   onPress={() => {
                     if (pickerMonth === 11) {
                       setPickerMonth(0);
                       setPickerYear((y) => y + 1);
                     } else setPickerMonth((m) => m + 1);
                   }}>
-                  <Text className="text-lg font-bold text-foreground">→</Text>
+                  <Text className="text-base font-bold text-foreground">→</Text>
                 </Button>
               </View>
             </View>
 
-            <View className="mb-3 flex-row border-b border-border/30 pb-2">
+            <View className="mb-2 flex-row border-b border-border/30 pb-2">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
                 <View key={d} className="flex-1 items-center">
                   <Text className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
@@ -1005,14 +790,14 @@ export default function SemestersScreen() {
                     <Pressable
                       key={d}
                       style={{ width: '14.28%' }}
-                      className={`h-11 items-center justify-center rounded-2xl ${isSel ? 'bg-primary shadow-md shadow-primary/20' : 'hover:bg-muted/30'}`}
+                      className={`h-10 items-center justify-center rounded-xl ${isSel ? 'bg-primary shadow-sm shadow-primary/20' : 'hover:bg-muted/30'}`}
                       onPress={() => {
                         if (pickerTarget === 'start') setStartDateStr(curr);
                         else setEndDateStr(curr);
                         setDatePickerOpen(false);
                       }}>
                       <Text
-                        className={`text-sm font-black ${isSel ? 'text-primary-foreground' : 'text-foreground'}`}>
+                        className={`text-xs font-black ${isSel ? 'text-primary-foreground' : 'text-foreground'}`}>
                         {d}
                       </Text>
                     </Pressable>
