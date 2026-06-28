@@ -6,7 +6,6 @@ attendance_portal_backend/
 
 # Expo
 .expo/
-dist/
 web-build/
 
 # Native
