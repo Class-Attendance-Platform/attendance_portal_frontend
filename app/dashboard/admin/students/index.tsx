@@ -182,7 +182,7 @@ export default function StudentsScreen() {
     revDeptMap,
   ]);
 
-  const numColumns = width >= 1024 ? 3 : width >= 768 ? 2 : 1;
+  const numColumns = width >= 1024 ? 5 : width >= 768 ? 2 : 1;
 
   const handleOpenAddModal = () => {
     setEditingStudent(null);
