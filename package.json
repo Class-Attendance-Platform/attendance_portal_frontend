@@ -10,6 +10,7 @@
     "clean": "rm -rf .expo node_modules"
   },
   "dependencies": {
+    "@expo/metro-runtime": "~55.0.11",
     "@react-navigation/native": "^7.0.0",
     "@rn-primitives/avatar": "^1.4.0",
     "@rn-primitives/dropdown-menu": "^1.4.0",
@@ -45,7 +46,6 @@
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@babel/plugin-transform-class-properties": "^7.29.7",
-    "@babel/plugin-transform-classes": "^8.0.1",
     "@babel/plugin-transform-private-methods": "^7.29.7",
     "@babel/plugin-transform-private-property-in-object": "^7.29.7",
     "@react-native-community/cli": "^20.1.3",
