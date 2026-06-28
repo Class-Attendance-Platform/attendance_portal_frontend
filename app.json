@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "portal",
-    "slug": "portal",
+    "name": "Class Attendance Portal",
+    "slug": "class-attendance-portal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "portal",
+    "scheme": "class-attendance-portal",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -23,7 +23,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.portal"
+      "package": "com.grinch.classattendanceportal"
     },
     "web": {
       "bundler": "metro",

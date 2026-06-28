@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getBaseUrl = () => {
-  return 'http://127.0.0.1:8000/'; //'https://attendance-portal-backend-476r.onrender.com/';
+  return 'https://attendance-portal-backend-476r.onrender.com/'; //'http://127.0.0.1:8000/'; ;
 };
 
 export const API_BASE = getBaseUrl();
