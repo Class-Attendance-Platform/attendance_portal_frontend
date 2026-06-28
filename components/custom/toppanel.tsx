@@ -170,6 +170,12 @@ export default function TopPanel() {
                   <Text className="text-xs text-muted-foreground font-semibold">User Role</Text>
                   <Text className="text-xs text-foreground font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{user?.role}</Text>
                 </View>
+                {user?.role === 'STUDENT' && user?.studentId && (
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-xs text-muted-foreground font-semibold">Student ID</Text>
+                    <Text className="text-xs text-foreground font-bold">{user.studentId}</Text>
+                  </View>
+                )}
                 <View className="flex-row justify-between items-center">
                   <Text className="text-xs text-muted-foreground font-semibold">Faculty</Text>
                   <Text className="text-xs text-foreground font-bold" numberOfLines={1}>{user?.faculty || 'N/A'}</Text>

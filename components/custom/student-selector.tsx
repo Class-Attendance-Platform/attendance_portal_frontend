@@ -17,11 +17,18 @@ export function StudentSelector({ students, selectedIds, onToggle, maxHeight = 1
   const [search, setSearch] = useState('');
 
   const filteredStudents = useMemo(() => {
-    return students.filter(s => 
-      s.userName.toLowerCase().includes(search.toLowerCase()) ||
-      s.studentId.toString().includes(search) ||
-      s.email.toLowerCase().includes(search.toLowerCase())
-    );
+    return students.filter(s => {
+      const uname = s.userName || '';
+      const sid = s.studentId ? s.studentId.toString() : '';
+      const eml = s.email || '';
+      const q = search.toLowerCase();
+      
+      return (
+        uname.toLowerCase().includes(q) ||
+        sid.includes(q) ||
+        eml.toLowerCase().includes(q)
+      );
+    });
   }, [students, search]);
 
   return (

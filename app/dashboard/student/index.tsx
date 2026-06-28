@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/AuthContext';
-import { studentService } from '@/lib/services';
+import { studentService, sessionService } from '@/lib/services';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [checkingAttendance, setCheckingAttendance] = useState(false);
 
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -218,9 +219,16 @@ export default function StudentDashboard() {
                 style={{ width: 100, height: 100 }}
                 resizeMode="contain"
               />
-              <Text className="text-lg font-bold tracking-tight mt-3 mb-4 px-4 text-foreground text-center">
+              <Text className="text-lg font-bold tracking-tight mt-3 px-4 text-foreground text-center">
                 Student Dashboard
               </Text>
+              {user?.studentId ? (
+                <Text className="text-sm font-semibold text-muted-foreground mt-1 mb-4 text-center">
+                  ID: {user.studentId}
+                </Text>
+              ) : (
+                <View className="mb-4" />
+              )}
               <View className="w-full h-px bg-border/60 mb-4" />
             </View>
           )}
@@ -323,6 +331,31 @@ export default function StudentDashboard() {
                   <Text className="text-xs text-muted-foreground mt-1 font-semibold flex-row items-center gap-1">
                     Instructor: <Text className="font-bold text-foreground">{activeCourse.teacher.userName}</Text> ({activeCourse.teacher.email})
                   </Text>
+                </View>
+                <View className="flex-row gap-2">
+                  <Button 
+                    onPress={async () => {
+                      setCheckingAttendance(true);
+                      setError('');
+                      try {
+                        const res = await sessionService.getActiveSession(activeCourseId);
+                        if (res.success && res.session_id && res.qr_token) {
+                          router.push(`/attendance/submit?courseInfoId=${activeCourseId}&sessionId=${res.session_id}&qrToken=${res.qr_token}`);
+                        } else {
+                          setError('No active session found for this course.');
+                        }
+                      } catch (err: any) {
+                        setError(err.message || 'Failed to check active session.');
+                      } finally {
+                        setCheckingAttendance(false);
+                      }
+                    }}
+                    disabled={checkingAttendance}
+                    className="flex-row items-center gap-2"
+                  >
+                    {checkingAttendance ? <ActivityIndicator size="small" color="#fff" /> : <QrCode size={18} color="#fff" />}
+                    <Text className="text-primary-foreground font-semibold">Give Attendance</Text>
+                  </Button>
                 </View>
               </View>
 

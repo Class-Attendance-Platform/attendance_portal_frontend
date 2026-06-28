@@ -86,6 +86,9 @@ export const sessionService = {
   getCourseHistory: (courseInfoId: string) =>
     api.get(`/api/sessions/course-info/${courseInfoId}/history/`),
 
+  getActiveSession: (courseInfoId: string) =>
+    api.get(`/api/sessions/course-info/${courseInfoId}/active/`),
+
   submitAttendance: async (
     sessionId: string,
     studentId: number,

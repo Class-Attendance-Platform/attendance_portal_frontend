@@ -57,7 +57,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.success && res.user) {
         const loggedUser: User = {
           ...res.user,
-          role: res.user.role.toUpperCase() as UserRole
+          role: res.user.role.toUpperCase() as UserRole,
+          studentId: res.user.student_profile?.student_id
         };
         setUser(loggedUser);
 
