@@ -1,5 +1,6 @@
 {
   "expo": {
+    
     "name": "Class Attendance Portal",
     "slug": "class-attendance-portal",
     "version": "1.0.0",
@@ -27,7 +28,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
