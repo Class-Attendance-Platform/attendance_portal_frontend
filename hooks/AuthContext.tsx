@@ -31,23 +31,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      try {
-        const stored = localStorage.getItem('portal_user');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed && parsed.user) {
-            setUser(parsed.user);
-            setTokens(parsed.accessToken || null, parsed.refreshToken || null);
-          } else {
-            setUser(parsed);
+    async function restoreSession() {
+      if (Platform.OS === 'web') {
+        try {
+          const stored = localStorage.getItem('portal_user');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const rawUser = parsed && parsed.user ? parsed.user : parsed;
+            const access = parsed && parsed.accessToken ? parsed.accessToken : null;
+            const refresh = parsed && parsed.refreshToken ? parsed.refreshToken : null;
+
+            if (rawUser) {
+              const mappedUser: User = {
+                ...rawUser,
+                role: rawUser.role?.toUpperCase() as UserRole,
+                studentId: rawUser.studentId ?? rawUser.student_profile?.student_id ?? rawUser.student_id
+              };
+              setUser(mappedUser);
+              setTokens(access, refresh);
+
+              // Background refresh user data from server to get latest profiles
+              try {
+                const meRes = await authService.getMe();
+                if (meRes.success && meRes.user) {
+                  const updatedUser: User = {
+                    ...meRes.user,
+                    role: meRes.user.role.toUpperCase() as UserRole,
+                    studentId: meRes.user.student_profile?.student_id
+                  };
+                  setUser(updatedUser);
+                  localStorage.setItem('portal_user', JSON.stringify({
+                    user: updatedUser,
+                    accessToken: access,
+                    refreshToken: refresh,
+                  }));
+                }
+              } catch (err) {
+                console.error('Failed to refresh user profile from server:', err);
+              }
+            }
           }
+        } catch (e) {
+          console.error('Failed to load user session from localStorage.', e);
         }
-      } catch (e) {
-        console.error('Failed to load user session from localStorage.', e);
       }
+      setIsLoading(false);
     }
-    setIsLoading(false);
+    restoreSession();
   }, []);
 
   const login = async (email: string, password: string): Promise<User> => {
