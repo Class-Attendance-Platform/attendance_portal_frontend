@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ export default function SignUpScreen() {
   const [userName, setUserName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
   const [selectedRole, setSelectedRole] = React.useState('Student');
 
   const [facultyMap, setFacultyMap] = React.useState<Record<string, string>>({});
@@ -223,19 +225,33 @@ export default function SignUpScreen() {
               <Label nativeID="passwordLabel" htmlFor="password">
                 Password
               </Label>
-              <Input
-                ref={passwordInputRef}
-                id="password"
-                placeholder="••••••••"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                returnKeyType="next"
-                onSubmitEditing={() =>
-                  selectedRole === 'Student' ? studentIdInputRef.current?.focus() : undefined
-                }
-                editable={!isSubmitting}
-              />
+              <View className="relative justify-center">
+                <Input
+                  ref={passwordInputRef}
+                  id="password"
+                  placeholder="••••••••"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  className="pr-10"
+                  returnKeyType="next"
+                  onSubmitEditing={() =>
+                    selectedRole === 'Student' ? studentIdInputRef.current?.focus() : undefined
+                  }
+                  editable={!isSubmitting}
+                />
+                <Pressable
+                  onPress={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 active:opacity-70 justify-center h-full"
+                  hitSlop={8}
+                >
+                  {showPassword ? (
+                    <EyeOff size={16} className="text-muted-foreground" />
+                  ) : (
+                    <Eye size={16} className="text-muted-foreground" />
+                  )}
+                </Pressable>
+              </View>
             </View>
 
             <View className="gap-2">
