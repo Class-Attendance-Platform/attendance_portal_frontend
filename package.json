@@ -1,14 +1,35 @@
 {
-  "name": "portal",
+  "name": "class-attendance-portal",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "expo": {
+    "entry": "expo-router/entry"
+  },
+  "build": {
+    "appId": "com.grinch.classattendanceportal",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "package.json"
+    ],
+    "linux": {
+      "target": "AppImage"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  },
   "scripts": {
     "dev": "expo start -c",
     "android": "expo start -c --android",
     "ios": "expo start -c --ios",
     "web": "expo start -c --web",
     "clean": "rm -rf .expo node_modules",
-    "vercel-build": "expo export --platform web"
+    "vercel-build": "expo export --platform web",
+    "build:electron": "npx expo export --platform web && electron-builder"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.11",
@@ -22,6 +43,7 @@
     "axios": "^1.17.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-is-dev": "^3.0.1",
     "expo": "~55.0.19",
     "expo-constants": "~55.0.15",
     "expo-linking": "~55.0.14",
@@ -54,6 +76,7 @@
     "@react-native/metro-config": "^0.86.0",
     "@types/react": "~19.2.10",
     "babel-preset-expo": "~55.0.23",
+    "electron": "^42.5.1",
     "patch-package": "^8.0.1",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",

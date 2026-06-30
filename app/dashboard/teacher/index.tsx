@@ -492,8 +492,42 @@ export default function TeacherDashboard() {
           </Text>
           {courses.length === 0 ? (
             <Text className="text-sm text-muted-foreground italic">No courses assigned.</Text>
+          ) : isMobile ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+              className="flex-row"
+            >
+              {courses.map((c) => (
+                <Pressable
+                  key={c.id}
+                  onPress={() => setActiveCourseId(c.id)}
+                  style={{ width: 150 }}
+                  className={`rounded-xl px-3 py-2 active:opacity-75 ${activeCourseId === c.id
+                    ? 'bg-primary'
+                    : 'bg-muted/50 hover:bg-muted'
+                    }`}
+                >
+                  <Text
+                    className={`text-xs font-bold ${activeCourseId === c.id ? 'text-primary-foreground' : 'text-foreground'
+                      }`}
+                    numberOfLines={1}
+                  >
+                    {c.course.code}
+                  </Text>
+                  <Text
+                    className={`text-[10px] mt-0.5 ${activeCourseId === c.id ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                      }`}
+                    numberOfLines={1}
+                  >
+                    {c.course.title}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           ) : (
-            <View className="flex-row flex-wrap gap-2 md:flex-col">
+            <View className="flex-col gap-2">
               {courses.map((c) => (
                 <Pressable
                   key={c.id}

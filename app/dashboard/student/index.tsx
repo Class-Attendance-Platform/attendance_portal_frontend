@@ -308,8 +308,13 @@ export default function StudentDashboard() {
             <Text className="text-xs italic text-muted-foreground">
               No courses in this session.
             </Text>
-          ) : (
-            <View className="flex-row flex-wrap gap-2 md:flex-col">
+          ) : isMobile ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+              className="flex-row"
+            >
               {activeSemester.courses.map((item) => {
                 const isSelected = item.id === activeCourseId;
                 const isLow = item.percentage < 75;
@@ -317,22 +322,26 @@ export default function StudentDashboard() {
                   <Pressable
                     key={item.id}
                     onPress={() => setActiveCourseId(item.id)}
-                    className={`w-full flex-row items-center justify-between rounded-xl px-4 py-3 active:opacity-75 ${
+                    style={{ width: 150 }}
+                    className={`flex-row items-center justify-between rounded-xl px-3 py-2 active:opacity-75 ${
                       isSelected ? 'bg-primary' : 'bg-muted/50 hover:bg-muted'
-                    }`}>
-                    <View className="flex-1 pr-2">
+                    }`}
+                  >
+                    <View className="flex-1 pr-1.5">
                       <Text
-                        className={`text-sm font-semibold ${
+                        className={`text-xs font-semibold ${
                           isSelected ? 'text-primary-foreground' : 'text-foreground'
                         }`}
-                        numberOfLines={1}>
+                        numberOfLines={1}
+                      >
                         {item.course.code}
                       </Text>
                       <Text
-                        className={`mt-0.5 line-clamp-1 text-xs ${
+                        className={`mt-0.5 text-[10px] ${
                           isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
                         }`}
-                        numberOfLines={1}>
+                        numberOfLines={1}
+                      >
                         {item.course.title}
                       </Text>
                     </View>
@@ -343,7 +352,64 @@ export default function StudentDashboard() {
                           : isLow
                             ? 'bg-destructive/10'
                             : 'bg-emerald-500/10'
-                      }`}>
+                      }`}
+                    >
+                      <Text
+                        className={`text-[9px] font-bold ${
+                          isSelected
+                            ? 'text-primary-foreground'
+                            : isLow
+                              ? 'text-destructive'
+                              : 'text-emerald-600'
+                        }`}
+                      >
+                        {item.percentage.toFixed(0)}%
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <View className="flex-col gap-2">
+              {activeSemester.courses.map((item) => {
+                const isSelected = item.id === activeCourseId;
+                const isLow = item.percentage < 75;
+                return (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => setActiveCourseId(item.id)}
+                    className={`w-full flex-row items-center justify-between rounded-xl px-4 py-3 active:opacity-75 ${
+                      isSelected ? 'bg-primary' : 'bg-muted/50 hover:bg-muted'
+                    }`}
+                  >
+                    <View className="flex-1 pr-2">
+                      <Text
+                        className={`text-sm font-semibold ${
+                          isSelected ? 'text-primary-foreground' : 'text-foreground'
+                        }`}
+                        numberOfLines={1}
+                      >
+                        {item.course.code}
+                      </Text>
+                      <Text
+                        className={`mt-0.5 line-clamp-1 text-xs ${
+                          isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                        }`}
+                        numberOfLines={1}
+                      >
+                        {item.course.title}
+                      </Text>
+                    </View>
+                    <View
+                      className={`rounded-full px-1.5 py-0.5 ${
+                        isSelected
+                          ? 'bg-primary-foreground/20'
+                          : isLow
+                            ? 'bg-destructive/10'
+                            : 'bg-emerald-500/10'
+                      }`}
+                    >
                       <Text
                         className={`text-[10px] font-bold ${
                           isSelected
@@ -351,7 +417,8 @@ export default function StudentDashboard() {
                             : isLow
                               ? 'text-destructive'
                               : 'text-emerald-600'
-                        }`}>
+                        }`}
+                      >
                         {item.percentage.toFixed(0)}%
                       </Text>
                     </View>

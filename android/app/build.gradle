@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.portal'
+    namespace 'com.grinch.classattendanceportal'
     defaultConfig {
-        applicationId 'com.anonymous.portal'
+        applicationId 'com.grinch.classattendanceportal'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

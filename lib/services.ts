@@ -95,30 +95,21 @@ export const sessionService = {
     qrToken: string,
     macAddress: string
   ) => {
-    const accessToken = getAccessToken();
-    const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/checkin/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({
+    try {
+      const response = await api.post(`/api/sessions/${sessionId}/checkin/`, {
         student_id: studentId,
         mac_address: macAddress,
         qr_token: qrToken,
-      }),
-    });
-
-    const data = await response.json().catch(() => null);
-    if (!response.ok) {
-      const message = data?.message || data?.detail || 'Attendance submission failed.';
-      if (response.status === 409 && message.toLowerCase().includes('already submitted')) {
-        return { success: true, message };
+      });
+      return response;
+    } catch (err: any) {
+      const isAlreadySubmitted = err.message?.toLowerCase().includes('already submitted') || 
+                                 err.message?.toLowerCase().includes('already registered');
+      if (isAlreadySubmitted) {
+        return { success: true, message: err.message };
       }
-      throw new Error(message);
+      throw err;
     }
-
-    return data || { success: true };
   },
 };
 

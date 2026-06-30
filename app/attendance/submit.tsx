@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import Constants from 'expo-constants';
 import { AlertCircle, CheckCircle, QrCode } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ export default function AttendanceSubmitScreen() {
     sessionId?: string | string[];
     qrToken?: string | string[];
   }>();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const getParam = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
   const courseInfoId = useMemo(() => getParam(params.courseInfoId), [params.courseInfoId]);
   const sessionId = useMemo(() => {
@@ -39,9 +40,23 @@ export default function AttendanceSubmitScreen() {
     }
   }, [user?.studentId]);
 
+  useEffect(() => {
+    if (!isLoading && !user) {
+      const submissionParams = new URLSearchParams();
+      if (courseInfoId) submissionParams.set('courseInfoId', courseInfoId);
+      if (sessionId) submissionParams.set('sessionId', sessionId);
+      if (qrToken) submissionParams.set('qrToken', qrToken);
+      const currentPath = `/attendance/submit?${submissionParams.toString()}`;
+
+      router.replace(`/(auth)/login?redirect=${encodeURIComponent(currentPath)}`);
+    }
+  }, [isLoading, user, courseInfoId, sessionId, qrToken]);
+
   const getBrowserDeviceId = () => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') {
-      return 'app-0000000000000';
+      const rawSessionId = Constants.sessionId || '00000000000000';
+      const cleanSessionId = rawSessionId.replace(/[^a-f0-9]/ig, '');
+      return `app${cleanSessionId.slice(0, 14).padStart(14, '0')}`;
     }
 
     const key = 'attendance_device_id';
@@ -133,9 +148,21 @@ export default function AttendanceSubmitScreen() {
                 ) : null}
 
                 {error ? (
-                  <View className="flex-row gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3">
-                    <AlertCircle size={16} className="mt-0.5 text-destructive" />
-                    <Text className="flex-1 text-sm font-medium text-destructive">{error}</Text>
+                  <View className="flex-col gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3">
+                    <View className="flex-row gap-2">
+                      <AlertCircle size={16} className="mt-0.5 text-destructive" />
+                      <Text className="flex-1 text-sm font-medium text-destructive">{error}</Text>
+                    </View>
+                    {user && user.role !== 'STUDENT' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onPress={() => logout()}
+                        className="mt-2 border-destructive/30 active:bg-destructive/10"
+                      >
+                        <Text className="text-xs font-bold text-destructive">Sign in with different account</Text>
+                      </Button>
+                    )}
                   </View>
                 ) : null}
 

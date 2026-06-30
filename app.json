@@ -2,6 +2,8 @@
   "expo": {
     
     "name": "Class Attendance Portal",
+    "description": "Class Attendance Portal",
+    "author": "Inan Ahammad <user.grinch@gmail.com>",
     "slug": "class-attendance-portal",
     "version": "1.0.0",
     "orientation": "portrait",
