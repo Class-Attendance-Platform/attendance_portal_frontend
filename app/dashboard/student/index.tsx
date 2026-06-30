@@ -39,6 +39,7 @@ export default function StudentDashboard() {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
+  const [activeTab, setActiveTab] = useState<'courses' | 'logs' | 'calendar'>('courses');
   const [selectedSemesterIdx, setSelectedSemesterIdx] = useState(0);
   const [semesters, setSemesters] = useState<SemesterData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -250,34 +251,370 @@ export default function StudentDashboard() {
     );
   }
 
+  if (isMobile) {
+    return (
+      <View className="flex-1 bg-background">
+        <TopPanel />
+
+        {activeTab === 'courses' && (
+          <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 40 }}>
+            {error ? (
+              <View className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3">
+                <Text className="text-center font-medium text-destructive">{error}</Text>
+              </View>
+            ) : null}
+
+            {/* Academic Session picker */}
+            <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Academic Session
+            </Text>
+            {semesters.length > 0 && (
+              <View className="mb-4">
+                <Dropdown
+                  value={`Level ${activeSemester?.level} Sem ${activeSemester?.semester}`}
+                  onValueChange={(val) => {
+                    const idx = semesters.findIndex(
+                      (s) => `Level ${s.level} Sem ${s.semester}` === val
+                    );
+                    if (idx !== -1) {
+                      setSelectedSemesterIdx(idx);
+                    }
+                  }}
+                  options={semesters.map((s) => `Level ${s.level} Sem ${s.semester}`)}
+                />
+              </View>
+            )}
+
+            <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Your Courses
+            </Text>
+
+            {semesters.length === 0 || !activeSemester || activeSemester.courses.length === 0 ? (
+              <Text className="text-xs italic text-muted-foreground mb-4">
+                No courses in this session.
+              </Text>
+            ) : (
+              <View className="flex-col gap-2.5 mb-6">
+                {activeSemester.courses.map((item) => {
+                  const isSelected = item.id === activeCourseId;
+                  const isLow = item.percentage < 75;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => setActiveCourseId(item.id)}
+                      className={`w-full flex-row items-center justify-between rounded-xl px-4 py-3 active:opacity-75 ${
+                        isSelected ? 'bg-primary' : 'bg-card border border-border/60'
+                      }`}
+                    >
+                      <View className="flex-1 pr-2">
+                        <Text
+                          className={`text-sm font-semibold ${
+                            isSelected ? 'text-primary-foreground' : 'text-foreground'
+                          }`}
+                          numberOfLines={1}
+                        >
+                          {item.course.code}
+                        </Text>
+                        <Text
+                          className={`mt-0.5 text-xs ${
+                            isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                          }`}
+                          numberOfLines={1}
+                        >
+                          {item.course.title}
+                        </Text>
+                      </View>
+                      <View
+                        className={`rounded-full px-2 py-0.5 ${
+                          isSelected
+                            ? 'bg-primary-foreground/20'
+                            : isLow
+                              ? 'bg-destructive/10'
+                              : 'bg-emerald-500/10'
+                        }`}
+                      >
+                        <Text
+                          className={`text-xs font-bold ${
+                            isSelected
+                              ? 'text-primary-foreground'
+                              : isLow
+                                ? 'text-destructive'
+                                : 'text-emerald-600'
+                          }`}
+                        >
+                          {item.percentage.toFixed(0)}%
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            {activeCourse ? (
+              <View className="gap-4">
+                {/* Active Course Card */}
+                <Card className="rounded-2xl border border-border p-4 bg-card shadow-sm">
+                  <Text className="text-lg font-bold text-foreground">{activeCourse.course.title}</Text>
+                  <Text className="text-xs text-muted-foreground mt-0.5">
+                    Code: {activeCourse.course.code} | Credits: {parseFloat(activeCourse.course.credits.replace('CREDIT_', '').replace('_', '.')) || 0}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground mt-1.5 font-medium">
+                    Instructor: <Text className="font-bold text-foreground">{activeCourse.teacher.userName}</Text>
+                  </Text>
+
+                  {/* Give Attendance Button */}
+                  <Button
+                    onPress={async () => {
+                      setCheckingAttendance(true);
+                      setError('');
+                      try {
+                        const res = await sessionService.getActiveSession(activeCourseId);
+                        if (res.success && res.session_id && res.qr_token) {
+                          router.push(
+                            `/attendance/submit?courseInfoId=${activeCourseId}&sessionId=${res.session_id}&qrToken=${res.qr_token}`
+                          );
+                        } else {
+                          setError('No active session found for this course.');
+                        }
+                      } catch (err: any) {
+                        setError(err.message || 'Failed to check active session.');
+                      } finally {
+                        setCheckingAttendance(false);
+                      }
+                    }}
+                    disabled={checkingAttendance}
+                    className="flex-row items-center justify-center gap-2 mt-4 w-full rounded-xl"
+                  >
+                    {checkingAttendance ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <QrCode size={18} color="#fff" />
+                    )}
+                    <Text className="font-semibold text-primary-foreground">Give Attendance</Text>
+                  </Button>
+                </Card>
+
+                {/* Warning Card */}
+                {activeCourse.percentage < 75 && activeCourse.totalClasses > 0 && (
+                  <View className="flex-row items-center gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 p-4">
+                    <AlertCircle size={20} className="text-destructive" />
+                    <View className="flex-1">
+                      <Text className="text-sm font-bold text-destructive">
+                        Attendance Shortage Warning
+                      </Text>
+                      <Text className="mt-0.5 text-xs leading-normal text-muted-foreground">
+                        Your attendance rate is below 75%. Please attend upcoming lectures to qualify for exams.
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Stats Row */}
+                <View className="flex-row gap-3">
+                  <Card className="flex-1 rounded-2xl border border-border bg-card p-3 items-center">
+                    <Text className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Lectures</Text>
+                    <Text className="mt-0.5 text-xl font-black text-foreground">{activeCourse.totalClasses}</Text>
+                  </Card>
+                  <Card className="flex-1 rounded-2xl border border-border bg-card p-3 items-center">
+                    <Text className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Attended</Text>
+                    <Text className="mt-0.5 text-xl font-black text-emerald-600">{activeCourse.presentCount}</Text>
+                  </Card>
+                  <Card className="flex-1 rounded-2xl border border-border bg-card p-3 items-center">
+                    <Text className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Rate</Text>
+                    <Text className={`mt-0.5 text-xl font-black ${activeCourse.percentage >= 75 ? 'text-emerald-600' : 'text-destructive'}`}>
+                      {activeCourse.percentage.toFixed(0)}%
+                    </Text>
+                  </Card>
+                </View>
+              </View>
+            ) : (
+              <Text className="text-sm text-center text-muted-foreground mt-8">
+                Please select a course to view details.
+              </Text>
+            )}
+          </ScrollView>
+        )}
+
+        {activeTab === 'logs' && (
+          <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 40 }}>
+            {activeCourse ? (
+              <View className="gap-4">
+                <View className="flex-row justify-between items-center bg-card border border-border p-3.5 rounded-xl">
+                  <View className="flex-1">
+                    <Text className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selected Course</Text>
+                    <Text className="text-sm font-bold text-foreground mt-0.5" numberOfLines={1}>{activeCourse.course.title}</Text>
+                  </View>
+                </View>
+
+                {/* Lecture Logs list */}
+                <Card className="rounded-2xl border border-border bg-card p-4">
+                  <View className="mb-3.5 flex-col gap-2">
+                    <Text className="text-sm font-extrabold text-foreground">
+                      Lecture Attendance Sheet
+                    </Text>
+                    <View className="relative w-full justify-center">
+                      <Search
+                        size={14}
+                        className="absolute left-3 z-10 text-muted-foreground"
+                      />
+                      <Input
+                        placeholder="Filter by date..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        className="h-8.5 rounded-xl border-transparent bg-muted/40 pl-9 pr-3 text-xs focus:bg-muted/70"
+                        clearButtonMode="while-editing"
+                      />
+                    </View>
+                  </View>
+
+                  {!activeCourse.history || activeCourse.history.length === 0 ? (
+                    <Text className="py-6 text-center text-xs italic text-muted-foreground">
+                      No lecture logs found for this course.
+                    </Text>
+                  ) : (
+                    <View className="overflow-hidden rounded-xl border border-border/50 bg-card">
+                      <View className="flex-row items-center border-b border-border/50 bg-muted/20 px-3 py-2">
+                        <Text className="w-10 text-[9px] font-extrabold text-muted-foreground">LEC.</Text>
+                        <Text className="flex-1 text-[9px] font-extrabold text-muted-foreground">DATE</Text>
+                        <Text className="w-20 text-center text-[9px] font-extrabold text-muted-foreground">STATUS</Text>
+                      </View>
+
+                      {activeCourse.history
+                        .filter((h) => h.date.includes(searchQuery))
+                        .sort((a, b) => b.date.localeCompare(a.date))
+                        .map((session, index, arr) => {
+                          const lectureNo = arr.length - index;
+                          return (
+                            <View
+                              key={session.date}
+                              className="flex-row items-center border-b border-border/40 px-3 py-2 last:border-0"
+                            >
+                              <Text className="w-10 text-xs font-bold text-muted-foreground">#{lectureNo}</Text>
+                              <Text className="flex-1 text-xs font-semibold text-foreground">{session.date}</Text>
+                              <View className="w-20 items-center">
+                                <View
+                                  className={`flex-row items-center gap-1 rounded-full border px-2 py-0.5 ${
+                                    session.present
+                                      ? 'border-emerald-500/25 bg-emerald-500/10'
+                                      : 'border-destructive/25 bg-destructive/10'
+                                  }`}
+                                >
+                                  <Text
+                                    className={`text-[8px] font-extrabold uppercase ${session.present ? 'text-emerald-600' : 'text-destructive'}`}
+                                  >
+                                    {session.present ? 'Present' : 'Absent'}
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+                          );
+                        })}
+                    </View>
+                  )}
+                </Card>
+              </View>
+            ) : (
+              <Text className="text-sm text-center text-muted-foreground mt-8">
+                Please select a course on the Courses tab.
+              </Text>
+            )}
+          </ScrollView>
+        )}
+
+        {activeTab === 'calendar' && (
+          <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 40 }}>
+            {activeCourse ? (
+              <View className="gap-4">
+                <View className="flex-row justify-between items-center bg-card border border-border p-3.5 rounded-xl">
+                  <View className="flex-1">
+                    <Text className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selected Course</Text>
+                    <Text className="text-sm font-bold text-foreground mt-0.5" numberOfLines={1}>{activeCourse.course.title}</Text>
+                  </View>
+                </View>
+
+                {renderStudentCalendar(activeCourse)}
+
+                {/* Calendar Legend */}
+                <View className="flex-row items-center justify-center gap-4 px-2 mt-1">
+                  <View className="flex-row items-center gap-1.5">
+                    <View className="h-2 w-2 rounded-full bg-emerald-500/80" />
+                    <Text className="text-[10px] font-semibold text-muted-foreground">Present</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1.5">
+                    <View className="h-2 w-2 rounded-full bg-destructive/80" />
+                    <Text className="text-[10px] font-semibold text-muted-foreground">Absent</Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <Text className="text-sm text-center text-muted-foreground mt-8">
+                Please select a course on the Courses tab.
+              </Text>
+            )}
+          </ScrollView>
+        )}
+
+        {/* Bottom Nav Bar like Admin Panel */}
+        <View className="flex-row items-center border-t border-border bg-background py-3 w-full">
+          <Pressable
+            onPress={() => setActiveTab('courses')}
+            className="flex-1 flex-col h-auto gap-1 px-1 py-1 items-center justify-center bg-transparent active:bg-transparent"
+          >
+            <BookOpen size={20} className={activeTab === 'courses' ? 'text-foreground' : 'text-muted-foreground'} />
+            <Text className={`text-[11px] font-bold text-center ${activeTab === 'courses' ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Courses
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setActiveTab('logs')}
+            className="flex-1 flex-col h-auto gap-1 px-1 py-1 items-center justify-center bg-transparent active:bg-transparent"
+          >
+            <CheckCircle size={20} className={activeTab === 'logs' ? 'text-foreground' : 'text-muted-foreground'} />
+            <Text className={`text-[11px] font-bold text-center ${activeTab === 'logs' ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Logs
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setActiveTab('calendar')}
+            className="flex-1 flex-col h-auto gap-1 px-1 py-1 items-center justify-center bg-transparent active:bg-transparent"
+          >
+            <Calendar size={20} className={activeTab === 'calendar' ? 'text-foreground' : 'text-muted-foreground'} />
+            <Text className={`text-[11px] font-bold text-center ${activeTab === 'calendar' ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Calendar
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-background">
       <TopPanel />
 
-      <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
+      <View className="flex-1 flex-row">
         {/* Sidebar: Semester Selection & Enrolled Courses */}
         <View
-          className={`border-border bg-card p-4 ${isMobile ? 'w-full border-b' : 'w-64 border-r'}`}>
-          {!isMobile && (
-            <View className="mb-6 flex-col items-center">
-              <Image
-                source={require('@/assets/images/hstu.png')}
-                style={{ width: 100, height: 100 }}
-                resizeMode="contain"
-              />
-              <Text className="mt-3 px-4 text-center text-lg font-bold tracking-tight text-foreground">
-                Student Dashboard
+          className="border-border bg-card p-4 w-64 border-r">
+          <View className="mb-6 flex-col items-center">
+            <Image
+              source={require('@/assets/images/hstu.png')}
+              style={{ width: 100, height: 100 }}
+              resizeMode="contain"
+            />
+            <Text className="mt-3 px-4 text-center text-lg font-bold tracking-tight text-foreground">
+              Student Dashboard
+            </Text>
+            {user?.studentId ? (
+              <Text className="mb-4 mt-1 text-center text-sm font-semibold text-muted-foreground">
+                ID: {user.studentId}
               </Text>
-              {user?.studentId ? (
-                <Text className="mb-4 mt-1 text-center text-sm font-semibold text-muted-foreground">
-                  ID: {user.studentId}
-                </Text>
-              ) : (
-                <View className="mb-4" />
-              )}
-              <View className="mb-4 h-px w-full bg-border/60" />
-            </View>
-          )}
+            ) : (
+              <View className="mb-4" />
+            )}
+            <View className="mb-4 h-px w-full bg-border/60" />
+          </View>
           <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Academic Session
           </Text>
@@ -308,68 +645,6 @@ export default function StudentDashboard() {
             <Text className="text-xs italic text-muted-foreground">
               No courses in this session.
             </Text>
-          ) : isMobile ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
-              className="flex-row"
-            >
-              {activeSemester.courses.map((item) => {
-                const isSelected = item.id === activeCourseId;
-                const isLow = item.percentage < 75;
-                return (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => setActiveCourseId(item.id)}
-                    style={{ width: 150 }}
-                    className={`flex-row items-center justify-between rounded-xl px-3 py-2 active:opacity-75 ${
-                      isSelected ? 'bg-primary' : 'bg-muted/50 hover:bg-muted'
-                    }`}
-                  >
-                    <View className="flex-1 pr-1.5">
-                      <Text
-                        className={`text-xs font-semibold ${
-                          isSelected ? 'text-primary-foreground' : 'text-foreground'
-                        }`}
-                        numberOfLines={1}
-                      >
-                        {item.course.code}
-                      </Text>
-                      <Text
-                        className={`mt-0.5 text-[10px] ${
-                          isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                        }`}
-                        numberOfLines={1}
-                      >
-                        {item.course.title}
-                      </Text>
-                    </View>
-                    <View
-                      className={`rounded-full px-1.5 py-0.5 ${
-                        isSelected
-                          ? 'bg-primary-foreground/20'
-                          : isLow
-                            ? 'bg-destructive/10'
-                            : 'bg-emerald-500/10'
-                      }`}
-                    >
-                      <Text
-                        className={`text-[9px] font-bold ${
-                          isSelected
-                            ? 'text-primary-foreground'
-                            : isLow
-                              ? 'text-destructive'
-                              : 'text-emerald-600'
-                        }`}
-                      >
-                        {item.percentage.toFixed(0)}%
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
           ) : (
             <View className="flex-col gap-2">
               {activeSemester.courses.map((item) => {
