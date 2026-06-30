@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert, useWindowDimensions, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ExpoLinking from 'expo-linking';
 import { useAuth } from '@/hooks/AuthContext';
@@ -42,6 +42,22 @@ export default function TeacherDashboard() {
   const [activeSessionToken, setActiveSessionToken] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Roll Call Session States
+  const [rollCallOpen, setRollCallOpen] = useState(false);
+  const [rollCallDate, setRollCallDate] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+  const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
+  const [rollCallAttendance, setRollCallAttendance] = useState<Record<number, 'PRESENT' | 'ABSENT'>>({});
+
+  // Animation values for student card transitions
+  const animX = useRef(new Animated.Value(0)).current;
+  const animOpacity = useRef(new Animated.Value(1)).current;
 
   const fetchCoursesList = async (selectFirst = true) => {
     if (!user) return;
@@ -267,9 +283,140 @@ export default function TeacherDashboard() {
     setSessionModalOpen(false);
   };
 
+  const startRollCall = () => {
+    if (!courseInfo || !courseInfo.students || courseInfo.students.length === 0) {
+      Alert.alert('No Students', 'There are no students enrolled in this course to run a roll call.');
+      return;
+    }
+    setCurrentStudentIndex(0);
+    setRollCallAttendance({});
+    setRollCallOpen(true);
+    animX.setValue(0);
+    animOpacity.setValue(1);
+  };
+
+  const transitionToStudent = (nextIndex: number, direction: 'next' | 'prev') => {
+    const toValue = direction === 'next' ? -300 : 300;
+    const startValue = direction === 'next' ? 300 : -300;
+
+    Animated.parallel([
+      Animated.timing(animX, {
+        toValue,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      setCurrentStudentIndex(nextIndex);
+      animX.setValue(startValue);
+      Animated.parallel([
+        Animated.timing(animX, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        })
+      ]).start();
+    });
+  };
+
+  const handleMarkPresent = () => {
+    if (!courseInfo) return;
+    const student = courseInfo.students[currentStudentIndex];
+    if (!student) return;
+    const studentId = student.studentId ?? 0;
+    setRollCallAttendance(prev => ({ ...prev, [studentId]: 'PRESENT' }));
+    transitionToStudent(currentStudentIndex + 1, 'next');
+  };
+
+  const handleMarkAbsent = () => {
+    if (!courseInfo) return;
+    const student = courseInfo.students[currentStudentIndex];
+    if (!student) return;
+    const studentId = student.studentId ?? 0;
+    setRollCallAttendance(prev => ({ ...prev, [studentId]: 'ABSENT' }));
+    transitionToStudent(currentStudentIndex + 1, 'next');
+  };
+
+  const handlePreviousStudent = () => {
+    if (currentStudentIndex > 0) {
+      transitionToStudent(currentStudentIndex - 1, 'prev');
+    }
+  };
+
+  const handleSaveRollCall = async () => {
+    if (!activeCourseId || !courseInfo) return;
+    setError('');
+    
+    const presentStudentIds = courseInfo.students
+      .filter(s => {
+        const sid = s.studentId ?? 0;
+        return rollCallAttendance[sid] === 'PRESENT';
+      })
+      .map(s => s.studentId ?? 0);
+      
+    try {
+      const res = await teacherService.saveHistorySession(
+        activeCourseId,
+        rollCallDate,
+        presentStudentIds
+      );
+      if (res.success) {
+        Alert.alert('Success', `Attendance for ${rollCallDate} saved successfully.`);
+        setRollCallOpen(false);
+        fetchCourseDetails(activeCourseId);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to save roll call attendance.');
+    }
+  };
+
   useEffect(() => {
     return () => stopSessionTimers();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !rollCallOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT') {
+        return;
+      }
+      
+      const totalStudents = courseInfo?.students.length ?? 0;
+      const isFinished = currentStudentIndex >= totalStudents;
+
+      if (isFinished) {
+        if (e.key === 'Enter') {
+          handleSaveRollCall();
+        } else if (e.key === 'Backspace' || e.key === 'ArrowUp') {
+          handlePreviousStudent();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'p') {
+        handleMarkPresent();
+      } else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') {
+        handleMarkAbsent();
+      } else if (e.key === 'Backspace' || e.key === 'ArrowUp') {
+        handlePreviousStudent();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [rollCallOpen, currentStudentIndex, rollCallAttendance, rollCallDate, courseInfo]);
 
   const downloadReport = async (format: 'pdf' | 'xlsx' | 'csv', date?: string | null) => {
     if (!activeCourseId) return;
@@ -592,30 +739,61 @@ export default function TeacherDashboard() {
                 </View>
               </View>
 
-              {/* Core Attendance Scanner Tool */}
-              <View className="mt-6">
-                <Card className="rounded-3xl shadow-sm border border-border bg-card p-5">
-                  <View className="flex-row items-center gap-3 mb-2">
-                    <View className="p-2.5 rounded-2xl bg-primary/10">
-                      <QrCode size={20} className="text-primary" />
-                    </View>
+              {/* Core Attendance Session Tools */}
+              <View className="mt-6 flex-col md:flex-row gap-6">
+                <View className="flex-1">
+                  <Card className="rounded-3xl shadow-sm border border-border bg-card p-5 h-full justify-between">
                     <View>
-                      <Text className="text-sm font-bold text-foreground">QR Scanner Session</Text>
-                      <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Web Check-in Portal</Text>
+                      <View className="flex-row items-center gap-3 mb-2">
+                        <View className="p-2.5 rounded-2xl bg-primary/10">
+                          <QrCode size={20} className="text-primary" />
+                        </View>
+                        <View>
+                          <Text className="text-sm font-bold text-foreground">QR Scanner Session</Text>
+                          <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Web Check-in Portal</Text>
+                        </View>
+                      </View>
+                      <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                        Generate a dynamic screen QR code. Students scan the code with their mobile devices to check themselves in automatically.
+                      </Text>
                     </View>
-                  </View>
-                  <Text className="text-xs text-muted-foreground leading-normal mb-4">
-                    Generate a dynamic screen QR code. Students scan the code with their mobile devices to check themselves in automatically.
-                  </Text>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onPress={startAttendanceSession}
-                    className="rounded-xl self-start px-5 shadow-sm"
-                  >
-                    <Text className="font-semibold text-primary-foreground text-xs">Start QR Session</Text>
-                  </Button>
-                </Card>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onPress={startAttendanceSession}
+                      className="rounded-xl self-start px-5 shadow-sm mt-2"
+                    >
+                      <Text className="font-semibold text-primary-foreground text-xs">Start QR Session</Text>
+                    </Button>
+                  </Card>
+                </View>
+
+                <View className="flex-1">
+                  <Card className="rounded-3xl shadow-sm border border-border bg-card p-5 h-full justify-between">
+                    <View>
+                      <View className="flex-row items-center gap-3 mb-2">
+                        <View className="p-2.5 rounded-2xl bg-emerald-500/10">
+                          <CheckSquare size={20} className="text-emerald-500" />
+                        </View>
+                        <View>
+                          <Text className="text-sm font-bold text-foreground">Interactive Roll Call</Text>
+                          <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Sequential Call System</Text>
+                        </View>
+                      </View>
+                      <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                        Run an interactive, manual roll call showing student cards one-by-one with smooth transitions and keyboard hotkeys.
+                      </Text>
+                    </View>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={startRollCall}
+                      className="rounded-xl self-start px-5 shadow-sm mt-2 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"
+                    >
+                      <Text className="font-semibold text-emerald-600 text-xs">Start Roll Call</Text>
+                    </Button>
+                  </Card>
+                </View>
               </View>
 
               {/* Attendance Management Workspace Heading */}
@@ -966,6 +1144,353 @@ export default function TeacherDashboard() {
                 <Text className="font-semibold text-destructive-foreground">{sessionRunning ? 'Stop and Apply' : 'Close'}</Text>
               </Button>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Interactive Roll Call Modal */}
+      <Modal visible={rollCallOpen} transparent animationType="fade">
+        <View className="flex-1 items-center justify-center bg-black/75 p-3 md:p-4">
+          <View className="w-full max-w-lg rounded-2xl bg-card border border-border shadow-2xl overflow-hidden bg-background">
+            
+            {/* Modal Header */}
+            <View className="flex-row items-center justify-between border-b border-border/50 px-4 py-3 bg-muted/10">
+              <View className="flex-row items-center gap-2">
+                <CheckSquare size={18} className="text-emerald-500" />
+                <Text className="text-base font-bold text-foreground">Interactive Roll Call</Text>
+              </View>
+              <Pressable 
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    if (window.confirm('Are you sure you want to exit? Your progress for this session will be lost.')) {
+                      setRollCallOpen(false);
+                    }
+                    return;
+                  }
+                  Alert.alert(
+                    'Cancel Roll Call',
+                    'Are you sure you want to exit? Your progress for this session will be lost.',
+                    [
+                      { text: 'Keep Going', style: 'cancel' },
+                      { text: 'Exit', style: 'destructive', onPress: () => setRollCallOpen(false) }
+                    ]
+                  );
+                }}
+                className="p-1 rounded-lg hover:bg-muted active:scale-95"
+              >
+                <X size={18} className="text-muted-foreground" />
+              </Pressable>
+            </View>
+
+            {courseInfo && (
+              <View className="p-4">
+                {currentStudentIndex < courseInfo.students.length ? (
+                  /* RUNNING ROLL CALL STATE */
+                  <View>
+                    {/* Progress Bar & Date Selector */}
+                    <View className="flex-row items-center justify-between mb-3 flex-wrap gap-2">
+                      <View className="flex-1 min-w-[180px]">
+                        <View className="flex-row justify-between mb-1">
+                          <Text className="text-[11px] font-bold text-muted-foreground">
+                            Progress: {currentStudentIndex + 1} / {courseInfo.students.length}
+                          </Text>
+                          <Text className="text-[11px] font-bold text-primary">
+                            {Math.round(((currentStudentIndex) / courseInfo.students.length) * 100)}%
+                          </Text>
+                        </View>
+                        <View className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                          <View 
+                            style={{ width: `${((currentStudentIndex) / courseInfo.students.length) * 100}%` }} 
+                            className="h-full bg-primary"
+                          />
+                        </View>
+                      </View>
+                      
+                      <View className="flex-row items-center gap-1.5">
+                        <Label className="text-[11px] font-bold text-muted-foreground">Date:</Label>
+                        <Input
+                          value={rollCallDate}
+                          onChangeText={setRollCallDate}
+                          placeholder="YYYY-MM-DD"
+                          className="h-7 w-24 rounded-lg border border-border text-center text-[11px] p-1"
+                        />
+                      </View>
+                    </View>
+
+                    {/* Animated Student Card container */}
+                    <View className="items-center justify-center py-2 min-h-[150px]">
+                      {(() => {
+                        const student = courseInfo.students[currentStudentIndex];
+                        if (!student) return null;
+                        
+                        const getInitials = (name: string) => {
+                          const parts = name.trim().split(' ');
+                          if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+                          return name.slice(0, 2).toUpperCase();
+                        };
+
+                        const initials = getInitials(student.userName);
+                        
+                        const bgColors = [
+                          'bg-red-500/10 border-red-500/20 text-red-600',
+                          'bg-blue-500/10 border-blue-500/20 text-blue-600',
+                          'bg-emerald-500/10 border-emerald-500/20 text-emerald-600',
+                          'bg-amber-500/10 border-amber-500/20 text-amber-600',
+                          'bg-indigo-500/10 border-indigo-500/20 text-indigo-600',
+                          'bg-purple-500/10 border-purple-500/20 text-purple-600',
+                          'bg-pink-500/10 border-pink-500/20 text-pink-600',
+                          'bg-cyan-500/10 border-cyan-500/20 text-cyan-600',
+                        ];
+                        const colorIndex = (student.studentId || 0) % bgColors.length;
+                        const avatarStyle = bgColors[colorIndex];
+
+                        const studentId = student.studentId ?? 0;
+                        const isPreviouslyMarked = rollCallAttendance[studentId];
+
+                        return (
+                          <Animated.View
+                            style={{
+                              transform: [{ translateX: animX }],
+                              opacity: animOpacity,
+                              width: '100%',
+                              maxWidth: 440,
+                            }}
+                          >
+                            <Card className="rounded-2xl border border-border bg-card p-4 shadow-sm relative overflow-hidden">
+                              {isPreviouslyMarked && (
+                                <View className={`absolute top-2 right-2 rounded-full px-2 py-0.5 border ${
+                                  isPreviouslyMarked === 'PRESENT' 
+                                    ? 'bg-emerald-500/10 border-emerald-500/20' 
+                                    : 'bg-destructive/10 border-destructive/20'
+                                }`}>
+                                  <Text className={`text-[8px] font-extrabold uppercase ${
+                                    isPreviouslyMarked === 'PRESENT' ? 'text-emerald-600' : 'text-destructive'
+                                  }`}>
+                                    {isPreviouslyMarked}
+                                  </Text>
+                                </View>
+                              )}
+
+                              <View className="flex-row items-center gap-4">
+                                <View className={`w-14 h-14 rounded-xl border items-center justify-center ${avatarStyle}`}>
+                                  <Text className="text-lg font-bold">{initials}</Text>
+                                </View>
+
+                                <View className="flex-1 pr-6">
+                                  <Text className="text-sm font-extrabold text-foreground" numberOfLines={1}>
+                                    {student.userName}
+                                  </Text>
+                                  
+                                  <View className="flex-row items-center gap-2 mt-0.5">
+                                    <View className="bg-primary/10 rounded-md px-1.5 py-0.5 border border-primary/20">
+                                      <Text className="text-[9px] font-black text-primary">Roll: {student.studentId}</Text>
+                                    </View>
+                                    <Text className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                                      {student.currentLevel} | {student.currentSemester}
+                                    </Text>
+                                  </View>
+
+                                  <Text className="text-[11px] text-muted-foreground mt-0.5" numberOfLines={1}>
+                                    {student.email}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <View className="mt-2.5 pt-2.5 border-t border-border/40 flex-row justify-between items-center bg-muted/20 rounded-lg px-2.5 py-1.5">
+                                <Text className="text-[8px] uppercase font-bold text-muted-foreground tracking-wider">
+                                  Attendance History
+                                </Text>
+                                <Text className={`text-[11px] font-bold ${student.percentage < 75 ? 'text-destructive' : 'text-emerald-600'}`}>
+                                  {student.attendanceCount} / {overallConducted} Classes ({student.percentage.toFixed(0)}%)
+                                </Text>
+                              </View>
+                            </Card>
+                          </Animated.View>
+                        );
+                      })()}
+                    </View>
+
+                    {Platform.OS === 'web' && !isMobile && (
+                      <View className="flex-row items-center justify-center gap-3 py-2 mb-3 bg-muted/20 border border-border/30 rounded-xl px-4">
+                        <Text className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                          Shortcuts:
+                        </Text>
+                        <View className="flex-row items-center gap-1">
+                          <Text className="text-xs bg-card border border-border px-2 py-0.5 rounded font-mono text-foreground font-bold">A</Text>
+                          <Text className="text-xs text-muted-foreground">or</Text>
+                          <Text className="text-xs bg-card border border-border px-2 py-0.5 rounded font-mono text-foreground font-bold">←</Text>
+                          <Text className="text-xs font-semibold text-muted-foreground">Absent</Text>
+                        </View>
+                        <View className="flex-row items-center gap-1">
+                          <Text className="text-xs bg-card border border-border px-2 py-0.5 rounded font-mono text-foreground font-bold">P</Text>
+                          <Text className="text-xs text-muted-foreground">or</Text>
+                          <Text className="text-xs bg-card border border-border px-2 py-0.5 rounded font-mono text-foreground font-bold">→</Text>
+                          <Text className="text-xs font-semibold text-muted-foreground">Present</Text>
+                        </View>
+                        <View className="flex-row items-center gap-1">
+                          <Text className="text-xs bg-card border border-border px-2 py-0.5 rounded font-mono text-foreground font-bold">⌫</Text>
+                          <Text className="text-xs font-semibold text-muted-foreground">Undo</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    <View className="flex-row justify-between items-center gap-4 mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onPress={handlePreviousStudent}
+                        disabled={currentStudentIndex === 0}
+                        className="rounded-xl flex-row items-center gap-1 border-border/80 h-8"
+                      >
+                        <ArrowLeft size={12} className="text-foreground" />
+                        <Text className="font-semibold text-foreground text-xs">Back</Text>
+                      </Button>
+
+                      <View className="flex-row gap-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onPress={handleMarkAbsent}
+                          className="rounded-xl px-4 py-1.5 bg-destructive/10 border border-destructive/20 hover:bg-destructive/25 shadow-sm h-8"
+                        >
+                          <X size={14} className="text-destructive mr-1" />
+                          <Text className="font-bold text-destructive text-xs">Absent</Text>
+                        </Button>
+
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onPress={handleMarkPresent}
+                          className="rounded-xl px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 shadow-md h-8"
+                        >
+                          <Check size={14} className="text-primary-foreground mr-1" />
+                          <Text className="font-bold text-primary-foreground text-xs">Present</Text>
+                        </Button>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  /* SUMMARIZED END STATE */
+                  <View className="py-1">
+                    <View className="items-center mb-4">
+                      <View className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 items-center justify-center mb-2">
+                        <Check size={24} className="text-emerald-500" />
+                      </View>
+                      <Text className="text-lg font-extrabold text-foreground text-center">Roll Call Completed</Text>
+                      <Text className="text-xs text-muted-foreground text-center mt-0.5">
+                        All {courseInfo.students.length} students processed for <Text className="font-bold text-foreground">{rollCallDate}</Text>
+                      </Text>
+                    </View>
+
+                    <View className="flex-row gap-3 mb-4">
+                      <View className="flex-1 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-2.5 items-center">
+                        <Text className="text-[9px] uppercase font-bold text-emerald-600/70 tracking-wider">Present</Text>
+                        <Text className="text-xl font-black text-emerald-600 mt-0.5">
+                          {courseInfo.students.filter(s => rollCallAttendance[s.studentId ?? 0] === 'PRESENT').length}
+                        </Text>
+                      </View>
+                      <View className="flex-1 bg-destructive/5 border border-destructive/10 rounded-xl p-2.5 items-center">
+                        <Text className="text-[9px] uppercase font-bold text-destructive/70 tracking-wider">Absent</Text>
+                        <Text className="text-xl font-black text-destructive mt-0.5">
+                          {courseInfo.students.filter(s => rollCallAttendance[s.studentId ?? 0] !== 'PRESENT').length}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+                      Absent List ({courseInfo.students.filter(s => rollCallAttendance[s.studentId ?? 0] !== 'PRESENT').length})
+                    </Text>
+                    <View className="h-32 bg-muted/20 rounded-xl border border-border/50 p-2 mb-4">
+                      {courseInfo.students.filter(s => rollCallAttendance[s.studentId ?? 0] !== 'PRESENT').length === 0 ? (
+                        <View className="flex-1 items-center justify-center">
+                          <Text className="text-xs text-emerald-600 font-bold">100% Attendance today!</Text>
+                        </View>
+                      ) : (
+                        <FlatList
+                          data={courseInfo.students}
+                          keyExtractor={(item) => (item.studentId ?? 0).toString()}
+                          renderItem={({ item }) => {
+                            const itemId = item.studentId ?? 0;
+                            const isPresent = rollCallAttendance[itemId] === 'PRESENT';
+                            if (isPresent) return null;
+                            
+                            return (
+                              <Pressable
+                                onPress={() => {
+                                  setRollCallAttendance(prev => ({
+                                    ...prev,
+                                    [itemId]: 'PRESENT'
+                                  }));
+                                }}
+                                className="flex-row items-center justify-between px-2.5 py-1.5 border-b border-border/20 last:border-0 bg-card rounded-lg mb-1 shadow-sm active:scale-95 animate-fade-in"
+                              >
+                                <View className="flex-row items-center gap-2">
+                                  <View className="h-1.5 w-1.5 rounded-full bg-destructive" />
+                                  <Text className="text-xs font-bold text-foreground">
+                                    {itemId} - {item.userName}
+                                  </Text>
+                                </View>
+                                <View className="bg-primary/10 rounded px-1.5 py-0.5 border border-primary/20">
+                                  <Text className="text-[8px] font-extrabold text-primary">Mark Present</Text>
+                                </View>
+                              </Pressable>
+                            );
+                          }}
+                        />
+                      )}
+                    </View>
+
+                    <View className="flex-row justify-between items-center border-t border-border/50 pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onPress={() => {
+                          setCurrentStudentIndex(courseInfo.students.length - 1);
+                        }}
+                        className="rounded-xl flex-row items-center gap-1 border-border/80 h-8"
+                      >
+                        <ArrowLeft size={12} className="text-foreground" />
+                        <Text className="font-semibold text-foreground text-xs">Modify</Text>
+                      </Button>
+
+                      <View className="flex-row gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onPress={() => {
+                            if (Platform.OS === 'web') {
+                              if (window.confirm('Are you sure you want to discard this roll call attendance session?')) {
+                                setRollCallOpen(false);
+                              }
+                              return;
+                            }
+                            Alert.alert(
+                              'Discard Roll Call',
+                              'Are you sure you want to discard this roll call attendance session?',
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Discard', style: 'destructive', onPress: () => setRollCallOpen(false) }
+                              ]
+                            );
+                          }}
+                          className="rounded-xl border-border/80 h-8"
+                        >
+                          <Text className="font-semibold text-foreground text-xs">Discard</Text>
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onPress={handleSaveRollCall}
+                          className="rounded-xl bg-emerald-500 hover:bg-emerald-600 px-4 shadow-sm h-8"
+                        >
+                          <Text className="font-bold text-primary-foreground text-xs">Save</Text>
+                        </Button>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </View>
       </Modal>

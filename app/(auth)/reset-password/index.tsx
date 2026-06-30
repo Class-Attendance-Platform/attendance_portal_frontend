@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +17,7 @@ import { Text } from '@/components/ui/text';
 
 export default function ResetPasswordScreen() {
   const codeInputRef = React.useRef<TextInput>(null);
+  const [showPassword, setShowPassword] = React.useState(false);
 
   function onPasswordSubmitEditing() {
     codeInputRef.current?.focus();
@@ -52,14 +54,28 @@ export default function ResetPasswordScreen() {
               <Label nativeID="passwordLabel" htmlFor="password">
                 New Password
               </Label>
-              <Input
-                id="password"
-                placeholder="••••••••"
-                secureTextEntry
-                returnKeyType="next"
-                submitBehavior="submit"
-                onSubmitEditing={onPasswordSubmitEditing}
-              />
+              <View className="relative justify-center">
+                <Input
+                  id="password"
+                  placeholder="••••••••"
+                  secureTextEntry={!showPassword}
+                  className="pr-10"
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={onPasswordSubmitEditing}
+                />
+                <Pressable
+                  onPress={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 active:opacity-70 justify-center h-full"
+                  hitSlop={8}
+                >
+                  {showPassword ? (
+                    <EyeOff size={16} className="text-muted-foreground" />
+                  ) : (
+                    <Eye size={16} className="text-muted-foreground" />
+                  )}
+                </Pressable>
+              </View>
             </View>
 
             <View className="gap-2">

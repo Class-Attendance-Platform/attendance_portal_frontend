@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +21,7 @@ export default function SignInScreen() {
   const params = useLocalSearchParams<{ redirect?: string }>();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
   const [error, setError] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const passwordInputRef = React.useRef<TextInput>(null);
@@ -113,17 +115,31 @@ export default function SignInScreen() {
                   </Text>
                 </Button>
               </View>
-              <Input
-                ref={passwordInputRef}
-                id="password"
-                placeholder="••••••••"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                returnKeyType="send"
-                onSubmitEditing={onSubmit}
-                editable={!isSubmitting}
-              />
+              <View className="relative justify-center">
+                <Input
+                  ref={passwordInputRef}
+                  id="password"
+                  placeholder="••••••••"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  className="pr-10"
+                  returnKeyType="send"
+                  onSubmitEditing={onSubmit}
+                  editable={!isSubmitting}
+                />
+                <Pressable
+                  onPress={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 active:opacity-70 justify-center h-full"
+                  hitSlop={8}
+                >
+                  {showPassword ? (
+                    <EyeOff size={16} className="text-muted-foreground" />
+                  ) : (
+                    <Eye size={16} className="text-muted-foreground" />
+                  )}
+                </Pressable>
+              </View>
             </View>
 
             <Button 
