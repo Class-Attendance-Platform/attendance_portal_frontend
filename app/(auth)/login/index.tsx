@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 
@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/AuthContext';
 
 export default function SignInScreen() {
   const { login } = useAuth();
+  const params = useLocalSearchParams<{ redirect?: string }>();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
@@ -36,7 +37,11 @@ export default function SignInScreen() {
     setError('');
     try {
       await login(email, password);
-      router.replace('/');
+      if (params.redirect) {
+        router.replace(decodeURIComponent(params.redirect) as any);
+      } else {
+        router.replace('/');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
