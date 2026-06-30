@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
-import { Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search } from 'lucide-react-native';
+import { Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search, Users, BookOpen } from 'lucide-react-native';
 import TopPanel from '@/components/custom/toppanel';
 
 import { StudentRow } from '@/types/student';
@@ -21,6 +21,7 @@ export default function TeacherDashboard() {
   const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
+  const [activeTab, setActiveTab] = useState<'courses' | 'sessions' | 'students' | 'calendar'>('courses');
   const [courses, setCourses] = useState<TeacherCourseListItem[]>([]);
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   const [courseInfo, setCourseInfo] = useState<CourseInfo | null>(null);
@@ -615,13 +616,404 @@ export default function TeacherDashboard() {
     <View className="flex-1 bg-background">
       <TopPanel />
 
-      <View className={`flex-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
-        {/* Sidebar for courses */}
-        <View className={`border-border bg-card p-4 ${isMobile
-          ? 'w-full border-b'
-          : 'w-64 border-r'
-          }`}>
-          {!isMobile && (
+      {isMobile ? (
+        <View className="flex-1">
+          {activeTab === 'courses' && (
+            <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 40 }}>
+              {error ? (
+                <View className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3">
+                  <Text className="text-center font-medium text-destructive">{error}</Text>
+                </View>
+              ) : null}
+
+              <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Your Courses
+              </Text>
+
+              {courses.length === 0 ? (
+                <Text className="text-sm text-muted-foreground italic mb-4">No courses assigned.</Text>
+              ) : (
+                <View className="flex-col gap-2.5 mb-6">
+                  {courses.map((c) => (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => setActiveCourseId(c.id)}
+                      className={`w-full flex-row items-center justify-between rounded-xl px-4 py-3 active:opacity-75 ${
+                        activeCourseId === c.id ? 'bg-primary' : 'bg-card border border-border/60'
+                      }`}
+                    >
+                      <View className="flex-1 pr-2">
+                        <Text
+                          className={`text-sm font-bold ${
+                            activeCourseId === c.id ? 'text-primary-foreground' : 'text-foreground'
+                          }`}
+                          numberOfLines={1}
+                        >
+                          {c.course.code}
+                        </Text>
+                        <Text
+                          className={`text-xs mt-0.5 ${
+                            activeCourseId === c.id ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                          }`}
+                          numberOfLines={1}
+                        >
+                          {c.course.title}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              {courseInfo ? (
+                <View className="gap-4">
+                  {/* Course Header */}
+                  <Card className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                    <Text className="text-lg font-bold text-foreground">{courseInfo.course.title}</Text>
+                    <Text className="text-xs text-muted-foreground mt-0.5">
+                      Code: {courseInfo.course.code} | Credits: {parseFloat(courseInfo.course.credits.replace('CREDIT_', '').replace('_', '.')) || 0}
+                    </Text>
+                    <View className="mt-4 pt-4 border-t border-border/50 flex-row justify-between items-center">
+                      <Text className="text-xs font-semibold text-muted-foreground">Data Export</Text>
+                      <Dropdown
+                        value="Export Data"
+                        onValueChange={(val) => {
+                          if (val === 'PDF Document') handleExport('pdf');
+                          else if (val === 'Excel Sheet') handleExport('xlsx');
+                          else if (val === 'CSV File') handleExport('csv');
+                        }}
+                        options={['PDF Document', 'Excel Sheet', 'CSV File']}
+                      />
+                    </View>
+                  </Card>
+
+                  {/* Stats Row */}
+                  <View className="flex-row gap-2.5">
+                    <Card className="flex-1 rounded-2xl border border-border p-3 bg-card items-center">
+                      <Text className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider text-center">Conducted</Text>
+                      <Text className="text-lg font-black text-foreground mt-1">{overallConducted}</Text>
+                    </Card>
+                    <Card className="flex-1 rounded-2xl border border-border p-3 bg-card items-center">
+                      <Text className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider text-center">Average Rate</Text>
+                      <Text className="text-lg font-black text-emerald-600 mt-1">{overallAvgRate.toFixed(0)}%</Text>
+                    </Card>
+                    <Card className="flex-1 rounded-2xl border border-border p-3 bg-card items-center">
+                      <Text className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider text-center">Low Attd.</Text>
+                      <Text className={`text-lg font-black mt-1 ${overallLowAttendance > 0 ? 'text-destructive font-black' : 'text-emerald-600'}`}>
+                        {overallLowAttendance}
+                      </Text>
+                    </Card>
+                  </View>
+                </View>
+              ) : (
+                <Text className="text-sm text-center text-muted-foreground mt-8">
+                  Please select a course to view summary.
+                </Text>
+              )}
+            </ScrollView>
+          )}
+
+          {activeTab === 'sessions' && (
+            <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 40 }}>
+              {courseInfo ? (
+                <View className="gap-4">
+                  <View className="flex-row justify-between items-center bg-card border border-border p-3.5 rounded-xl">
+                    <View className="flex-1">
+                      <Text className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selected Course</Text>
+                      <Text className="text-sm font-bold text-foreground mt-0.5" numberOfLines={1}>{courseInfo.course.title}</Text>
+                    </View>
+                  </View>
+
+                  {/* QR Scanner Session Tool */}
+                  <Card className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                    <View className="flex-row items-center gap-3 mb-2">
+                      <View className="p-2.5 rounded-xl bg-primary/10">
+                        <QrCode size={20} className="text-primary" />
+                      </View>
+                      <View>
+                        <Text className="text-sm font-bold text-foreground">QR Scanner Session</Text>
+                        <Text className="text-[9px] text-muted-foreground uppercase font-semibold">Web Check-in Portal</Text>
+                      </View>
+                    </View>
+                    <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                      Generate a dynamic screen QR code for student self check-ins.
+                    </Text>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onPress={startAttendanceSession}
+                      className="rounded-xl w-full"
+                    >
+                      <Text className="font-semibold text-primary-foreground text-xs">Start QR Session</Text>
+                    </Button>
+                  </Card>
+
+                  {/* Interactive Roll Call Tool */}
+                  <Card className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                    <View className="flex-row items-center gap-3 mb-2">
+                      <View className="p-2.5 rounded-xl bg-emerald-500/10">
+                        <CheckSquare size={20} className="text-emerald-500" />
+                      </View>
+                      <View>
+                        <Text className="text-sm font-bold text-foreground">Interactive Roll Call</Text>
+                        <Text className="text-[9px] text-muted-foreground uppercase font-semibold">Sequential Call System</Text>
+                      </View>
+                    </View>
+                    <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                      Run manual roll call card sequences with transitions and shortcuts.
+                    </Text>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={startRollCall}
+                      className="rounded-xl w-full border-emerald-500/30 bg-emerald-500/5"
+                    >
+                      <Text className="font-semibold text-emerald-600 text-xs">Start Roll Call</Text>
+                    </Button>
+                  </Card>
+                </View>
+              ) : (
+                <Text className="text-sm text-center text-muted-foreground mt-8">
+                  Please select a course on the Courses tab.
+                </Text>
+              )}
+            </ScrollView>
+          )}
+
+          {activeTab === 'students' && (
+            <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 40 }}>
+              {courseInfo ? (
+                <View className="gap-4">
+                  <View className="flex-row justify-between items-center bg-card border border-border p-3.5 rounded-xl">
+                    <View className="flex-1">
+                      <Text className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selected Course</Text>
+                      <Text className="text-sm font-bold text-foreground mt-0.5" numberOfLines={1}>{courseInfo.course.title}</Text>
+                    </View>
+                  </View>
+
+                  {/* Cumulative Student list */}
+                  <Card className="rounded-2xl border border-border bg-card p-4">
+                    <View className="mb-3.5 flex-col gap-2">
+                      <Text className="text-sm font-extrabold text-foreground">Students Cumulative Sheet</Text>
+                      <View className="relative justify-center w-full">
+                        <Search size={14} className="absolute left-3 z-10 text-muted-foreground" />
+                        <Input
+                          placeholder="Search student ID/name..."
+                          value={searchQuery}
+                          onChangeText={setSearchQuery}
+                          className="h-8.5 rounded-xl border-transparent bg-muted/40 pl-9 pr-3 text-xs focus:bg-muted/70"
+                          clearButtonMode="while-editing"
+                        />
+                      </View>
+                    </View>
+
+                    {filteredStudents.length === 0 ? (
+                       <Text className="text-muted-foreground italic text-center py-6 text-xs">No matching students enrolled.</Text>
+                    ) : (
+                      <View className="border border-border/50 rounded-xl bg-card overflow-hidden">
+                        <View className="flex-row items-center border-b border-border/50 bg-muted/20 px-3 py-2">
+                          <Text className="w-16 text-[9px] font-extrabold text-muted-foreground">ID</Text>
+                          <Text className="flex-1 text-[9px] font-extrabold text-muted-foreground">NAME</Text>
+                          <Text className="w-12 text-center text-[9px] font-extrabold text-muted-foreground">RATE</Text>
+                          <Text className="w-16 text-center text-[9px] font-extrabold text-muted-foreground">STATUS</Text>
+                        </View>
+
+                        {filteredStudents.map((student) => {
+                          const isLow = student.percentage < 75;
+                          return (
+                            <View key={student.id} className="flex-row items-center border-b border-border/40 last:border-0 px-3 py-2.5">
+                              <Text className="w-16 text-xs font-bold text-foreground">{student.studentId}</Text>
+                              <View className="flex-1 pr-1">
+                                <Text className="text-xs font-semibold text-foreground" numberOfLines={1}>{student.userName}</Text>
+                              </View>
+                              <Text className={`w-12 text-xs font-bold text-center ${isLow ? 'text-destructive' : 'text-emerald-600'}`}>
+                                {student.percentage.toFixed(0)}%
+                              </Text>
+                              <View className="w-16 items-center">
+                                <View className={`rounded-full px-1.5 py-0.5 ${isLow ? 'bg-destructive/10' : 'bg-emerald-500/10'}`}>
+                                  <Text className={`text-[8px] font-extrabold uppercase ${isLow ? 'text-destructive' : 'text-emerald-600'}`}>
+                                    {isLow ? 'Low' : 'Good'}
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </Card>
+                </View>
+              ) : (
+                <Text className="text-sm text-center text-muted-foreground mt-8">
+                  Please select a course on the Courses tab.
+                </Text>
+              )}
+            </ScrollView>
+          )}
+
+          {activeTab === 'calendar' && (
+            <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 40 }}>
+              {courseInfo ? (
+                <View className="gap-4">
+                  <View className="flex-row justify-between items-center bg-card border border-border p-3.5 rounded-xl">
+                    <View className="flex-1">
+                      <Text className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selected Course</Text>
+                      <Text className="text-sm font-bold text-foreground mt-0.5" numberOfLines={1}>{courseInfo.course.title}</Text>
+                    </View>
+                    {selectedHistoryDate && (
+                      <Pressable
+                        onPress={() => setSelectedHistoryDate(null)}
+                        className="bg-primary/10 border border-primary/20 px-2 py-1 rounded-lg"
+                      >
+                        <Text className="text-[9px] font-bold text-primary">Reset</Text>
+                      </Pressable>
+                    )}
+                  </View>
+
+                  {/* Calendar View */}
+                  {renderCalendar()}
+
+                  {/* Selected Date Detail View */}
+                  {selectedHistoryDate !== null && (
+                    activeSessionDetails ? (
+                      <Card className="rounded-2xl border border-border bg-card p-4 gap-3">
+                        <View className="flex-col pb-3 border-b border-border/50 gap-2">
+                          <View className="flex-row items-center justify-between">
+                            <Text className="text-xs font-bold text-foreground">Date: {selectedHistoryDate}</Text>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 rounded-lg border-destructive/20 bg-destructive/5 px-2"
+                              onPress={() => handleDeleteHistorySession(selectedHistoryDate)}
+                            >
+                              <Trash2 size={10} className="text-destructive mr-1" />
+                              <Text className="text-[8px] font-bold text-destructive">Delete Date</Text>
+                            </Button>
+                          </View>
+                          <View className="flex-row items-center justify-between mt-1">
+                            <Text className="text-[10px] text-muted-foreground">
+                              Present: <Text className="font-bold text-emerald-600">{activeSessionDetails.presentStudents?.length || 0}</Text> | Absent:{' '}
+                              <Text className="font-bold text-destructive">
+                                {Math.max(0, courseInfo.students.length - (activeSessionDetails.presentStudents?.length || 0))}
+                              </Text>
+                            </Text>
+                            <Dropdown
+                              value="Export Log"
+                              onValueChange={(val) => {
+                                if (val === 'PDF Document') handleExportDate('pdf');
+                                else if (val === 'Excel Sheet') handleExportDate('xlsx');
+                                else if (val === 'CSV File') handleExportDate('csv');
+                              }}
+                              options={['PDF Document', 'Excel Sheet', 'CSV File']}
+                            />
+                          </View>
+                        </View>
+
+                        {/* Checklist */}
+                        <View className="relative justify-center w-full mb-1">
+                          <Search size={12} className="absolute left-2.5 z-10 text-muted-foreground" />
+                          <Input
+                            placeholder="Filter students..."
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            className="h-8 rounded-xl border-transparent bg-muted/40 pl-8 pr-3 text-xs focus:bg-muted/70"
+                            clearButtonMode="while-editing"
+                          />
+                        </View>
+
+                        <View className="border border-border/50 rounded-xl bg-card overflow-hidden">
+                          <View className="flex-row items-center border-b border-border/50 bg-muted/20 px-3 py-1.5">
+                            <Text className="w-16 text-[9px] font-extrabold text-muted-foreground">ID</Text>
+                            <Text className="flex-1 text-[9px] font-extrabold text-muted-foreground">STUDENT</Text>
+                            <Text className="w-12 text-center text-[9px] font-extrabold text-muted-foreground">TOGGLE</Text>
+                          </View>
+
+                          {filteredStudents.map((s) => {
+                            const studentId = s.studentId ?? s.student_id;
+                            const isPresent = studentId ? activeSessionDetails.presentStudents?.includes(studentId) : false;
+                            return (
+                              <View key={s.id} className="flex-row items-center px-3 py-2 border-b border-border/40 last:border-0">
+                                <Text className="w-16 text-xs font-bold text-foreground">{studentId || '-'}</Text>
+                                <Text className="flex-1 text-xs font-semibold text-foreground" numberOfLines={1}>{s.userName}</Text>
+                                <View className="w-12 items-center">
+                                  <Pressable
+                                    disabled={!studentId}
+                                    onPress={() => studentId && handleTogglePresenceOnDate(studentId)}
+                                  >
+                                    {isPresent ? (
+                                      <CheckSquare size={16} className="text-emerald-600" />
+                                    ) : (
+                                      <Square size={16} className="text-muted-foreground/40" />
+                                    )}
+                                  </Pressable>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </Card>
+                    ) : (
+                      <Card className="rounded-2xl border border-border border-dashed p-4 bg-card items-center justify-center min-h-[150px]">
+                        <Text className="text-xs font-extrabold text-foreground text-center">No Conducted Class Session</Text>
+                        <Text className="text-[10px] text-muted-foreground text-center mt-1 leading-normal max-w-[240px]">
+                          No session on {selectedHistoryDate}. Logs are created automatically when sessions run.
+                        </Text>
+                      </Card>
+                    )
+                  )}
+                </View>
+              ) : (
+                <Text className="text-sm text-center text-muted-foreground mt-8">
+                  Please select a course on the Courses tab.
+                </Text>
+              )}
+            </ScrollView>
+          )}
+
+          {/* Bottom Nav Bar like Admin Panel */}
+          <View className="flex-row items-center border-t border-border bg-background py-3 w-full">
+            <Pressable
+              onPress={() => setActiveTab('courses')}
+              className="flex-1 flex-col h-auto gap-1 px-1 py-1 items-center justify-center bg-transparent active:bg-transparent"
+            >
+              <BookOpen size={20} className={activeTab === 'courses' ? 'text-foreground' : 'text-muted-foreground'} />
+              <Text className={`text-[11px] font-bold text-center ${activeTab === 'courses' ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Courses
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveTab('sessions')}
+              className="flex-1 flex-col h-auto gap-1 px-1 py-1 items-center justify-center bg-transparent active:bg-transparent"
+            >
+              <QrCode size={20} className={activeTab === 'sessions' ? 'text-foreground' : 'text-muted-foreground'} />
+              <Text className={`text-[11px] font-bold text-center ${activeTab === 'sessions' ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Sessions
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveTab('students')}
+              className="flex-1 flex-col h-auto gap-1 px-1 py-1 items-center justify-center bg-transparent active:bg-transparent"
+            >
+              <Users size={20} className={activeTab === 'students' ? 'text-foreground' : 'text-muted-foreground'} />
+              <Text className={`text-[11px] font-bold text-center ${activeTab === 'students' ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Students
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveTab('calendar')}
+              className="flex-1 flex-col h-auto gap-1 px-1 py-1 items-center justify-center bg-transparent active:bg-transparent"
+            >
+              <Calendar size={20} className={activeTab === 'calendar' ? 'text-foreground' : 'text-muted-foreground'} />
+              <Text className={`text-[11px] font-bold text-center ${activeTab === 'calendar' ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Calendar
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <View className="flex-1 flex-row">
+          {/* Sidebar for courses */}
+          <View className="border-border bg-card p-4 w-64 border-r">
             <View className="flex-col items-center mb-6">
               <Image
                 source={require("@/assets/images/hstu.png")}
@@ -633,443 +1025,409 @@ export default function TeacherDashboard() {
               </Text>
               <View className="w-full h-px bg-border/60 mb-4" />
             </View>
-          )}
-          <Text className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Your Courses
-          </Text>
-          {courses.length === 0 ? (
-            <Text className="text-sm text-muted-foreground italic">No courses assigned.</Text>
-          ) : isMobile ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
-              className="flex-row"
-            >
-              {courses.map((c) => (
-                <Pressable
-                  key={c.id}
-                  onPress={() => setActiveCourseId(c.id)}
-                  style={{ width: 150 }}
-                  className={`rounded-xl px-3 py-2 active:opacity-75 ${activeCourseId === c.id
-                    ? 'bg-primary'
-                    : 'bg-muted/50 hover:bg-muted'
-                    }`}
-                >
-                  <Text
-                    className={`text-xs font-bold ${activeCourseId === c.id ? 'text-primary-foreground' : 'text-foreground'
-                      }`}
-                    numberOfLines={1}
-                  >
-                    {c.course.code}
-                  </Text>
-                  <Text
-                    className={`text-[10px] mt-0.5 ${activeCourseId === c.id ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                      }`}
-                    numberOfLines={1}
-                  >
-                    {c.course.title}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : (
-            <View className="flex-col gap-2">
-              {courses.map((c) => (
-                <Pressable
-                  key={c.id}
-                  onPress={() => setActiveCourseId(c.id)}
-                  className={`rounded-xl px-4 py-3 active:opacity-75 ${activeCourseId === c.id
-                    ? 'bg-primary'
-                    : 'bg-muted/50 hover:bg-muted'
-                    }`}
-                >
-                  <Text
-                    className={`text-sm font-semibold ${activeCourseId === c.id ? 'text-primary-foreground' : 'text-foreground'
+            <Text className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Your Courses
+            </Text>
+            {courses.length === 0 ? (
+              <Text className="text-sm text-muted-foreground italic">No courses assigned.</Text>
+            ) : (
+              <View className="flex-col gap-2">
+                {courses.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setActiveCourseId(c.id)}
+                    className={`rounded-xl px-4 py-3 active:opacity-75 ${activeCourseId === c.id
+                      ? 'bg-primary'
+                      : 'bg-muted/50 hover:bg-muted'
                       }`}
                   >
-                    {c.course.code}
-                  </Text>
-                  <Text
-                    className={`text-xs mt-0.5 line-clamp-1 ${activeCourseId === c.id ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                      }`}
-                  >
-                    {c.course.title}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Selected Course Content Area */}
-        <View className="flex-1 min-w-0">
-          {detailsLoading ? (
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" />
-              <Text className="mt-2 text-muted-foreground">Fetching course stats...</Text>
-            </View>
-          ) : courseInfo ? (
-            <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 40 }}>
-              {error ? (
-                <View className="mb-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4">
-                  <Text className="text-center font-medium text-destructive">{error}</Text>
-                </View>
-              ) : null}
-
-              {/* Course Info Header */}
-              <View className="flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
-                <View className="flex-1">
-                  <Text className="text-2xl font-bold tracking-tight">{courseInfo.course.title}</Text>
-                  <Text className="text-sm text-muted-foreground mt-1">
-                    Course Code: {courseInfo.course.code} | Credits:{' '}
-                    {parseFloat(courseInfo.course.credits.replace('CREDIT_', '').replace('_', '.')) || 0}
-                  </Text>
-                </View>
-                <View className="flex-row flex-wrap gap-2">
-                  <Dropdown
-                    value="Export Course Data"
-                    onValueChange={(val) => {
-                      if (val === 'PDF Document') handleExport('pdf');
-                      else if (val === 'Excel Sheet') handleExport('xlsx');
-                      else if (val === 'CSV File') handleExport('csv');
-                    }}
-                    options={['PDF Document', 'Excel Sheet', 'CSV File']}
-                  />
-                </View>
-              </View>
-
-              {/* Core Attendance Session Tools */}
-              <View className="mt-6 flex-col md:flex-row gap-6">
-                <View className="flex-1">
-                  <Card className="rounded-3xl shadow-sm border border-border bg-card p-5 h-full justify-between">
-                    <View>
-                      <View className="flex-row items-center gap-3 mb-2">
-                        <View className="p-2.5 rounded-2xl bg-primary/10">
-                          <QrCode size={20} className="text-primary" />
-                        </View>
-                        <View>
-                          <Text className="text-sm font-bold text-foreground">QR Scanner Session</Text>
-                          <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Web Check-in Portal</Text>
-                        </View>
-                      </View>
-                      <Text className="text-xs text-muted-foreground leading-normal mb-4">
-                        Generate a dynamic screen QR code. Students scan the code with their mobile devices to check themselves in automatically.
-                      </Text>
-                    </View>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onPress={startAttendanceSession}
-                      className="rounded-xl self-start px-5 shadow-sm mt-2"
+                    <Text
+                      className={`text-sm font-semibold ${activeCourseId === c.id ? 'text-primary-foreground' : 'text-foreground'
+                        }`}
                     >
-                      <Text className="font-semibold text-primary-foreground text-xs">Start QR Session</Text>
-                    </Button>
-                  </Card>
-                </View>
-
-                <View className="flex-1">
-                  <Card className="rounded-3xl shadow-sm border border-border bg-card p-5 h-full justify-between">
-                    <View>
-                      <View className="flex-row items-center gap-3 mb-2">
-                        <View className="p-2.5 rounded-2xl bg-emerald-500/10">
-                          <CheckSquare size={20} className="text-emerald-500" />
-                        </View>
-                        <View>
-                          <Text className="text-sm font-bold text-foreground">Interactive Roll Call</Text>
-                          <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Sequential Call System</Text>
-                        </View>
-                      </View>
-                      <Text className="text-xs text-muted-foreground leading-normal mb-4">
-                        Run an interactive, manual roll call showing student cards one-by-one with smooth transitions and keyboard hotkeys.
-                      </Text>
-                    </View>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onPress={startRollCall}
-                      className="rounded-xl self-start px-5 shadow-sm mt-2 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"
+                      {c.course.code}
+                    </Text>
+                    <Text
+                      className={`text-xs mt-0.5 line-clamp-1 ${activeCourseId === c.id ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                        }`}
                     >
-                      <Text className="font-semibold text-emerald-600 text-xs">Start Roll Call</Text>
-                    </Button>
-                  </Card>
-                </View>
+                      {c.course.title}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
+            )}
+          </View>
 
-              {/* Attendance Management Workspace Heading */}
-              <View className="border-t border-border/50 pt-6 mt-6 mb-4">
-                <Text className="text-base font-extrabold tracking-tight">Attendance Record Dashboard</Text>
-                <Text className="text-xs text-muted-foreground mt-0.5">View cumulative records or select specific dates from the calendar to inspect, edit, and export logs.</Text>
+          {/* Selected Course Content Area */}
+          <View className="flex-1 min-w-0">
+            {detailsLoading ? (
+              <View className="flex-1 items-center justify-center">
+                <ActivityIndicator size="large" />
+                <Text className="mt-2 text-muted-foreground">Fetching course stats...</Text>
               </View>
+            ) : courseInfo ? (
+              <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 40 }}>
+                {error ? (
+                  <View className="mb-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4">
+                    <Text className="text-center font-medium text-destructive">{error}</Text>
+                  </View>
+                ) : null}
 
-              {/* Two-Column Responsive Workspace Grid */}
-              <View className="flex flex-col lg:flex-row gap-6">
-                {/* Column 1: Calendar View Panel */}
-                <View className="w-full lg:w-[350px] gap-4">
-                  {renderCalendar()}
-
-                  {/* Calendar Legend and helper buttons */}
-                  <View className="flex-row items-center justify-between px-2">
-                    <View className="flex-row items-center gap-2">
-                      <View className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
-                      <Text className="text-[10px] font-semibold text-muted-foreground">Class Conducted</Text>
-                    </View>
-
-                    {selectedHistoryDate && (
-                      <Pressable
-                        onPress={() => setSelectedHistoryDate(null)}
-                        className="bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg active:scale-95"
-                      >
-                        <Text className="text-[10px] font-bold text-primary">Reset to Course Sheet</Text>
-                      </Pressable>
-                    )}
+                {/* Course Info Header */}
+                <View className="flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
+                  <View className="flex-1">
+                    <Text className="text-2xl font-bold tracking-tight">{courseInfo.course.title}</Text>
+                    <Text className="text-sm text-muted-foreground mt-1">
+                      Course Code: {courseInfo.course.code} | Credits:{' '}
+                      {parseFloat(courseInfo.course.credits.replace('CREDIT_', '').replace('_', '.')) || 0}
+                    </Text>
+                  </View>
+                  <View className="flex-row flex-wrap gap-2">
+                    <Dropdown
+                      value="Export Course Data"
+                      onValueChange={(val) => {
+                        if (val === 'PDF Document') handleExport('pdf');
+                        else if (val === 'Excel Sheet') handleExport('xlsx');
+                        else if (val === 'CSV File') handleExport('csv');
+                      }}
+                      options={['PDF Document', 'Excel Sheet', 'CSV File']}
+                    />
                   </View>
                 </View>
 
-                {/* Column 2: Selected Details Panel */}
-                <View className="flex-1">
-                  {selectedHistoryDate === null ? (
-                    /* CUMULATIVE SHEETS VIEW */
-                    <View className="gap-4">
-                      {/* Stats Row */}
-                      <View className="flex-row gap-3 flex-wrap">
-                        <Card className="flex-1 min-w-[120px] rounded-2xl border border-border p-3.5 bg-card">
-                          <Text className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conducted Classes</Text>
-                          <Text className="text-2xl font-black text-foreground mt-1">{overallConducted}</Text>
-                        </Card>
-                        <Card className="flex-1 min-w-[120px] rounded-2xl border border-border p-3.5 bg-card">
-                          <Text className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Class Average Rate</Text>
-                          <Text className="text-2xl font-black text-emerald-600 mt-1">{overallAvgRate.toFixed(1)}%</Text>
-                        </Card>
-                        <Card className="flex-1 min-w-[120px] rounded-2xl border border-border p-3.5 bg-card">
-                          <Text className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Low Attendance Warning</Text>
-                          <Text className={`text-2xl font-black mt-1 ${overallLowAttendance > 0 ? 'text-destructive animate-pulse' : 'text-emerald-600'}`}>
-                            {overallLowAttendance}
-                          </Text>
-                        </Card>
-                      </View>
-
-                      {/* Cumulative Student Table Card */}
-                      <Card className="rounded-2xl border border-border bg-card p-4">
-                        <View className="flex-row items-center justify-between mb-3.5 flex-wrap gap-2">
-                          <Text className="text-sm font-extrabold text-foreground">Students Sheet (Cumulative)</Text>
-                          <View className="relative justify-center w-full sm:w-56">
-                            <Search size={14} className="absolute left-3 z-10 text-muted-foreground" />
-                            <Input
-                              placeholder="Search student ID/name..."
-                              value={searchQuery}
-                              onChangeText={setSearchQuery}
-                              className="h-8.5 rounded-xl border-transparent bg-muted/40 pl-9 pr-3 text-xs focus:bg-muted/70"
-                              clearButtonMode="while-editing"
-                            />
+                {/* Core Attendance Session Tools */}
+                <View className="mt-6 flex-col md:flex-row gap-6">
+                  <View className="flex-1">
+                    <Card className="rounded-3xl shadow-sm border border-border bg-card p-5 h-full justify-between">
+                      <View>
+                        <View className="flex-row items-center gap-3 mb-2">
+                          <View className="p-2.5 rounded-2xl bg-primary/10">
+                            <QrCode size={20} className="text-primary" />
+                          </View>
+                          <View>
+                            <Text className="text-sm font-bold text-foreground">QR Scanner Session</Text>
+                            <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Web Check-in Portal</Text>
                           </View>
                         </View>
+                        <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                          Generate a dynamic screen QR code. Students scan the code with their mobile devices to check themselves in automatically.
+                        </Text>
+                      </View>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onPress={startAttendanceSession}
+                        className="rounded-xl self-start px-5 shadow-sm mt-2"
+                      >
+                        <Text className="font-semibold text-primary-foreground text-xs">Start QR Session</Text>
+                      </Button>
+                    </Card>
+                  </View>
 
-                        {filteredStudents.length === 0 ? (
-                          <Text className="text-muted-foreground italic text-center py-6 text-xs">No matching students enrolled.</Text>
-                        ) : (
-                          <View className="border border-border/50 rounded-xl bg-card overflow-hidden">
-                            <View className="hidden md:flex flex-row items-center border-b border-border/50 bg-muted/20 px-4 py-2">
-                              <Text className="w-20 text-[10px] font-extrabold text-muted-foreground">ID</Text>
-                              <Text className="flex-1 text-[10px] font-extrabold text-muted-foreground">Student Name</Text>
-                              <Text className="w-20 text-center text-[10px] font-extrabold text-muted-foreground">Attended</Text>
-                              <Text className="w-20 text-center text-[10px] font-extrabold text-muted-foreground">Rate</Text>
-                              <Text className="w-24 text-center text-[10px] font-extrabold text-muted-foreground">Status</Text>
+                  <View className="flex-1">
+                    <Card className="rounded-3xl shadow-sm border border-border bg-card p-5 h-full justify-between">
+                      <View>
+                        <View className="flex-row items-center gap-3 mb-2">
+                          <View className="p-2.5 rounded-2xl bg-emerald-500/10">
+                            <CheckSquare size={20} className="text-emerald-500" />
+                          </View>
+                          <View>
+                            <Text className="text-sm font-bold text-foreground">Interactive Roll Call</Text>
+                            <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Sequential Call System</Text>
+                          </View>
+                        </View>
+                        <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                          Run an interactive, manual roll call showing student cards one-by-one with smooth transitions and keyboard hotkeys.
+                        </Text>
+                      </View>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onPress={startRollCall}
+                        className="rounded-xl self-start px-5 shadow-sm mt-2 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"
+                      >
+                        <Text className="font-semibold text-emerald-600 text-xs">Start Roll Call</Text>
+                      </Button>
+                    </Card>
+                  </View>
+                </View>
+
+                {/* Attendance Management Workspace Heading */}
+                <View className="border-t border-border/50 pt-6 mt-6 mb-4">
+                  <Text className="text-base font-extrabold tracking-tight">Attendance Record Dashboard</Text>
+                  <Text className="text-xs text-muted-foreground mt-0.5">View cumulative records or select specific dates from the calendar to inspect, edit, and export logs.</Text>
+                </View>
+
+                {/* Two-Column Responsive Workspace Grid */}
+                <View className="flex flex-col lg:flex-row gap-6">
+                  {/* Column 1: Calendar View Panel */}
+                  <View className="w-full lg:w-[350px] gap-4">
+                    {renderCalendar()}
+
+                    {/* Calendar Legend and helper buttons */}
+                    <View className="flex-row items-center justify-between px-2">
+                      <View className="flex-row items-center gap-2">
+                        <View className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
+                        <Text className="text-[10px] font-semibold text-muted-foreground">Class Conducted</Text>
+                      </View>
+
+                      {selectedHistoryDate && (
+                        <Pressable
+                          onPress={() => setSelectedHistoryDate(null)}
+                          className="bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg active:scale-95"
+                        >
+                          <Text className="text-[10px] font-bold text-primary">Reset to Course Sheet</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Column 2: Selected Details Panel */}
+                  <View className="flex-1">
+                    {selectedHistoryDate === null ? (
+                      /* CUMULATIVE SHEETS VIEW */
+                      <View className="gap-4">
+                        {/* Stats Row */}
+                        <View className="flex-row gap-3 flex-wrap">
+                          <Card className="flex-1 min-w-[120px] rounded-2xl border border-border p-3.5 bg-card">
+                            <Text className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Conducted Classes</Text>
+                            <Text className="text-2xl font-black text-foreground mt-1">{overallConducted}</Text>
+                          </Card>
+                          <Card className="flex-1 min-w-[120px] rounded-2xl border border-border p-3.5 bg-card">
+                            <Text className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Class Average Rate</Text>
+                            <Text className="text-2xl font-black text-emerald-600 mt-1">{overallAvgRate.toFixed(1)}%</Text>
+                          </Card>
+                          <Card className="flex-1 min-w-[120px] rounded-2xl border border-border p-3.5 bg-card">
+                            <Text className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Low Attendance Warning</Text>
+                            <Text className={`text-2xl font-black mt-1 ${overallLowAttendance > 0 ? 'text-destructive animate-pulse' : 'text-emerald-600'}`}>
+                              {overallLowAttendance}
+                            </Text>
+                          </Card>
+                        </View>
+
+                        {/* Cumulative Student Table Card */}
+                        <Card className="rounded-2xl border border-border bg-card p-4">
+                          <View className="flex-row items-center justify-between mb-3.5 flex-wrap gap-2">
+                            <Text className="text-sm font-extrabold text-foreground">Students Sheet (Cumulative)</Text>
+                            <View className="relative justify-center w-full sm:w-56">
+                              <Search size={14} className="absolute left-3 z-10 text-muted-foreground" />
+                              <Input
+                                placeholder="Search student ID/name..."
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                className="h-8.5 rounded-xl border-transparent bg-muted/40 pl-9 pr-3 text-xs focus:bg-muted/70"
+                                clearButtonMode="while-editing"
+                              />
                             </View>
+                          </View>
 
-                            {filteredStudents.map((student) => {
-                              const isLow = student.percentage < 75;
-                              return (
-                                <View key={student.id} className="flex-col border-b border-border/40 last:border-0 px-4 py-3 md:flex-row md:items-center md:py-2">
-                                  <View className="md:w-20 mb-0.5 md:mb-0">
-                                    <Text className="text-xs font-bold text-foreground">{student.studentId}</Text>
-                                  </View>
-                                  <View className="flex-1 mb-1 md:mb-0">
-                                    <Text className="text-xs font-semibold text-foreground">{student.userName}</Text>
-                                    <Text className="text-[10px] text-muted-foreground/75 md:hidden">{student.email}</Text>
-                                  </View>
+                          {filteredStudents.length === 0 ? (
+                            <Text className="text-muted-foreground italic text-center py-6 text-xs">No matching students enrolled.</Text>
+                          ) : (
+                            <View className="border border-border/50 rounded-xl bg-card overflow-hidden">
+                              <View className="hidden md:flex flex-row items-center border-b border-border/50 bg-muted/20 px-4 py-2">
+                                <Text className="w-20 text-[10px] font-extrabold text-muted-foreground">ID</Text>
+                                <Text className="flex-1 text-[10px] font-extrabold text-muted-foreground">Student Name</Text>
+                                <Text className="w-20 text-center text-[10px] font-extrabold text-muted-foreground">Attended</Text>
+                                <Text className="w-20 text-center text-[10px] font-extrabold text-muted-foreground">Rate</Text>
+                                <Text className="w-24 text-center text-[10px] font-extrabold text-muted-foreground">Status</Text>
+                              </View>
 
-                                  <View className="flex-row items-center justify-between border-t border-border/30 pt-1.5 mt-1.5 md:border-0 md:pt-0 md:mt-0 md:w-60">
-                                    <View className="md:w-20">
-                                      <Text className="text-xs text-foreground text-left md:text-center">
-                                        {student.attendanceCount} / {overallConducted}
-                                      </Text>
+                              {filteredStudents.map((student) => {
+                                const isLow = student.percentage < 75;
+                                return (
+                                  <View key={student.id} className="flex-col border-b border-border/40 last:border-0 px-4 py-3 md:flex-row md:items-center md:py-2">
+                                    <View className="md:w-20 mb-0.5 md:mb-0">
+                                      <Text className="text-xs font-bold text-foreground">{student.studentId}</Text>
                                     </View>
-                                    <View className="md:w-20">
-                                      <Text className={`text-xs font-bold text-left md:text-center ${isLow ? 'text-destructive' : 'text-emerald-600'}`}>
-                                        {student.percentage.toFixed(0)}%
-                                      </Text>
+                                    <View className="flex-1 mb-1 md:mb-0">
+                                      <Text className="text-xs font-semibold text-foreground">{student.userName}</Text>
+                                      <Text className="text-[10px] text-muted-foreground/75 md:hidden">{student.email}</Text>
                                     </View>
-                                    <View className="md:w-24 flex-row justify-end md:justify-center">
-                                      <View className={`rounded-full px-2 py-0.5 ${isLow ? 'bg-destructive/10 border border-destructive/20' : 'bg-emerald-500/10 border border-emerald-500/20'}`}>
-                                        <Text className={`text-[9px] font-extrabold uppercase ${isLow ? 'text-destructive' : 'text-emerald-600'}`}>
-                                          {isLow ? 'Low (<75%)' : 'Good'}
+
+                                    <View className="flex-row items-center justify-between border-t border-border/30 pt-1.5 mt-1.5 md:border-0 md:pt-0 md:mt-0 md:w-60">
+                                      <View className="md:w-20">
+                                        <Text className="text-xs text-foreground text-left md:text-center">
+                                          {student.attendanceCount} / {overallConducted}
                                         </Text>
                                       </View>
+                                      <View className="md:w-20">
+                                        <Text className={`text-xs font-bold text-left md:text-center ${isLow ? 'text-destructive' : 'text-emerald-600'}`}>
+                                          {student.percentage.toFixed(0)}%
+                                        </Text>
+                                      </View>
+                                      <View className="md:w-24 flex-row justify-end md:justify-center">
+                                        <View className={`rounded-full px-2 py-0.5 ${isLow ? 'bg-destructive/10 border border-destructive/20' : 'bg-emerald-500/10 border border-emerald-500/20'}`}>
+                                          <Text className={`text-[9px] font-extrabold uppercase ${isLow ? 'text-destructive' : 'text-emerald-600'}`}>
+                                            {isLow ? 'Low (<75%)' : 'Good'}
+                                          </Text>
+                                        </View>
+                                      </View>
                                     </View>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          )}
+                        </Card>
+                      </View>
+                    ) : activeSessionDetails ? (
+                      /* DATE ATTENDANCE DETAIL SHEET */
+                      <View className="gap-4">
+                        {/* Date details statistics header */}
+                        <Card className="rounded-2xl border border-border bg-card p-4">
+                          <View className="flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-border/50 gap-2 mb-3.5">
+                            <View>
+                              <View className="flex-row items-center gap-1.5">
+                                <Calendar size={14} className="text-primary" />
+                                <Text className="text-sm font-extrabold text-foreground">Class Attendance Log</Text>
+                              </View>
+                              <Text className="text-xs text-muted-foreground mt-0.5">
+                                Date: <Text className="font-bold text-foreground">{selectedHistoryDate}</Text>
+                              </Text>
+                            </View>
+
+                            <View className="flex-row items-center gap-2 self-start sm:self-auto">
+                              <Dropdown
+                                value="Export Date Data"
+                                onValueChange={(val) => {
+                                  if (val === 'PDF Document') handleExportDate('pdf');
+                                  else if (val === 'Excel Sheet') handleExportDate('xlsx');
+                                  else if (val === 'CSV File') handleExportDate('csv');
+                                }}
+                                options={['PDF Document', 'Excel Sheet', 'CSV File']}
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8.5 rounded-xl flex-row items-center gap-1 border-destructive/20 bg-destructive/5 px-2.5"
+                                onPress={() => handleDeleteHistorySession(selectedHistoryDate)}
+                              >
+                                <Trash2 size={12} className="text-destructive" />
+                                <Text className="text-[10px] font-bold text-destructive">Delete Date</Text>
+                              </Button>
+                            </View>
+                          </View>
+
+                          {/* Quick Stats Grid */}
+                          <View className="flex-row gap-3 mb-3.5">
+                            <View className="flex-1 bg-muted/20 border border-border/40 rounded-xl p-2.5 items-center">
+                              <Text className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Present</Text>
+                              <Text className="text-xl font-black text-emerald-600 mt-0.5">{activeSessionDetails.presentStudents?.length || 0}</Text>
+                            </View>
+                            <View className="flex-1 bg-muted/20 border border-border/40 rounded-xl p-2.5 items-center">
+                              <Text className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Absent</Text>
+                              <Text className="text-xl font-black text-destructive mt-0.5">
+                                {Math.max(0, courseInfo.students.length - (activeSessionDetails.presentStudents?.length || 0))}
+                              </Text>
+                            </View>
+                            <View className="flex-1 bg-muted/20 border border-border/40 rounded-xl p-2.5 items-center">
+                              <Text className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Present Rate</Text>
+                              <Text className="text-xl font-black text-primary mt-0.5">
+                                {((activeSessionDetails.presentStudents?.length || 0) / (courseInfo.students.length || 1) * 100).toFixed(0)}%
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Student Presence Checklist Grid */}
+                          <View className="flex-row items-center justify-between mb-3 flex-wrap gap-2">
+                            <Text className="text-xs font-bold text-foreground">Mark Attendance manually only when necessary:</Text>
+                            <View className="relative justify-center w-full sm:w-48">
+                              <Search size={12} className="absolute left-2.5 z-10 text-muted-foreground" />
+                              <Input
+                                placeholder="Filter students..."
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                className="h-8 rounded-xl border-transparent bg-muted/40 pl-8 pr-3 text-xs focus:bg-muted/70"
+                                clearButtonMode="while-editing"
+                              />
+                            </View>
+                          </View>
+
+                          <View className="border border-border/60 rounded-xl bg-card overflow-hidden">
+                            <View className="flex-row items-center border-b border-border/60 bg-muted/30 px-3.5 py-2">
+                              <Text className="w-20 text-[9px] font-extrabold text-muted-foreground">ID</Text>
+                              <Text className="flex-1 text-[9px] font-extrabold text-muted-foreground">Student Name</Text>
+                              <Text className="w-16 text-center text-[9px] font-extrabold text-muted-foreground">Status</Text>
+                              <Text className="w-16 text-center text-[9px] font-extrabold text-muted-foreground">Toggle</Text>
+                            </View>
+
+                            {filteredStudents.map((s) => {
+                              const studentId = s.studentId ?? s.student_id;
+                              const isPresent = studentId ? activeSessionDetails.presentStudents?.includes(studentId) : false;
+                              return (
+                                <View key={s.id} className="flex-row items-center px-3.5 py-1.5 border-b border-border/40 last:border-0">
+                                  <Text className="w-20 text-xs font-bold text-foreground">{studentId || '-'}</Text>
+                                  <Text className="flex-1 text-xs font-semibold text-foreground" numberOfLines={1}>{s.userName}</Text>
+                                  <View className="w-16 items-center">
+                                    <View className={`rounded-full px-2 py-0.5 ${isPresent ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
+                                      <Text className={`text-[8px] font-extrabold uppercase ${isPresent ? 'text-emerald-600' : 'text-destructive'}`}>
+                                        {isPresent ? 'Present' : 'Absent'}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                  <View className="w-16 items-center">
+                                    <Pressable
+                                      disabled={!studentId}
+                                      onPress={() => studentId && handleTogglePresenceOnDate(studentId)}
+                                      className="active:scale-90"
+                                    >
+                                      {isPresent ? (
+                                        <CheckSquare size={18} className="text-emerald-600" />
+                                      ) : (
+                                        <Square size={18} className="text-muted-foreground/50" />
+                                      )}
+                                    </Pressable>
                                   </View>
                                 </View>
                               );
                             })}
                           </View>
-                        )}
-                      </Card>
-                    </View>
-                  ) : activeSessionDetails ? (
-                    /* DATE ATTENDANCE DETAIL SHEET */
-                    <View className="gap-4">
-                      {/* Date details statistics header */}
-                      <Card className="rounded-2xl border border-border bg-card p-4">
-                        <View className="flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-border/50 gap-2 mb-3.5">
-                          <View>
-                            <View className="flex-row items-center gap-1.5">
-                              <Calendar size={14} className="text-primary" />
-                              <Text className="text-sm font-extrabold text-foreground">Class Attendance Log</Text>
-                            </View>
-                            <Text className="text-xs text-muted-foreground mt-0.5">
-                              Date: <Text className="font-bold text-foreground">{selectedHistoryDate}</Text>
-                            </Text>
-                          </View>
-
-                          <View className="flex-row items-center gap-2 self-start sm:self-auto">
-                            <Dropdown
-                              value="Export Date Data"
-                              onValueChange={(val) => {
-                                if (val === 'PDF Document') handleExportDate('pdf');
-                                else if (val === 'Excel Sheet') handleExportDate('xlsx');
-                                else if (val === 'CSV File') handleExportDate('csv');
-                              }}
-                              options={['PDF Document', 'Excel Sheet', 'CSV File']}
-                            />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8.5 rounded-xl flex-row items-center gap-1 border-destructive/20 bg-destructive/5 hover:bg-destructive/10 px-2.5"
-                              onPress={() => handleDeleteHistorySession(selectedHistoryDate)}
-                            >
-                              <Trash2 size={12} className="text-destructive" />
-                              <Text className="text-[10px] font-bold text-destructive">Delete Date</Text>
-                            </Button>
-                          </View>
+                        </Card>
+                      </View>
+                    ) : (
+                      /* DATE SELECTED BUT NO CLASS RECORDED (EMPTY STATE) */
+                      <Card className="rounded-2xl border border-border border-dashed p-6 bg-card items-center justify-center min-h-[260px]">
+                        <View className="p-3 rounded-full bg-muted/40 mb-3 border border-border">
+                          <Calendar size={28} className="text-muted-foreground/75" />
                         </View>
+                        <Text className="text-sm font-extrabold text-foreground text-center">No Conducted Class Session</Text>
+                        <Text className="text-xs text-muted-foreground/85 text-center mt-1.5 max-w-sm leading-normal">
+                          No class session was recorded on <Text className="font-bold text-foreground">{selectedHistoryDate}</Text>. Class logs are created automatically when sessions run. Manual log creation is disabled.
+                        </Text>
 
-                        {/* Quick Stats Grid */}
-                        <View className="flex-row gap-3 mb-3.5">
-                          <View className="flex-1 bg-muted/20 border border-border/40 rounded-xl p-2.5 items-center">
-                            <Text className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Present</Text>
-                            <Text className="text-xl font-black text-emerald-600 mt-0.5">{activeSessionDetails.presentStudents?.length || 0}</Text>
-                          </View>
-                          <View className="flex-1 bg-muted/20 border border-border/40 rounded-xl p-2.5 items-center">
-                            <Text className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Absent</Text>
-                            <Text className="text-xl font-black text-destructive mt-0.5">
-                              {Math.max(0, courseInfo.students.length - (activeSessionDetails.presentStudents?.length || 0))}
-                            </Text>
-                          </View>
-                          <View className="flex-1 bg-muted/20 border border-border/40 rounded-xl p-2.5 items-center">
-                            <Text className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Present Rate</Text>
-                            <Text className="text-xl font-black text-primary mt-0.5">
-                              {((activeSessionDetails.presentStudents?.length || 0) / (courseInfo.students.length || 1) * 100).toFixed(0)}%
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Student Presence Checklist Grid */}
-                        <View className="flex-row items-center justify-between mb-3 flex-wrap gap-2">
-                          <Text className="text-xs font-bold text-foreground">Mark Attendance manually only when necessary:</Text>
-                          <View className="relative justify-center w-full sm:w-48">
-                            <Search size={12} className="absolute left-2.5 z-10 text-muted-foreground" />
-                            <Input
-                              placeholder="Filter students..."
-                              value={searchQuery}
-                              onChangeText={setSearchQuery}
-                              className="h-8 rounded-xl border-transparent bg-muted/40 pl-8 pr-3 text-xs focus:bg-muted/70"
-                              clearButtonMode="while-editing"
-                            />
-                          </View>
-                        </View>
-
-                        <View className="border border-border/60 rounded-xl bg-card overflow-hidden">
-                          <View className="flex-row items-center border-b border-border/60 bg-muted/30 px-3.5 py-2">
-                            <Text className="w-20 text-[9px] font-extrabold text-muted-foreground">ID</Text>
-                            <Text className="flex-1 text-[9px] font-extrabold text-muted-foreground">Student Name</Text>
-                            <Text className="w-16 text-center text-[9px] font-extrabold text-muted-foreground">Status</Text>
-                            <Text className="w-16 text-center text-[9px] font-extrabold text-muted-foreground">Toggle</Text>
-                          </View>
-
-                          {filteredStudents.map((s) => {
-                            const studentId = s.studentId ?? s.student_id;
-                            const isPresent = studentId ? activeSessionDetails.presentStudents?.includes(studentId) : false;
-                            return (
-                              <View key={s.id} className="flex-row items-center px-3.5 py-1.5 border-b border-border/40 last:border-0">
-                                <Text className="w-20 text-xs font-bold text-foreground">{studentId || '-'}</Text>
-                                <Text className="flex-1 text-xs font-semibold text-foreground" numberOfLines={1}>{s.userName}</Text>
-                                <View className="w-16 items-center">
-                                  <View className={`rounded-full px-2 py-0.5 ${isPresent ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
-                                    <Text className={`text-[8px] font-extrabold uppercase ${isPresent ? 'text-emerald-600' : 'text-destructive'}`}>
-                                      {isPresent ? 'Present' : 'Absent'}
-                                    </Text>
-                                  </View>
-                                </View>
-                                <View className="w-16 items-center">
-                                  <Pressable
-                                    disabled={!studentId}
-                                    onPress={() => studentId && handleTogglePresenceOnDate(studentId)}
-                                    className="active:scale-90"
-                                  >
-                                    {isPresent ? (
-                                      <CheckSquare size={18} className="text-emerald-600" />
-                                    ) : (
-                                      <Square size={18} className="text-muted-foreground/50" />
-                                    )}
-                                  </Pressable>
-                                </View>
-                              </View>
-                            );
-                          })}
+                        <View className="flex-row gap-3 mt-5 flex-wrap justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onPress={() => setSelectedHistoryDate(null)}
+                            className="rounded-xl bg-muted/20 border-border/80"
+                          >
+                            <Text className="font-semibold text-foreground text-xs">Back to Summary</Text>
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onPress={startAttendanceSession}
+                            className="rounded-xl px-4 shadow-sm"
+                          >
+                            <Text className="font-semibold text-primary-foreground text-xs">Start QR Session</Text>
+                          </Button>
                         </View>
                       </Card>
-                    </View>
-                  ) : (
-                    /* DATE SELECTED BUT NO CLASS RECORDED (EMPTY STATE) */
-                    <Card className="rounded-2xl border border-border border-dashed p-6 bg-card items-center justify-center min-h-[260px]">
-                      <View className="p-3 rounded-full bg-muted/40 mb-3 border border-border">
-                        <Calendar size={28} className="text-muted-foreground/75" />
-                      </View>
-                      <Text className="text-sm font-extrabold text-foreground text-center">No Conducted Class Session</Text>
-                      <Text className="text-xs text-muted-foreground/85 text-center mt-1.5 max-w-sm leading-normal">
-                        No class session was recorded on <Text className="font-bold text-foreground">{selectedHistoryDate}</Text>. Class logs are created automatically when sessions run. Manual log creation is disabled.
-                      </Text>
-
-                      <View className="flex-row gap-3 mt-5 flex-wrap justify-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onPress={() => setSelectedHistoryDate(null)}
-                          className="rounded-xl bg-muted/20 border-border/80"
-                        >
-                          <Text className="font-semibold text-foreground text-xs">Back to Summary</Text>
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onPress={startAttendanceSession}
-                          className="rounded-xl px-4 shadow-sm"
-                        >
-                          <Text className="font-semibold text-primary-foreground text-xs">Start QR Session</Text>
-                        </Button>
-                      </View>
-                    </Card>
-                  )}
+                    )}
+                  </View>
                 </View>
+              </ScrollView>
+            ) : (
+              <View className="flex-1 items-center justify-center p-6 bg-background">
+                <Text className="text-lg font-semibold text-muted-foreground">Select a course from the sidebar to view details.</Text>
               </View>
-            </ScrollView>
-          ) : (
-            <View className="flex-1 items-center justify-center p-6 bg-background">
-              <Text className="text-lg font-semibold text-muted-foreground">Select a course from the sidebar to view details.</Text>
-            </View>
-          )}
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Live QR session modal */}
       <Modal visible={sessionModalOpen} transparent animationType="slide">
