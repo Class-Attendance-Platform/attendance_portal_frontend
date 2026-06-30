@@ -39,7 +39,7 @@ export function StudentCard({ student, onPress, onEdit, onDelete }: StudentCardP
 
               <Badge variant="outline" className="border-primary/20 bg-primary/5 px-2.5 py-1">
                 <Text className="text-[10px] font-bold uppercase tracking-widest text-primary">
-                  {student.studentId}
+                  {student.studentId ?? (student as any).student_id}
                 </Text>
               </Badge>
             </View>

@@ -25,6 +25,7 @@ export default function TopPanel() {
   };
 
   const name = user?.userName || 'Anonymous User';
+  const studentId = user?.studentId ?? (user as any)?.student_profile?.student_id ?? (user as any)?.student_id;
   const initials = name
     .split(' ')
     .filter(Boolean)
@@ -170,12 +171,12 @@ export default function TopPanel() {
                   <Text className="text-xs text-muted-foreground font-semibold">User Role</Text>
                   <Text className="text-xs text-foreground font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{user?.role}</Text>
                 </View>
-                {user?.role === 'STUDENT' && user?.studentId && (
+                {studentId ? (
                   <View className="flex-row justify-between items-center">
                     <Text className="text-xs text-muted-foreground font-semibold">Student ID</Text>
-                    <Text className="text-xs text-foreground font-bold">{user.studentId}</Text>
+                    <Text className="text-xs text-foreground font-bold">{studentId}</Text>
                   </View>
-                )}
+                ) : null}
                 <View className="flex-row justify-between items-center">
                   <Text className="text-xs text-muted-foreground font-semibold">Faculty</Text>
                   <Text className="text-xs text-foreground font-bold" numberOfLines={1}>{user?.faculty || 'N/A'}</Text>
@@ -184,12 +185,6 @@ export default function TopPanel() {
                   <Text className="text-xs text-muted-foreground font-semibold">Department</Text>
                   <Text className="text-xs text-foreground font-bold" numberOfLines={1}>{user?.department || 'N/A'}</Text>
                 </View>
-                {user?.studentId ? (
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-xs text-muted-foreground font-semibold">Student ID</Text>
-                    <Text className="text-xs text-foreground font-bold">{user.studentId}</Text>
-                  </View>
-                ) : null}
               </View>
             </View>
 

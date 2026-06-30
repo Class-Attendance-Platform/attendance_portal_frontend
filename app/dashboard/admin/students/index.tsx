@@ -135,7 +135,11 @@ export default function StudentsScreen() {
     try {
       const res = await adminService.getStudents();
       if (res.success) {
-        setStudents(res.students || []);
+        const mapped = (res.students || []).map((s: any) => ({
+          ...s,
+          studentId: s.studentId ?? s.student_id,
+        }));
+        setStudents(mapped);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch students.');
