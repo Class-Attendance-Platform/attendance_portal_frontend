@@ -26,6 +26,8 @@ export function StudentFaceDialog({ studentProfileId, studentName, onClose, onRe
     setLoading(true);
     setError('');
     setConfirming(false);
+    setCrops([]);  // never show the previous student's photos
+    setRegisteredAt(null);
     faceService
       .getStudentFaces(studentProfileId)
       .then((res) => {
