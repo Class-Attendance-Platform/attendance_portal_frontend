@@ -60,11 +60,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     studentId: meRes.user.student_profile?.student_id
                   };
                   setUser(updatedUser);
-                  localStorage.setItem('portal_user', JSON.stringify({
-                    user: updatedUser,
-                    accessToken: access,
-                    refreshToken: refresh,
-                  }));
+                  // Update only the profile: getMe may have refreshed (rotated) the
+                  // tokens, and the copies read at page load are no longer valid.
+                  const current = JSON.parse(localStorage.getItem('portal_user') || '{}');
+                  localStorage.setItem('portal_user', JSON.stringify({ ...current, user: updatedUser }));
                 }
               } catch (err) {
                 console.error('Failed to refresh user profile from server:', err);
