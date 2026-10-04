@@ -936,6 +936,7 @@ export default function StudentDashboard() {
             </ScrollView>
           ) : (
             <View className="flex-1 items-center justify-center bg-background p-6">
+              <FaceReminder className="mb-6 w-full max-w-xl" />
               <Text className="text-lg font-semibold text-muted-foreground">
                 Select a course to view your records.
               </Text>

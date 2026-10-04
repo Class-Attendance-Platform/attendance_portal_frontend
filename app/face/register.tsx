@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Check, CheckSquare, ChevronLeft, ScanFace, Square } from 'lucide-react-native';
@@ -35,6 +35,19 @@ export default function FaceRegisterScreen() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [cameraHint, setCameraHint] = useState('');
+
+  const askForCamera = async () => {
+    const result = await requestPermission();
+    if (!result.granted) {
+      // Browsers refuse silently when the camera is blocked or the page is not secure.
+      setCameraHint(
+        Platform.OS === 'web'
+          ? 'The browser did not allow the camera. Allow it in the address bar or site settings. On a phone browser the site must use HTTPS.'
+          : 'Camera access was not allowed. You can allow it in your phone settings.'
+      );
+    }
+  };
 
   useEffect(() => () => { mounted.current = false; }, []);
 
@@ -143,7 +156,7 @@ export default function FaceRegisterScreen() {
         ) : phase === 'registered' || phase === 'done' ? (
           <View className="items-center gap-4 rounded-2xl border border-border bg-card p-6">
             <View className="rounded-full bg-emerald-500/10 p-4">
-              <Check size={32} className="text-emerald-600" />
+              <Check size={32} color="#059669" />
             </View>
             <Text className="text-center text-lg font-bold text-foreground">
               {phase === 'done' ? 'Face registered' : 'Your face is registered'}
@@ -193,14 +206,17 @@ export default function FaceRegisterScreen() {
                 </>
               ) : (
                 <View className="items-center gap-3 p-6">
-                  <ScanFace size={36} className="text-neutral-300" />
+                  <ScanFace size={36} color="#d4d4d4" />
                   <Text className="text-center text-sm text-neutral-200">
                     {permission && !permission.canAskAgain
                       ? 'Camera access is blocked. Allow it in your browser or phone settings.'
                       : 'We need your camera to take 3 photos of your face.'}
                   </Text>
+                  {cameraHint ? (
+                    <Text className="text-center text-xs text-neutral-300">{cameraHint}</Text>
+                  ) : null}
                   {(!permission || permission.canAskAgain) && (
-                    <Button variant="secondary" onPress={requestPermission}>
+                    <Button variant="secondary" onPress={askForCamera}>
                       <Text className="font-semibold">Allow camera</Text>
                     </Button>
                   )}
@@ -219,7 +235,7 @@ export default function FaceRegisterScreen() {
                     className={`flex-row items-center gap-3 px-4 py-3 ${i < STEPS.length - 1 ? 'border-b border-border/60' : ''} ${now ? 'bg-muted/60' : ''}`}>
                     {done ? (
                       <View className="h-7 w-7 items-center justify-center rounded-full bg-emerald-600">
-                        <Check size={16} className="text-white" />
+                        <Check size={16} color="#ffffff" />
                       </View>
                     ) : (
                       <View

@@ -126,7 +126,10 @@ export default function FaceClassScreen() {
     }
   };
 
-  const categoryOf = (s: StudentRow): Tab => (s.status === 'unsure' ? 'unsure' : present[s.id] ? 'present' : 'absent');
+  // Weak matches follow their switch like the others (with an amber "please check");
+  // only students without a registered face stay on the Unsure tab.
+  const categoryOf = (s: StudentRow): Tab =>
+    s.reason === 'no_face' ? 'unsure' : present[s.id] ? 'present' : 'absent';
 
   const counts = useMemo(() => {
     const c = { present: 0, absent: 0, unsure: 0 };
@@ -197,7 +200,7 @@ export default function FaceClassScreen() {
                         accessibilityLabel={`Remove photo ${i + 1}`}
                         onPress={() => setPhotos((current) => current.filter((_, j) => j !== i))}
                         className="absolute right-1.5 top-1.5 h-7 w-7 items-center justify-center rounded-full bg-black/60">
-                        <X size={14} className="text-white" />
+                        <X size={14} color="#ffffff" />
                       </Pressable>
                     )}
                   </View>
@@ -365,7 +368,7 @@ function PhotoViewer({
             onPress={onClose}
             accessibilityLabel="Close"
             className="h-11 w-11 items-center justify-center rounded-full bg-white/15">
-            <X size={20} className="text-white" />
+            <X size={20} color="#ffffff" />
           </Pressable>
         </View>
         <ScrollView contentContainerClassName="items-center gap-4 pb-6">

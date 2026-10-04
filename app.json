@@ -38,14 +38,17 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to register your face and take class photos."
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to register your face and take class photos.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to choose class photos for face attendance.",
-          "cameraPermission": "Allow $(PRODUCT_NAME) to take class photos for face attendance."
+          "cameraPermission": "Allow $(PRODUCT_NAME) to take class photos for face attendance.",
+          "microphonePermission": false
         }
       ]
     ],
