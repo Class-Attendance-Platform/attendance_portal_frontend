@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert, useWindowDimensions, Animated } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as ExpoLinking from 'expo-linking';
 import { useAuth } from '@/hooks/AuthContext';
 import { teacherService, sessionService, reportService } from '@/lib/services';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
-import { Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search, Users, BookOpen } from 'lucide-react-native';
+import { Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search, Users, BookOpen, ScanFace } from 'lucide-react-native';
 import TopPanel from '@/components/custom/toppanel';
 
 import { StudentRow } from '@/types/student';
@@ -113,6 +113,23 @@ export default function TeacherDashboard() {
   useEffect(() => {
     fetchCoursesList();
   }, [user]);
+
+  // Back from face attendance (or another screen): show the latest records.
+  const activeCourseRef = useRef(activeCourseId);
+  activeCourseRef.current = activeCourseId;
+  const focusedOnce = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (!focusedOnce.current) {
+      focusedOnce.current = true;
+      return;
+    }
+    if (activeCourseRef.current) fetchCourseDetails(activeCourseRef.current);
+  }, []));
+
+  const openFaceAttendance = () => {
+    if (!activeCourseId) return;
+    router.push({ pathname: '/face/class', params: { courseInfoId: activeCourseId } });
+  };
 
   useEffect(() => {
     if (activeCourseId) {
@@ -772,6 +789,30 @@ export default function TeacherDashboard() {
                       <Text className="font-semibold text-emerald-600 text-xs">Start Roll Call</Text>
                     </Button>
                   </Card>
+
+                  {/* Face Attendance Tool */}
+                  <Card className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                    <View className="flex-row items-center gap-3 mb-2">
+                      <View className="p-2.5 rounded-xl bg-primary/10">
+                        <ScanFace size={20} className="text-primary" />
+                      </View>
+                      <View>
+                        <Text className="text-sm font-bold text-foreground">Face Attendance</Text>
+                        <Text className="text-[9px] text-muted-foreground uppercase font-semibold">Class Photo Recognition</Text>
+                      </View>
+                    </View>
+                    <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                      Take or upload 1 to 3 class photos. You check the list before it is saved.
+                    </Text>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onPress={openFaceAttendance}
+                      className="rounded-xl w-full"
+                    >
+                      <Text className="font-semibold text-primary-foreground text-xs">Take Class Photo</Text>
+                    </Button>
+                  </Card>
                 </View>
               ) : (
                 <Text className="text-sm text-center text-muted-foreground mt-8">
@@ -1149,6 +1190,33 @@ export default function TeacherDashboard() {
                         className="rounded-xl self-start px-5 shadow-sm mt-2 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"
                       >
                         <Text className="font-semibold text-emerald-600 text-xs">Start Roll Call</Text>
+                      </Button>
+                    </Card>
+                  </View>
+
+                  <View className="flex-1">
+                    <Card className="rounded-3xl shadow-sm border border-border bg-card p-5 h-full justify-between">
+                      <View>
+                        <View className="flex-row items-center gap-3 mb-2">
+                          <View className="p-2.5 rounded-2xl bg-primary/10">
+                            <ScanFace size={20} className="text-primary" />
+                          </View>
+                          <View>
+                            <Text className="text-sm font-bold text-foreground">Face Attendance</Text>
+                            <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Class Photo Recognition</Text>
+                          </View>
+                        </View>
+                        <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                          Take or upload 1 to 3 photos of the class. Students are found by their registered face, and you check the list before it is saved.
+                        </Text>
+                      </View>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onPress={openFaceAttendance}
+                        className="rounded-xl self-start px-5 shadow-sm mt-2"
+                      >
+                        <Text className="font-semibold text-primary-foreground text-xs">Take Class Photo</Text>
                       </Button>
                     </Card>
                   </View>

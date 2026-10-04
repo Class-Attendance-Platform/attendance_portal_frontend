@@ -1,4 +1,5 @@
 import { api, API_BASE, getAccessToken, refreshAccessToken } from './api';
+import { appendPhoto, PhotoFile } from './upload';
 
 export const authService = {
   login: (email: string, password: string) => api.post('/api/auth/login/', { email, password }),
@@ -150,4 +151,43 @@ export const reportService = {
 
     return response;
   },
+};
+
+const multipart = { headers: { 'Content-Type': 'multipart/form-data' } };
+
+export const faceService = {
+  // Student: own face registration
+  getMine: () => api.get('/api/faces/me/'),
+
+  registerMine: async (photos: { straight: PhotoFile; left: PhotoFile; right: PhotoFile }) => {
+    const form = new FormData();
+    await appendPhoto(form, 'straight', photos.straight);
+    await appendPhoto(form, 'left', photos.left);
+    await appendPhoto(form, 'right', photos.right);
+    form.append('consent', 'true');
+    return api.post('/api/faces/me/', form, multipart);
+  },
+
+  deleteMine: () => api.delete('/api/faces/me/'),
+
+  // Teacher: class photos -> suggested attendance -> confirm
+  recognize: async (courseInfoId: string, photos: PhotoFile[]) => {
+    const form = new FormData();
+    form.append('course_info_id', courseInfoId);
+    for (const photo of photos) {
+      await appendPhoto(form, 'photos', photo);
+    }
+    return api.post('/api/faces/recognize/', form, { ...multipart, timeout: 120000 });
+  },
+
+  confirm: (courseInfoId: string, presentStudentIds: string[]) =>
+    api.post('/api/faces/confirm/', {
+      course_info_id: courseInfoId,
+      present_student_ids: presentStudentIds,
+    }),
+
+  // Admin
+  getStatusAll: () => api.get('/api/faces/admin/students/'),
+  getStudentFaces: (studentProfileId: string) => api.get(`/api/faces/admin/students/${studentProfileId}/`),
+  resetStudentFaces: (studentProfileId: string) => api.delete(`/api/faces/admin/students/${studentProfileId}/`),
 };
