@@ -50,8 +50,9 @@ export default function StudentDashboard() {
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [currentMonth, setCurrentMonth] = useState(4);
-  const [currentYear, setCurrentYear] = useState(2026);
+  // Calendar opens on the current month
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
 
   const fetchStudentData = async (isRef = false) => {
     if (!user) return;

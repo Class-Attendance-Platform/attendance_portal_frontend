@@ -1,4 +1,4 @@
-import { api, API_BASE, getAccessToken } from './api';
+import { api, API_BASE, getAccessToken, refreshAccessToken } from './api';
 
 export const authService = {
   login: (email: string, password: string) => api.post('/api/auth/login/', { email, password }),
@@ -123,13 +123,28 @@ export const reportService = {
   },
 
   downloadExport: async (courseInfoId: string, format: string, date?: string | null) => {
-    const accessToken = getAccessToken();
-    const response = await fetch(reportService.getExportUrl(courseInfoId, format, date), {
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    });
+    const send = () => {
+      const accessToken = getAccessToken();
+      return fetch(reportService.getExportUrl(courseInfoId, format, date), {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+    };
+
+    let response = await send();
+    // Expired login: refresh it once, like the other API calls do.
+    if (response.status === 401 && (await refreshAccessToken())) {
+      response = await send();
+    }
 
     if (!response.ok) {
-      const message = await response.text().catch(() => '');
+      const text = await response.text().catch(() => '');
+      let message = text;
+      try {
+        const data = JSON.parse(text);
+        message = data.message || data.detail || text;
+      } catch {
+        // not JSON: keep the text as it is
+      }
       throw new Error(message || `Failed to export ${format.toUpperCase()} report.`);
     }
 

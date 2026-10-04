@@ -32,8 +32,9 @@ export default function TeacherDashboard() {
   const [selectedHistoryDate, setSelectedHistoryDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [currentMonth, setCurrentMonth] = useState(4);
-  const [currentYear, setCurrentYear] = useState(2026);
+  // Calendar opens on the current month
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
 
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionTimeLeft, setSessionTimeLeft] = useState(300);

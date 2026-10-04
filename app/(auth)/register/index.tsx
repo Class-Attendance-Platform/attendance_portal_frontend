@@ -11,7 +11,8 @@ import { Text } from '@/components/ui/text';
 import { Dropdown } from '@/components/custom/dropdown';
 import { configService, authService } from '@/lib/services';
 
-const ROLES = ['Student', 'Teacher', 'Admin'];
+// Admin accounts are created on the server (createsuperuser), not by sign-up.
+const ROLES = ['Student', 'Teacher'];
 
 const LEVELS = ['First', 'Second', 'Third', 'Fourth'];
 const SEMESTERS = ['I', 'II'];
