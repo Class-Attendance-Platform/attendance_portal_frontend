@@ -30,11 +30,17 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
 - `app/` routes (expo-router): `(auth)/` login, register (Student/Teacher only), forgot/verify/reset;
   `dashboard/admin/*` (courses, semesters, students, teachers), `dashboard/teacher` (courses, calendar
   history, QR session modal, roll call, exports), `dashboard/student` (semesters and attendance),
-  `attendance/submit` (QR check-in link target; auto-submits once).
+  `attendance/submit` (QR check-in link target; auto-submits once), `face/register` (student face
+  registration: camera + oval, 3 countdown shots, consent; `?from=signup` after student sign-up),
+  `face/class?courseInfoId=` (teacher: take/upload 1–3 class photos → Present/Absent/Unsure review → save).
 - `lib/api.ts` axios instance: adds the Bearer token, refreshes on 401 and stores the **rotated** refresh
   token, unwraps `response.data`, turns API errors into `Error(message)`.
-- `lib/services.ts` every API call, grouped by area. Add new endpoints here.
+- `lib/services.ts` every API call, grouped by area. Add new endpoints here. `faceService` uses
+  multipart uploads via `lib/upload.ts` (`appendPhoto`: Blob on web, `{uri,name,type}` on phones).
 - `hooks/AuthContext.tsx` login state; persisted in `localStorage` on web only (`portal_user`).
+- Face UI pieces: `components/custom/face-reminder.tsx` (student dashboard card),
+  `components/custom/student-face-dialog.tsx` (admin view/reset). Camera: `expo-camera`; photos:
+  `expo-image-picker` (camera permission also in `app.json` and `android/.../AndroidManifest.xml`).
 - `components/ui/` react-native-reusables (shadcn-style) primitives; `components/custom/` app pieces;
   `components/layout/dashboard.tsx` shell (top panel, sidebar on desktop, bottom bar on mobile).
 - `types/` shared TS types.
@@ -44,7 +50,8 @@ Neutral shadcn palette from `global.css` / `lib/theme.ts` (primary near-black `#
 `#f5f5f5`, border `#e5e5e5`), dashboard background `bg-zinc-50`, cards `rounded-2xl border border-border
 bg-card`, success `emerald-500/600`, errors `destructive`. Icons: `lucide-react-native`.
 
-## Planned next (Phase 2, needs its own "Go")
-Face attendance UI, mockup option C (artifact "Face Attendance Mockups"): checklist-style face
-registration (optional sign-up step + dashboard reminder), teacher roster review with Present/Absent/Unsure
-tabs. Needs `expo-camera`; camera in a browser needs HTTPS or localhost.
+## Notes
+- Face screens follow mockup option C (artifact "Face Attendance Mockups").
+- The camera in a browser needs HTTPS or localhost.
+- `npx expo install` can't reach Expo's API from some sandboxes: pick versions from
+  `node_modules/expo/bundledNativeModules.json` and install with npm (keep `~` ranges).

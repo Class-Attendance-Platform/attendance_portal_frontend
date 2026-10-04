@@ -19,10 +19,11 @@ import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
 import { StudentCard } from '@/components/custom/studentcard';
 import { Student } from '@/types/student';
-import { adminService, configService } from '@/lib/services';
+import { adminService, configService, faceService } from '@/lib/services';
 import { LEVELS, SEMESTERS, Level, SemesterName } from '@/types/common';
 import { webAlert } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/custom/confirm-dialog';
+import { StudentFaceDialog } from '@/components/custom/student-face-dialog';
 
 function humanize(str: string): string {
   if (!str) return '';
@@ -40,6 +41,8 @@ export default function StudentsScreen() {
   const isMobile = width < 768;
 
   const [students, setStudents] = useState<Student[]>([]);
+  const [faceStatus, setFaceStatus] = useState<Record<string, string>>({});
+  const [faceStudent, setFaceStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -129,6 +132,15 @@ export default function StudentsScreen() {
     }
   };
 
+  const fetchFaceStatus = async () => {
+    try {
+      const res = await faceService.getStatusAll();
+      if (res.success) setFaceStatus(res.registered || {});
+    } catch (err) {
+      console.error('Failed to load face registration status', err);
+    }
+  };
+
   const fetchStudents = async () => {
     setLoading(true);
     setError('');
@@ -141,6 +153,7 @@ export default function StudentsScreen() {
         }));
         setStudents(mapped);
       }
+      fetchFaceStatus();
     } catch (err: any) {
       setError(err.message || 'Failed to fetch students.');
     } finally {
@@ -363,6 +376,8 @@ export default function StudentsScreen() {
               student={item}
               onEdit={() => handleOpenEditModal(item)}
               onDelete={() => handleDeleteStudent(item.id)}
+              faceRegistered={!!faceStatus[item.id]}
+              onFace={() => setFaceStudent(item)}
             />
           </View>
         )}
@@ -489,6 +504,16 @@ export default function StudentsScreen() {
           </View>
         </View>
       </Modal>
+
+      <StudentFaceDialog
+        studentProfileId={faceStudent?.id ?? null}
+        studentName={faceStudent?.userName || ''}
+        onClose={() => setFaceStudent(null)}
+        onReset={() => {
+          setFaceStudent(null);
+          fetchFaceStatus();
+        }}
+      />
 
       <ConfirmDialog
         visible={confirmVisible}

@@ -21,6 +21,8 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<User>;
+  /** Signs in with a user and tokens the backend already returned (e.g. right after sign-up). */
+  startSession: (rawUser: any, access: string | null, refresh: string | null) => User;
   logout: () => void;
 }
 
@@ -79,29 +81,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restoreSession();
   }, []);
 
+  const startSession = (rawUser: any, access: string | null, refresh: string | null): User => {
+    const loggedUser: User = {
+      ...rawUser,
+      role: rawUser.role.toUpperCase() as UserRole,
+      studentId: rawUser.student_profile?.student_id
+    };
+    setUser(loggedUser);
+    setTokens(access, refresh);
+
+    if (Platform.OS === 'web') {
+      localStorage.setItem('portal_user', JSON.stringify({
+        user: loggedUser,
+        accessToken: access,
+        refreshToken: refresh,
+      }));
+    }
+    return loggedUser;
+  };
+
   const login = async (email: string, password: string): Promise<User> => {
     setIsLoading(true);
     try {
       const res = await authService.login(email, password);
       if (res.success && res.user) {
-        const loggedUser: User = {
-          ...res.user,
-          role: res.user.role.toUpperCase() as UserRole,
-          studentId: res.user.student_profile?.student_id
-        };
-        setUser(loggedUser);
-
-        const access = res.access || null;
-        const refresh = res.refresh || null;
-        setTokens(access, refresh);
-
-        if (Platform.OS === 'web') {
-          localStorage.setItem('portal_user', JSON.stringify({
-            user: loggedUser,
-            accessToken: access,
-            refreshToken: refresh,
-          }));
-        }
+        const loggedUser = startSession(res.user, res.access || null, res.refresh || null);
         setIsLoading(false);
         return loggedUser;
       }
@@ -121,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, startSession, logout }}>
       {children}
     </AuthContext.Provider>
   );
