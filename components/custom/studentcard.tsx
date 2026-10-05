@@ -13,9 +13,12 @@ interface StudentCardProps {
   onPress?: (student: Student) => void;
   onEdit?: (student: Student) => void;
   onDelete?: (student: Student) => void;
+  /** Face attendance: undefined hides the face line. */
+  faceRegistered?: boolean;
+  onFace?: (student: Student) => void;
 }
 
-export function StudentCard({ student, onPress, onEdit, onDelete }: StudentCardProps) {
+export function StudentCard({ student, onPress, onEdit, onDelete, faceRegistered, onFace }: StudentCardProps) {
   const name = student.userName || 'Unknown Student';
   const initials = name
     .split(' ')
@@ -67,7 +70,20 @@ export function StudentCard({ student, onPress, onEdit, onDelete }: StudentCardP
           </View>
 
           <View className="flex-row items-center justify-between border-t border-border/40 pt-3">
-            <Text className="text-[13px] font-semibold text-muted-foreground">Manage student</Text>
+            {faceRegistered === undefined ? (
+              <Text className="text-[13px] font-semibold text-muted-foreground">Manage student</Text>
+            ) : faceRegistered ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onFace?.(student);
+                }}
+                className="rounded-full bg-emerald-500/10 px-3 py-1.5 active:opacity-70">
+                <Text className="text-[11px] font-bold text-emerald-700">Face registered · View</Text>
+              </Pressable>
+            ) : (
+              <Text className="text-[12px] font-semibold text-muted-foreground">No face registered</Text>
+            )}
             <View className="flex-row items-center gap-2">
               <Pressable
                 onPress={(e) => {

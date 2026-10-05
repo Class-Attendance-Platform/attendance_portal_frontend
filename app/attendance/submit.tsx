@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
@@ -100,11 +100,21 @@ export default function AttendanceSubmitScreen() {
     }
   };
 
+  // Submit automatically once per QR link. After a failure the student retries with
+  // the button, instead of the page re-sending the request forever.
+  const linkKey = `${sessionId ?? ''}:${qrToken ?? ''}`;
+  const autoSubmittedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!isLoading && user?.role === 'STUDENT' && user.studentId && sessionId && qrToken && !submitted && !submitting) {
+    // A new QR link opened on the same screen (app deep link): start fresh.
+    setSubmitted(false);
+    setError('');
+  }, [linkKey]);
+  useEffect(() => {
+    if (!isLoading && user?.role === 'STUDENT' && user.studentId && sessionId && qrToken && autoSubmittedFor.current !== linkKey) {
+      autoSubmittedFor.current = linkKey;
       submitAttendance(user.studentId);
     }
-  }, [isLoading, user?.role, user?.studentId, sessionId, qrToken, submitted, submitting]);
+  }, [isLoading, user?.role, user?.studentId, sessionId, qrToken, linkKey]);
 
   return (
     <ScrollView

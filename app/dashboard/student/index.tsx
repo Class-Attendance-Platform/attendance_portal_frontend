@@ -15,6 +15,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dropdown } from '@/components/custom/dropdown';
+import { FaceReminder } from '@/components/custom/face-reminder';
 import {
   BookOpen,
   Calendar,
@@ -50,8 +51,9 @@ export default function StudentDashboard() {
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [currentMonth, setCurrentMonth] = useState(4);
-  const [currentYear, setCurrentYear] = useState(2026);
+  // Calendar opens on the current month
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
 
   const fetchStudentData = async (isRef = false) => {
     if (!user) return;
@@ -263,6 +265,8 @@ export default function StudentDashboard() {
                 <Text className="text-center font-medium text-destructive">{error}</Text>
               </View>
             ) : null}
+
+            <FaceReminder className="mb-4" />
 
             {/* Academic Session picker */}
             <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -714,6 +718,8 @@ export default function StudentDashboard() {
                 </View>
               ) : null}
 
+              <FaceReminder className="mb-6 max-w-xl" />
+
               {/* Selected Course Header */}
               <View className="flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
                 <View className="flex-1">
@@ -930,6 +936,7 @@ export default function StudentDashboard() {
             </ScrollView>
           ) : (
             <View className="flex-1 items-center justify-center bg-background p-6">
+              <FaceReminder className="mb-6 w-full max-w-xl" />
               <Text className="text-lg font-semibold text-muted-foreground">
                 Select a course to view your records.
               </Text>
