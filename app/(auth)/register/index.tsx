@@ -10,8 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { Dropdown } from '@/components/custom/dropdown';
 import { configService, authService } from '@/lib/services';
+import { useAuth } from '@/hooks/AuthContext';
 
-const ROLES = ['Student', 'Teacher', 'Admin'];
+// Admin accounts are created on the server (createsuperuser), not by sign-up.
+const ROLES = ['Student', 'Teacher'];
 
 const LEVELS = ['First', 'Second', 'Third', 'Fourth'];
 const SEMESTERS = ['I', 'II'];
@@ -28,6 +30,7 @@ function humanize(str: string): string {
 }
 
 export default function SignUpScreen() {
+  const { startSession } = useAuth();
   const [userName, setUserName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -134,7 +137,11 @@ export default function SignUpScreen() {
 
     try {
       const res = await authService.register(payload);
-      if (res.success) {
+      if (res.success && selectedRole === 'Student' && res.user && res.tokens?.access) {
+        // Sign the new student in and offer the (optional) face registration step.
+        startSession(res.user, res.tokens.access, res.tokens.refresh ?? null);
+        router.replace('/face/register?from=signup');
+      } else if (res.success) {
         setSuccess('Registration successful! Redirecting to login...');
         setTimeout(() => {
           router.replace('/(auth)/login');

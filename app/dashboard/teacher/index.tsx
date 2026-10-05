@@ -1,16 +1,19 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert, useWindowDimensions, Animated } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Platform, Alert, useWindowDimensions, Animated } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as ExpoLinking from 'expo-linking';
 import { useAuth } from '@/hooks/AuthContext';
 import { teacherService, sessionService, reportService } from '@/lib/services';
+import { WEB_BASE } from '@/lib/api';
+import { shareExportNative } from '@/lib/native-export';
+import QRCode from 'react-native-qrcode-svg';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dropdown } from '@/components/custom/dropdown';
-import { Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search, Users, BookOpen } from 'lucide-react-native';
+import { Check, X, QrCode, FileText, Save, Plus, Minus, RefreshCw, Clock, Calendar, Trash2, Edit, CheckSquare, Square, ChevronRight, ArrowLeft, Search, Users, BookOpen, ScanFace } from 'lucide-react-native';
 import TopPanel from '@/components/custom/toppanel';
 
 import { StudentRow } from '@/types/student';
@@ -32,8 +35,9 @@ export default function TeacherDashboard() {
   const [selectedHistoryDate, setSelectedHistoryDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [currentMonth, setCurrentMonth] = useState(4);
-  const [currentYear, setCurrentYear] = useState(2026);
+  // Calendar opens on the current month
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
 
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionTimeLeft, setSessionTimeLeft] = useState(300);
@@ -112,6 +116,23 @@ export default function TeacherDashboard() {
   useEffect(() => {
     fetchCoursesList();
   }, [user]);
+
+  // Back from face attendance (or another screen): show the latest records.
+  const activeCourseRef = useRef(activeCourseId);
+  activeCourseRef.current = activeCourseId;
+  const focusedOnce = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (!focusedOnce.current) {
+      focusedOnce.current = true;
+      return;
+    }
+    if (activeCourseRef.current) fetchCourseDetails(activeCourseRef.current);
+  }, []));
+
+  const openFaceAttendance = () => {
+    if (!activeCourseId) return;
+    router.push({ pathname: '/face/class', params: { courseInfoId: activeCourseId } });
+  };
 
   useEffect(() => {
     if (activeCourseId) {
@@ -424,7 +445,11 @@ export default function TeacherDashboard() {
     setError('');
 
     if (Platform.OS !== 'web') {
-      Linking.openURL(reportService.getExportUrl(activeCourseId, format, date));
+      try {
+        await shareExportNative(activeCourseId, format, date);
+      } catch (err: any) {
+        setError(err.message || 'Failed to export course data.');
+      }
       return;
     }
 
@@ -467,10 +492,14 @@ export default function TeacherDashboard() {
   if (activeSessionId) submissionParams.set('sessionId', activeSessionId);
   if (activeSessionToken) submissionParams.set('qrToken', activeSessionToken);
   const submissionPath = `/attendance/submit?${submissionParams.toString()}`;
+  // Always a web address, so students can open it in any phone browser
+  // (even when the teacher runs the session from the Android app).
   const submissionUrl =
     Platform.OS === 'web' && typeof window !== 'undefined'
       ? `${window.location.origin}${submissionPath}`
-      : ExpoLinking.createURL(submissionPath.replace(/^\//, ''));
+      : WEB_BASE
+        ? `${WEB_BASE}${submissionPath}`
+        : ExpoLinking.createURL(submissionPath.replace(/^\//, ''));
 
   const renderCalendar = () => {
     if (!courseInfo) return null;
@@ -769,6 +798,30 @@ export default function TeacherDashboard() {
                       className="rounded-xl w-full border-emerald-500/30 bg-emerald-500/5"
                     >
                       <Text className="font-semibold text-emerald-600 text-xs">Start Roll Call</Text>
+                    </Button>
+                  </Card>
+
+                  {/* Face Attendance Tool */}
+                  <Card className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                    <View className="flex-row items-center gap-3 mb-2">
+                      <View className="p-2.5 rounded-xl bg-primary/10">
+                        <ScanFace size={20} className="text-primary" />
+                      </View>
+                      <View>
+                        <Text className="text-sm font-bold text-foreground">Face Attendance</Text>
+                        <Text className="text-[9px] text-muted-foreground uppercase font-semibold">Class Photo Recognition</Text>
+                      </View>
+                    </View>
+                    <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                      Take or upload 1 to 3 class photos. You check the list before it is saved.
+                    </Text>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onPress={openFaceAttendance}
+                      className="rounded-xl w-full"
+                    >
+                      <Text className="font-semibold text-primary-foreground text-xs">Take Class Photo</Text>
                     </Button>
                   </Card>
                 </View>
@@ -1151,6 +1204,33 @@ export default function TeacherDashboard() {
                       </Button>
                     </Card>
                   </View>
+
+                  <View className="flex-1">
+                    <Card className="rounded-3xl shadow-sm border border-border bg-card p-5 h-full justify-between">
+                      <View>
+                        <View className="flex-row items-center gap-3 mb-2">
+                          <View className="p-2.5 rounded-2xl bg-primary/10">
+                            <ScanFace size={20} className="text-primary" />
+                          </View>
+                          <View>
+                            <Text className="text-sm font-bold text-foreground">Face Attendance</Text>
+                            <Text className="text-[10px] text-muted-foreground uppercase font-semibold">Class Photo Recognition</Text>
+                          </View>
+                        </View>
+                        <Text className="text-xs text-muted-foreground leading-normal mb-4">
+                          Take or upload 1 to 3 photos of the class. Students are found by their registered face, and you check the list before it is saved.
+                        </Text>
+                      </View>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onPress={openFaceAttendance}
+                        className="rounded-xl self-start px-5 shadow-sm mt-2"
+                      >
+                        <Text className="font-semibold text-primary-foreground text-xs">Take Class Photo</Text>
+                      </Button>
+                    </Card>
+                  </View>
                 </View>
 
                 {/* Attendance Management Workspace Heading */}
@@ -1446,10 +1526,8 @@ export default function TeacherDashboard() {
 
             <View className="flex-col sm:flex-row items-center gap-6 py-4">
               <View className="w-48 h-48 bg-white items-center justify-center rounded-2xl border border-border shadow-inner p-2">
-                <Image
-                  source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(submissionUrl)}` }}
-                  style={{ width: 170, height: 170 }}
-                />
+                {/* Drawn in the app: the check-in link is not sent to any outside service */}
+                <QRCode value={submissionUrl} size={170} />
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Instructions</Text>

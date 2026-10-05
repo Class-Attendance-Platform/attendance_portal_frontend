@@ -1,12 +1,20 @@
 import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import { updateSession } from './session';
 
+// Backend address. Set EXPO_PUBLIC_API_URL (e.g. in .env.local) for a deployed backend.
+// No trailing slash: paths are joined as `${API_BASE}/api/...`.
 const getBaseUrl = () => {
-  return 'http://127.0.0.1:8000/'; //'https://attendance-portal-backend-476r.onrender.com/';
+  const url = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+  return url.replace(/\/+$/, '');
 };
 
 export const API_BASE = getBaseUrl();
+
+// Public address of the web app (EXPO_PUBLIC_WEB_URL). QR check-in links point here, so
+// students can open them in any phone browser even when the teacher uses the Android or
+// desktop app. Empty in local development.
+export const WEB_BASE = (process.env.EXPO_PUBLIC_WEB_URL || '').replace(/\/+$/, '');
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
@@ -17,6 +25,12 @@ export const setTokens = (access: string | null, refresh: string | null) => {
 };
 
 export const getAccessToken = () => accessToken;
+
+// Called when the server no longer accepts the saved login (refresh token expired or revoked).
+let onSessionExpired: (() => void) | null = null;
+export const setSessionExpiredHandler = (handler: (() => void) | null) => {
+  onSessionExpired = handler;
+};
 
 const axiosInstance = axios.create({
   baseURL: API_BASE,
@@ -54,7 +68,18 @@ axiosInstance.interceptors.request.use(
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
 
-async function refreshAccessToken(): Promise<boolean> {
+// Newest refresh token saved by any tab (web only). Another tab may have rotated it.
+function storedRefreshToken(): string | null {
+  if (Platform.OS !== 'web') return null;
+  try {
+    const stored = localStorage.getItem('portal_user');
+    return stored ? JSON.parse(stored).refreshToken ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function refreshAccessToken(): Promise<boolean> {
   if (isRefreshing) {
     return new Promise((resolve) => {
       refreshSubscribers.push((token) => {
@@ -67,22 +92,27 @@ async function refreshAccessToken(): Promise<boolean> {
   try {
     const refreshUrl = `${API_BASE}/api/auth/refresh/`;
     console.log('Sending refresh token request to backend...', refreshUrl);
-    const response = await axios.post(refreshUrl, { refresh: refreshToken });
+    refreshToken = storedRefreshToken() ?? refreshToken;
+    let response;
+    try {
+      response = await axios.post(refreshUrl, { refresh: refreshToken });
+    } catch (err: any) {
+      // Another tab may have rotated the token meanwhile: retry once with the newest one.
+      const latest = storedRefreshToken();
+      if (err?.response?.status !== 401 || !latest || latest === refreshToken) throw err;
+      refreshToken = latest;
+      response = await axios.post(refreshUrl, { refresh: refreshToken });
+    }
 
     if (response.status === 200 && response.data && response.data.access) {
       accessToken = response.data.access;
-      if (Platform.OS === 'web') {
-        try {
-          const stored = localStorage.getItem('portal_user');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            parsed.accessToken = accessToken;
-            localStorage.setItem('portal_user', JSON.stringify(parsed));
-          }
-        } catch (e) {
-          console.error('Failed to update localStorage with refreshed access token', e);
-        }
+      // The backend rotates refresh tokens: the old one stops working after use.
+      if (response.data.refresh) {
+        refreshToken = response.data.refresh;
       }
+      // Keep the saved login in step (web: localStorage, phones: secure store), unless the
+      // user logged out meanwhile.
+      updateSession({ accessToken, refreshToken }, { onlyIfSaved: true });
 
       isRefreshing = false;
       const subscribers = refreshSubscribers;
@@ -90,12 +120,18 @@ async function refreshAccessToken(): Promise<boolean> {
       subscribers.forEach((callback) => callback(accessToken!));
       return true;
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error refreshing token', err);
+    // 401: the refresh token itself is expired or revoked, so this login is over.
+    // (Network errors are not: the user stays logged in and can retry.)
+    if (err?.response?.status === 401) onSessionExpired?.();
   }
 
   isRefreshing = false;
+  // Tell waiting requests the refresh failed, so they reject instead of hanging.
+  const subscribers = refreshSubscribers;
   refreshSubscribers = [];
+  subscribers.forEach((callback) => callback(''));
   return false;
 }
 

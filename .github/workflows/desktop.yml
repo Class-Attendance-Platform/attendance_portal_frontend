@@ -1,0 +1,65 @@
+# Builds the desktop installers: Windows (.exe) and Linux (.AppImage).
+# Runs on pull requests that touch desktop/, by hand, and on version tags
+# (v1.0.0, ...) where the installers are attached to a GitHub Release.
+name: Desktop installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+            files: release/*.exe
+          - os: ubuntu-latest
+            target: --linux
+            files: release/*.AppImage
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - run: npm ci
+        working-directory: desktop
+
+      - name: Build
+        working-directory: desktop
+        shell: bash
+        run: |
+          VERSION_ARGS=""
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then VERSION_ARGS="-c.extraMetadata.version=${GITHUB_REF_NAME#v}"; fi
+          npx electron-builder ${{ matrix.target }} --publish never $VERSION_ARGS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: ${{ matrix.files }}
+
+      - name: Attach to the GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.files }}
