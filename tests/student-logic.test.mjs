@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  belowMinText,
+  catchUpState,
   catchUpText,
   cleanCode,
   currentSemester,
@@ -92,7 +94,36 @@ test('outsideReason tells days before joining from days after leaving', () => {
   ];
   assert.equal(outsideReason(days, 0), 'After you left');
   assert.equal(outsideReason(days, 3), 'Before you joined');
-  assert.equal(outsideReason([{ date: '2026-10-01', status: null }], 0), 'Not on the class list');
+  // Nothing counted yet: only members can open the page, so they joined after these classes.
+  assert.equal(outsideReason([{ date: '2026-10-01', status: null }], 0), 'Before you joined');
+});
+
+test('outsideReason follows the membership dates when it has them', () => {
+  // Added on 06 Oct, after every class so far: no counted day at all.
+  const newbie = [
+    { date: '2026-10-05', status: null },
+    { date: '2026-10-01', status: null },
+  ];
+  const added = { joined_at: '2026-10-06', left_at: null };
+  assert.equal(outsideReason(newbie, 0, added), 'Before you joined');
+  assert.equal(outsideReason(newbie, 1, added), 'Before you joined');
+  // The join day itself, for a class held before they were added
+  assert.equal(outsideReason([{ date: '2026-10-06', status: null }], 0, added), 'Before you joined');
+  // Left on 07 Oct (left_at is the first day that no longer counts) with no counted day
+  const gone = { joined_at: null, left_at: '2026-10-07' };
+  assert.equal(outsideReason([{ date: '2026-10-08', status: null }], 0, gone), 'After you left');
+  assert.equal(outsideReason([{ date: '2026-10-07', status: null }], 0, gone), 'After you left');
+});
+
+test('catch-up advice only while more classes can still count', () => {
+  assert.equal(catchUpState(true, null), 'open');
+  assert.equal(catchUpState(true, '2026-10-07'), 'left');
+  assert.equal(catchUpState(false, '2026-08-25'), 'finished');
+  assert.equal(catchUpState(false, null), 'finished');
+  assert.equal(belowMinText(2, 75), 'Below 75%. Attend the next 2 classes to reach 75%.');
+  assert.equal(belowMinText(0, 75), 'Below 75%.');
+  assert.equal(belowMinText(8, 75, 'finished'), 'Below 75%. This semester is finished.');
+  assert.equal(belowMinText(2, 75, 'left'), 'Below 75%. You left this semester.');
 });
 
 test('describeCheckInError gives a readable reason for every check-in error', () => {
@@ -104,6 +135,11 @@ test('describeCheckInError gives a readable reason for every check-in error', ()
   assert.equal(already.tone, 'info');
   assert.equal(describeCheckInError({ code: 'device_used', status: 409 }, 'code').title, 'This phone was already used');
   assert.equal(describeCheckInError({ code: 'session_ended', status: 410 }, 'link').title, 'Attendance has closed');
+  // Scanning or typing again can't help with these: only the teacher can mark them.
+  for (const code of ['device_used', 'not_enrolled', 'session_ended']) {
+    assert.equal(describeCheckInError({ code, status: 409 }, 'code').final, true, code);
+  }
+  assert.ok(!describeCheckInError({ code: 'code_invalid', status: 400 }, 'link').final);
   const offline = describeCheckInError({ code: 'network_error', status: 0, message: "Can't reach the server." }, 'code');
   assert.equal(offline.title, 'No connection');
   assert.equal(offline.retry, true);

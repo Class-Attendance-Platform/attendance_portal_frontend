@@ -38,7 +38,9 @@ export function FieldFrame({
   return (
     <View className={className ?? 'gap-1.5'}>
       {hideLabel ? null : (
-        <Pressable onPress={onLabelPress} accessible={false} className="self-start">
+        // tabIndex -1: on the web the label is not a Tab stop of its own (react-native-web makes every
+        // Pressable focusable otherwise); clicking it still focuses or opens the control.
+        <Pressable onPress={onLabelPress} accessible={false} tabIndex={-1} className="self-start">
           <Text variant="label" nativeID={nativeID}>
             {label}
             {required ? <Text tone="muted"> (required)</Text> : null}

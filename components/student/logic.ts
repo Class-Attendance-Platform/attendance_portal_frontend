@@ -102,6 +102,26 @@ export function catchUpText(classesNeeded: number | null | undefined, min: numbe
   return `Attend the next ${classesNeeded} ${classesNeeded === 1 ? 'class' : 'classes'} to reach ${min}%.`;
 }
 
+/**
+ * Can more classes still count for the student in this course? "finished": the semester is over
+ * (no new classes); "left": the student left it (promoted or removed). Only "open" gets catch-up
+ * advice: telling them to attend more classes would be impossible to follow otherwise.
+ */
+export type CatchUpState = 'open' | 'finished' | 'left';
+
+export function catchUpState(semesterActive: boolean, leftAt: string | null | undefined): CatchUpState {
+  if (!semesterActive) return 'finished';
+  return leftAt ? 'left' : 'open';
+}
+
+/** The warning under a course below the minimum: "Below 75%. Attend the next 3 classes to reach 75%." */
+export function belowMinText(classesNeeded: number | null | undefined, min: number, state: CatchUpState = 'open'): string {
+  if (state === 'finished') return `Below ${min}%. This semester is finished.`;
+  if (state === 'left') return `Below ${min}%. You left this semester.`;
+  const catchUp = catchUpText(classesNeeded, min);
+  return `Below ${min}%.${catchUp ? ` ${catchUp}` : ''}`;
+}
+
 type Membership = { is_active: boolean; left_at: string | null };
 
 /** The semester the student is in now: active and not left. */
@@ -123,14 +143,23 @@ type Day = { date: string; status: string | null };
 
 /**
  * Why a class day does not count for the student (status null): it is before they joined the
- * class group or after they left. `days` are newest first, as the API sends them.
+ * class group (or on the join day, for a class held before they were added) or after they left.
+ * `days` are newest first, as the API sends them. With the membership dates (GET
+ * /student/course-info/<id>/ sends them) the dates decide; without them the counted days do.
  */
 export function outsideReason(
   days: Day[],
-  index: number
+  index: number,
+  membership?: { joined_at: string | null; left_at: string | null } | null
 ): 'Before you joined' | 'After you left' | 'Not on the class list' {
+  const date = days[index]?.date;
+  if (membership && date) {
+    if (membership.left_at && date >= membership.left_at) return 'After you left';
+    if (membership.joined_at && date <= membership.joined_at) return 'Before you joined';
+  }
   const counted = days.map((day, position) => (day.status ? position : -1)).filter((position) => position !== -1);
-  if (!counted.length) return 'Not on the class list';
+  // Only members can open a course, so with nothing counted yet they joined after these classes.
+  if (!counted.length) return 'Before you joined';
   // Newest first: a higher index is an older date.
   if (index > counted[counted.length - 1]) return 'Before you joined';
   if (index < counted[0]) return 'After you left';
@@ -144,6 +173,11 @@ export type CheckInProblem = {
   message: string;
   /** Worth trying the same thing again (network, busy server). */
   retry: boolean;
+  /**
+   * Scanning or typing a code again cannot help (this phone was used, not on the class list,
+   * attendance closed): only the teacher can mark them now.
+   */
+  final?: boolean;
 };
 
 /**
@@ -175,6 +209,7 @@ export function describeCheckInError(
         title: "You're not on this class list",
         message: 'Only students of this course can check in. If this is your class, ask the department office to add you.',
         retry: false,
+        final: true,
       };
     case 'already_checked_in':
       return {
@@ -190,6 +225,7 @@ export function describeCheckInError(
         message:
           'Another student checked in with this phone or browser in this class. Each student checks in on their own phone. Ask your teacher to mark you present.',
         retry: false,
+        final: true,
       };
     case 'session_ended':
       return {
@@ -197,6 +233,7 @@ export function describeCheckInError(
         title: 'Attendance has closed',
         message: 'This class is not taking attendance any more. Ask your teacher if you need to be marked present.',
         retry: false,
+        final: true,
       };
     case 'throttled':
       return {

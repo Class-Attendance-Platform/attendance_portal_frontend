@@ -70,6 +70,10 @@ export interface StudentCourseDetail extends Ok {
     teacher_name: string | null;
     semester: { label: string; is_active: boolean };
   };
+  /** The student's membership: null = from the start. */
+  joined_at: ISODate | null;
+  /** Set when the student left the class group (a former member: history only). */
+  left_at: ISODate | null;
   attended: number;
   held: number;
   percent: number | null;

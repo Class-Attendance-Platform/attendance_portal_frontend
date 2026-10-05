@@ -52,7 +52,10 @@ function DayRecords({ courseInfoId, date, onChanged, onDeleted }: DayRecordsProp
   const confirm = useConfirm();
   const message = useMessage();
   const [deleting, setDeleting] = React.useState(false);
-  const day = useLoad(async () => (await sessionsApi.history(courseInfoId, { date })).history[0] ?? null, [courseInfoId, date]);
+  // refreshOnFocus: coming Back from a roll call for this date shows what it saved.
+  const day = useLoad(async () => (await sessionsApi.history(courseInfoId, { date })).history[0] ?? null, [courseInfoId, date], {
+    refreshOnFocus: true,
+  });
 
   const onSaved = React.useCallback(
     (result: SetAttendanceResponse, profileId: UUID) => {
@@ -86,8 +89,8 @@ function DayRecords({ courseInfoId, date, onChanged, onDeleted }: DayRecordsProp
     if (!ok) return;
     setDeleting(true);
     try {
-      const result = await teacherApi.deleteClass(courseInfoId, date);
-      message.success(result.message || `The class on ${formatDate(date)} was deleted.`);
+      await teacherApi.deleteClass(courseInfoId, date);
+      message.success(`The class on ${formatDate(date)} was deleted.`);
       onDeleted();
     } catch (caught) {
       message.error(isApiError(caught) ? caught.message : 'Could not delete the class.');

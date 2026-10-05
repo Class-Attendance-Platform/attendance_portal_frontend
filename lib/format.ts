@@ -68,11 +68,8 @@ export function formatCountdown(totalSeconds: number): string {
   return `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`;
 }
 
-/** "86%". Null (no classes yet) shows "—". */
-export function formatPercent(value: number | null | undefined, digits = 0): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return EMPTY;
-  return `${value.toFixed(digits)}%`;
-}
+/** "86%" (rounded down: 74.5 is "74%", never the minimum). Null (no classes yet) shows "—". */
+export { formatPercent } from './percent';
 
 /** "1 class", "3 classes" */
 export function plural(count: number, one: string, many = `${one}s`): string {

@@ -26,7 +26,7 @@ import { TextField } from '@/components/ui/text-field';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { toApiError } from '@/lib/api/client';
 import { sessionsApi } from '@/lib/api/sessions';
-import type { StudentLiveSession } from '@/lib/api/student';
+import { studentApi, type StudentLiveSession } from '@/lib/api/student';
 import { formatDateTime, formatTime } from '@/lib/format';
 import type { ColorToken } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -147,6 +147,8 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
   const [codeError, setCodeError] = React.useState<string | null>(null);
   const [codeProblem, setCodeProblem] = React.useState<CheckInProblem | null>(null);
   const [scanNote, setScanNote] = React.useState<string | null>(null);
+  /** The QR scanner was asked for (it starts hidden for an online class: those type the code). */
+  const [scannerWanted, setScannerWanted] = React.useState(false);
   const busy = React.useRef(false);
   const lastLink = React.useRef<QrLink | null>(null);
   const sentLink = React.useRef<string | null>(null);
@@ -190,8 +192,21 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
       refreshLive();
     } catch (caught) {
       const error = toApiError(caught);
-      const problem = describeCheckInError(error, 'code');
-      if (error.code === 'already_checked_in') setOutcome({ kind: 'problem', problem, via: 'code' });
+      let problem = describeCheckInError(error, 'code');
+      if (error.code === 'code_invalid') {
+        // A typed code is matched against the student's live sessions, so a class that has just
+        // closed answers "wrong code". If the class the student came for is gone, say it closed.
+        const listed = live.sessions ?? [];
+        const wanted = sessionId ?? (listed.length === 1 ? listed[0].session_id : null);
+        if (wanted) {
+          const fresh = await studentApi.live().catch(() => null);
+          if (fresh && !fresh.sessions.some((session) => session.session_id === wanted)) {
+            problem = describeCheckInError({ code: 'session_ended', status: 410 }, 'code');
+          }
+        }
+        refreshLive();
+      }
+      if (error.code === 'already_checked_in' || problem.final) setOutcome({ kind: 'problem', problem, via: 'code' });
       else setCodeProblem(problem);
     } finally {
       busy.current = false;
@@ -276,7 +291,8 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
 
   if (outcome?.kind === 'problem') {
     const { problem } = outcome;
-    const done = problem.tone === 'info';
+    // Already checked in, or nothing the student can try again: home is the way on.
+    const done = problem.tone === 'info' || !!problem.final;
     return (
       <ResultCard tone={problem.tone} title={problem.title} message={problem.message}>
         {problem.retry && lastLink.current && outcome.via === 'link' ? (
@@ -296,6 +312,20 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
   }
 
   const target = live.sessions?.find((session) => session.session_id === sessionId);
+  // Online classes type the code: the code comes first there and the camera stays off unless asked.
+  const onlineOnly = target
+    ? target.delivery === 'ONLINE'
+    : !!live.sessions?.length && live.sessions.every((session) => session.delivery === 'ONLINE');
+  // Coming from a banner (?s=) the class is known once the list loads: wait for it.
+  const showScanner = HAS_QR_SCANNER && (scannerWanted || (live.sessions === null ? !sessionId : !onlineOnly));
+
+  const scannerCard = showScanner ? (
+    <Card title="Scan the QR" className="gap-3">
+      <Text tone="muted">In class, point your camera at the QR code on the screen.</Text>
+      <QrScanner onScan={onScan} paused={!!sending} />
+      {scanNote ? <Notice tone="warn" message={scanNote} live /> : null}
+    </Card>
+  ) : null;
 
   return (
     <>
@@ -312,13 +342,7 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
 
       <LiveNow sessions={live.sessions} />
 
-      {HAS_QR_SCANNER ? (
-        <Card title="Scan the QR" className="gap-3">
-          <Text tone="muted">In class, point your camera at the QR code on the screen.</Text>
-          <QrScanner onScan={onScan} paused={!!sending} />
-          {scanNote ? <Notice tone="warn" message={scanNote} live /> : null}
-        </Card>
-      ) : null}
+      {onlineOnly ? null : scannerCard}
 
       <Card title={target ? `Type the code for ${target.course.code}` : 'Type the code'} className="gap-4">
         <TextField
@@ -347,6 +371,9 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
           onPress={() => sendCode()}
           fullWidth={!isDesktop}
         />
+        {HAS_QR_SCANNER && !showScanner ? (
+          <Button label="Scan a QR code instead" icon={ScanLine} onPress={() => setScannerWanted(true)} fullWidth={!isDesktop} />
+        ) : null}
         {HAS_QR_SCANNER ? null : (
           <View className="flex-row items-start gap-2 border-t border-border pt-4">
             <Icon as={QrCode} size={20} color="muted" />
@@ -356,6 +383,8 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
           </View>
         )}
       </Card>
+
+      {onlineOnly ? scannerCard : null}
     </>
   );
 }

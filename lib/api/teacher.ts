@@ -10,6 +10,10 @@ import type { AttendanceStatus, ISODate, ISODateTime, LogMethod, Ok, OkMessage, 
 export const TEACHER_ERRORS = {
   noClassOnDate: 'no_class_on_date',
   futureDate: 'future_date',
+  /** Roll call: a live session runs on that date (the error has `session_id`). */
+  sessionRunning: 'session_running',
+  /** Roll call: the date changed since the list was loaded (`version` no longer matches). */
+  dateChanged: 'date_changed',
 } as const;
 
 export interface TeacherCourse {
@@ -96,9 +100,33 @@ export interface SetAttendanceResponse extends OkMessage {
   day: Omit<StudentDay, 'status'> & { status: AttendanceStatus };
 }
 
+export interface RollCallStudent {
+  profile_id: UUID;
+  student_id: number;
+  name: string;
+  joined_at: ISODate | null;
+  /** Set for a student who has left since (still enrolled on this date). */
+  left_at: ISODate | null;
+  /** Their status that day (as in the history); null = no log that day. */
+  status: AttendanceStatus | null;
+}
+
+export interface RollCallList extends Ok {
+  date: ISODate;
+  has_class: boolean;
+  /** A live session of the course on this date (still taking check-ins). */
+  live_session_id: UUID | null;
+  /** Send it back with the roll call: the server refuses (409 date_changed) if the date changed since. */
+  version: string;
+  /** Everyone enrolled on the date (also students who left since), by student id. */
+  students: RollCallStudent[];
+}
+
 export interface RollCallBody {
   date: ISODate;
   present_profile_ids: UUID[];
+  /** The `version` of the list the page showed. */
+  version?: string;
 }
 
 export interface RollCallResponse extends Ok {
@@ -130,7 +158,14 @@ export const teacherApi = {
   setAttendance: (courseInfoId: UUID, body: SetAttendanceBody) =>
     api.put<SetAttendanceResponse>(`/api/teacher/course-info/${courseInfoId}/attendance/`, body),
 
-  /** POST /teacher/course-info/<id>/roll-call/: creates or corrects a date's class. 400 future_date. */
+  /** GET /teacher/course-info/<id>/roll-call/?date=: who a roll call for the date covers, with status. */
+  rollCallList: (courseInfoId: UUID, date: ISODate) =>
+    api.get<RollCallList>(`/api/teacher/course-info/${courseInfoId}/roll-call/`, { date }),
+
+  /**
+   * POST /teacher/course-info/<id>/roll-call/: creates or corrects a date's class. 400 future_date;
+   * 409 session_running (a live session that day) or date_changed (stale `version`).
+   */
   rollCall: (courseInfoId: UUID, body: RollCallBody) =>
     api.post<RollCallResponse>(`/api/teacher/course-info/${courseInfoId}/roll-call/`, body),
 

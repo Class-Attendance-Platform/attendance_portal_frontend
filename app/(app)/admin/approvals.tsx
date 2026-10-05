@@ -1,11 +1,25 @@
-import { Check, UserCheck, X } from 'lucide-react-native';
+import { Link, type Href } from 'expo-router';
+import { Check, GraduationCap, UserCheck, X } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
 import { useLoad } from '@/components/admin/hooks';
 import { LoadBlock, TwoLines } from '@/components/admin/parts';
 import { Page } from '@/components/layout/Page';
-import { Button, Card, DataTable, EmptyState, ListRow, PageHeader, Pill, Text, useConfirm, useMessage, type Column } from '@/components/ui';
+import {
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  ListRow,
+  Notice,
+  PageHeader,
+  Pill,
+  Text,
+  useConfirm,
+  useMessage,
+  type Column,
+} from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { adminApi, type PendingUser } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
@@ -20,13 +34,19 @@ const idLabel = (user: PendingUser) =>
       ? `Employee ID ${user.employee_id}`
       : 'No employee ID';
 
+/** A student just approved: approving does not put them in a semester, so say where to add them. */
+type Approved = { id: string; name: string; semester: { id: string; label: string } | null };
+
 /** /admin/approvals: sign-ups waiting for approval, approve or reject each. */
 export default function AdminApprovals() {
   const { isDesktop } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
   const list = useLoad(() => adminApi.pendingUsers().then((r) => r.users), []);
+  // Active semesters, to point at the one matching an approved student's level and term.
+  const semesters = useLoad(() => adminApi.semesters('active').then((r) => r.semesters).catch(() => []), []);
   const [busy, setBusy] = React.useState<{ id: string; action: 'approve' | 'reject' } | null>(null);
+  const [approved, setApproved] = React.useState<Approved[]>([]);
 
   const drop = (user: PendingUser) => list.setData((rows) => (rows ? rows.filter((row) => row.id !== user.id) : rows));
 
@@ -36,6 +56,13 @@ export default function AdminApprovals() {
       await adminApi.approveUser(user.id);
       drop(user);
       message.success(`${fullName(user)} is approved and can sign in now.`);
+      if (user.role === 'STUDENT') {
+        const match = (semesters.data ?? []).find(
+          (semester) => semester.level === user.current_level && semester.semester === user.current_semester
+        );
+        const entry: Approved = { id: user.id, name: fullName(user), semester: match ? { id: match.id, label: match.label } : null };
+        setApproved((current) => [entry, ...current.filter((row) => row.id !== user.id)].slice(0, 5));
+      }
     } catch (caught) {
       message.error(toApiError(caught).message);
     } finally {
@@ -121,6 +148,25 @@ export default function AdminApprovals() {
             : 'Sign-ups waiting for approval'
         }
       />
+      {approved.map((row) => (
+        <Notice
+          key={row.id}
+          tone="success"
+          title={`${row.name} is approved`}
+          message={
+            row.semester
+              ? `Add them to ${row.semester.label} so they see their courses and can check in.`
+              : 'Add them to their semester on the Semesters page so they see their courses and can check in.'
+          }
+        >
+          <Link
+            href={(row.semester ? `/admin/semesters/${row.semester.id}?tab=students` : '/admin/semesters') as Href}
+            asChild
+          >
+            <Button label={row.semester ? `Open ${row.semester.label}` : 'Open Semesters'} icon={GraduationCap} compact />
+          </Link>
+        </Notice>
+      ))}
       <Card padded={false} className="overflow-hidden">
         <LoadBlock state={list} loadingLabel="Loading sign-ups…">
           {(users) =>

@@ -143,8 +143,12 @@ export default function StudentHome() {
       <Card>
         <EmptyState
           icon={GraduationCap}
-          title="You're not in a semester yet"
-          message="Ask the department office to add you to your semester. Your courses show here after that."
+          title={hasPast ? "You're not in a current semester" : "You're not in a semester yet"}
+          message={
+            hasPast
+              ? 'Your past semesters are under Courses. The department office adds you to the next one.'
+              : 'Ask the department office to add you to your semester. Your courses show here after that.'
+          }
         />
         {hasPast ? (
           <View className="items-center pb-4">

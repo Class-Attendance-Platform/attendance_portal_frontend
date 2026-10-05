@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Modal, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { colors } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { IconButton } from './button';
@@ -31,17 +32,22 @@ export function Dialog({ open, onClose, title, description, children, actions, d
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const close = dismissable ? onClose : () => {};
+  // Phones: the panel stays above the on-screen keyboard and scrolls inside (see useKeyboardOverlap).
+  const frame = React.useRef<View>(null);
+  const keyboard = useKeyboardOverlap(frame);
+  const bottom = keyboard ? keyboard + 16 : insets.bottom + 16;
 
   return (
     <Modal visible={open} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
       <View
+        ref={frame}
         style={{
           flex: 1,
           backgroundColor: colors.scrim,
           justifyContent: 'center',
           alignItems: 'center',
           paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 16,
+          paddingBottom: bottom,
           paddingHorizontal: 16,
         }}
       >
@@ -53,7 +59,7 @@ export function Dialog({ open, onClose, title, description, children, actions, d
         />
         <View
           className="w-full rounded-card-phone border border-border bg-surface"
-          style={{ maxWidth: WIDTHS[size], maxHeight: height - insets.top - insets.bottom - 32 }}
+          style={{ maxWidth: WIDTHS[size], maxHeight: Math.max(160, height - insets.top - 16 - bottom) }}
         >
           <View className="flex-row items-start gap-2 pl-5 pr-2 pt-3">
             <View className="flex-1 gap-1 pt-2">

@@ -66,6 +66,19 @@ function AddStudentsDialog({
     () => (open ? adminApi.students({ search: query, level: level || undefined, status: 'active' }).then((r) => r.students) : Promise.resolve([])),
     [open, query, level]
   );
+  // Former members of this semester ({profile id: left_at}): adding one back re-opens their old
+  // membership, so classes held while they were away count as absent.
+  const former = useLoad(
+    () =>
+      open
+        ? adminApi
+            .semesterStudents(semester.id, { includeLeft: true })
+            .then((r) => new Map(r.students.filter((member) => member.left_at).map((member) => [member.profile_id, member.left_at as string])))
+        : Promise.resolve(new Map<UUID, string>()),
+    [open, semester.id]
+  );
+  const leftOn = former.data ?? new Map<UUID, string>();
+  const pickedFormer = [...picked.keys()].filter((id) => leftOn.has(id)).length;
 
   const toggle = (student: AdminStudent) =>
     setPicked((current) => {
@@ -85,7 +98,8 @@ function AddStudentsDialog({
         result.rejoined ? `${plural(result.rejoined, 'former member')} came back` : null,
         result.already_in ? `${result.already_in} already in` : null,
       ].filter(Boolean);
-      message.success(parts.length ? `${parts.join(', ')}.` : result.message);
+      const away = result.rejoined ? ' Classes held while they were away count as absent.' : '';
+      message.success(parts.length ? `${parts.join(', ')}.${away}` : result.message);
       onAdded();
       onClose();
     } catch (caught) {
@@ -124,8 +138,15 @@ function AddStudentsDialog({
       <View className="gap-3">
         <Notice
           tone="info"
-          message="If this semester has already held classes, new students count from today: earlier classes are not counted against them."
+          message="If this semester has already held classes, students added for the first time count from today: earlier classes are not counted against them."
         />
+        {pickedFormer ? (
+          <Notice
+            tone="warn"
+            title={`${plural(pickedFormer, 'former member')} chosen`}
+            message="They come back with their old record: classes held while they were away count as absent. Their teacher can mark those days present."
+          />
+        ) : null}
         <View className="flex-row flex-wrap gap-3">
           <View className="min-w-[220px] flex-1">
             <SearchField label="Search students" placeholder="Name, email or student ID" value={search} onChangeText={setSearch} />
@@ -160,7 +181,12 @@ function AddStudentsDialog({
         ) : (
           <View role="list" accessibilityLabel="Students to add" className="rounded-control border border-border">
             {rows.map((student, index) => {
-              const where = student.semester ? `In ${student.semester.label}` : 'Not in an active semester';
+              const left = leftOn.get(student.id);
+              const where = left
+                ? `Left this semester ${formatDate(left)}`
+                : student.semester
+                  ? `In ${student.semester.label}`
+                  : 'Not in an active semester';
               return (
                 <View key={student.id} role="listitem" className={index > 0 ? 'border-t border-border px-3' : 'px-3'}>
                   <Checkbox
@@ -203,7 +229,7 @@ export function SemesterRoster({ semester, onChanged }: { semester: Semester; on
     const ok = await confirm({
       title: `Remove ${member.name}?`,
       message:
-        'They leave this semester from today (from tomorrow if a class was held today). Their attendance so far stays in the history, and you can add them again later.',
+        'They leave this semester from today (from tomorrow if a class was held today). Their attendance so far stays in the history. You can add them again later, but classes held while they are away then count as absent.',
       confirmLabel: 'Remove student',
       destructive: true,
     });

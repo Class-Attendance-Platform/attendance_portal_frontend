@@ -1,5 +1,5 @@
 import { Link, router, useLocalSearchParams, type Href } from 'expo-router';
-import { CheckCheck, Save, Users } from 'lucide-react-native';
+import { CheckCheck, Radio, Save, Users } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -14,19 +14,24 @@ import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
 import { AttendanceToggle } from '@/components/teacher/choice-group';
-import { courseHref, enrolledOn, param } from '@/components/teacher/labels';
+import { courseHref, isFinished, liveHref, param } from '@/components/teacher/labels';
 import { membershipNote } from '@/components/teacher/students-tab';
 import { useLoad } from '@/components/teacher/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { isApiError } from '@/lib/api/client';
-import { sessionsApi } from '@/lib/api/sessions';
-import { teacherApi } from '@/lib/api/teacher';
+import { TEACHER_ERRORS, teacherApi, type RollCallList, type RollCallStudent } from '@/lib/api/teacher';
 import type { AttendanceStatus, UUID } from '@/lib/api/types';
 import { isFutureDate, parseISODate, todayISO } from '@/lib/dates';
 import { formatDate, formatDateWithWeekday } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-type Row = { profile_id: UUID; student_id: number; name: string; joined_at: string | null; left_at: string | null };
+type Marks = Record<UUID, AttendanceStatus>;
+
+/** The saved status of each student on the list (no record yet = absent). */
+function savedMarks(list: RollCallList | null): Marks {
+  return Object.fromEntries((list?.students ?? []).map((row) => [row.profile_id, row.status ?? 'ABSENT']));
+}
 
 /** /teacher/courses/[courseInfoId]/roll-call?date=: mark each student for a date (adds or corrects that class). */
 export default function TeacherRollCall() {
@@ -34,47 +39,60 @@ export default function TeacherRollCall() {
   const courseInfoId = param(params.courseInfoId) ?? '';
   const asked = param(params.date);
   const badDate = !!asked && (!parseISODate(asked) || isFutureDate(asked));
-  const date = asked && !badDate ? asked : todayISO();
 
   const { isDesktop } = useBreakpoint();
   const message = useMessage();
   const confirm = useConfirm();
 
-  const course = useLoad(() => teacherApi.course(courseInfoId), [courseInfoId]);
-  const day = useLoad(async () => (await sessionsApi.history(courseInfoId, { date })).history[0] ?? null, [courseInfoId, date]);
+  const course = useLoad(() => teacherApi.course(courseInfoId), [courseInfoId], { refreshOnFocus: true });
+  // Without a date: today, or for a finished semester its newest class (nobody is enrolled today).
+  const newestClass = course.data && isFinished(course.data.course) ? course.data.dates[0]?.date : undefined;
+  const date = asked && !badDate ? asked : newestClass ?? todayISO();
+  // Who the roll call covers on that date (students who left since too), with what was saved.
+  // Reloaded when the page comes back into view, so a session or correction made meanwhile shows.
+  const list = useLoad(() => teacherApi.rollCallList(courseInfoId, date), [courseInfoId, date], { refreshOnFocus: true });
 
-  const [marks, setMarks] = React.useState<Record<UUID, AttendanceStatus>>({});
-  const [initial, setInitial] = React.useState<Record<UUID, AttendanceStatus>>({});
+  const [marks, setMarks] = React.useState<Marks>({});
+  const [initial, setInitial] = React.useState<Marks>({});
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState<string | null>(null);
+  const [problem, setProblem] = React.useState<string | null>(null);
 
-  // Everyone who was a member on the date, plus anyone who already has a record that day.
-  const rows: Row[] = React.useMemo(() => {
-    if (!course.data || day.loading) return [];
-    const list: Row[] = course.data.students.filter((student) => enrolledOn(student, date));
-    const known = new Set(list.map((student) => student.profile_id));
-    for (const log of day.data?.logs ?? []) {
-      if (!known.has(log.profile_id)) {
-        list.push({ profile_id: log.profile_id, student_id: log.student_id, name: log.name, joined_at: null, left_at: null });
-      }
-    }
-    return list.sort((a, b) => a.student_id - b.student_id);
-  }, [course.data, day.data, day.loading, date]);
-
-  // Pre-fill from the date's records (a new class starts with everyone absent).
+  // Start from what is saved. When the list loads again (Back to this page, or after a refused
+  // save), students the teacher already switched keep the switch; the others show the new status.
+  const marksRef = React.useRef({ marks, initial });
+  marksRef.current = { marks, initial };
   React.useEffect(() => {
-    if (!course.data || day.loading) return;
-    const byStudent = new Map((day.data?.logs ?? []).map((log) => [log.profile_id, log.status]));
-    const start: Record<UUID, AttendanceStatus> = {};
-    for (const row of rows) start[row.profile_id] = byStudent.get(row.profile_id) ?? 'ABSENT';
-    setMarks(start);
-    setInitial(start);
-  }, [rows, course.data, day.data, day.loading]);
+    const fresh = savedMarks(list.data);
+    const { marks: before, initial: beforeInitial } = marksRef.current;
+    const next: Marks = {};
+    for (const [id, status] of Object.entries(fresh)) {
+      next[id] = id in before && before[id] !== beforeInitial[id] ? before[id] : status;
+    }
+    setInitial(fresh);
+    setMarks(next);
+  }, [list.data]);
 
+  // A new date starts clean.
+  React.useEffect(() => {
+    setMarks({});
+    setInitial({});
+    setProblem(null);
+  }, [date]);
+
+  const rows: RollCallStudent[] = list.data?.students ?? [];
+  const hasClass = !!list.data?.has_class;
+  const liveSessionId = list.data?.live_session_id ?? null;
   const presentCount = rows.filter((row) => marks[row.profile_id] === 'PRESENT').length;
   const absentCount = rows.length - presentCount;
   const changes = rows.filter((row) => marks[row.profile_id] !== initial[row.profile_id]).length;
-  const hasClass = !!day.data;
+
+  useLeaveGuard(changes > 0 && !saving, {
+    title: 'Discard your changes?',
+    message: `You changed ${changes} ${changes === 1 ? 'student' : 'students'} on ${formatDate(date)} without saving.`,
+    confirmLabel: 'Discard',
+    cancelLabel: 'Keep editing',
+  });
 
   async function changeDate(next: string) {
     if (next === date) return;
@@ -93,21 +111,33 @@ export default function TeacherRollCall() {
   }
 
   async function save() {
+    if (!list.data) return;
     setSaving(true);
     setSaved(null);
+    setProblem(null);
     try {
       const result = await teacherApi.rollCall(courseInfoId, {
         date,
         present_profile_ids: rows.filter((row) => marks[row.profile_id] === 'PRESENT').map((row) => row.profile_id),
+        // The server refuses if the date changed since this list was loaded (nothing is overwritten).
+        version: list.data.version,
       });
       const summary = `Saved ${formatDate(result.date)}: ${result.present} present, ${result.absent} absent${
-        hasClass ? ` (${result.changed} changed)` : ''
+        result.changed ? ` (${result.changed} changed)` : ''
       }.`;
       message.success(summary);
       setSaved(summary);
-      await Promise.all([day.reload({ quiet: true }), course.reload({ quiet: true })]);
+      await Promise.all([list.reload({ quiet: true }), course.reload({ quiet: true })]);
     } catch (caught) {
-      message.error(isApiError(caught) ? caught.message : 'Could not save the roll call. Please try again.');
+      if (isApiError(caught) && (caught.code === TEACHER_ERRORS.dateChanged || caught.code === TEACHER_ERRORS.sessionRunning)) {
+        // Show what is saved now; the teacher's own switches stay. The message bar says it where
+        // the teacher is (by the Save button); the notice at the top keeps it.
+        setProblem(caught.message);
+        message.error(caught.message);
+        await list.reload({ quiet: true });
+      } else {
+        message.error(isApiError(caught) ? caught.message : 'Could not save the roll call. Please try again.');
+      }
     } finally {
       setSaving(false);
     }
@@ -120,8 +150,8 @@ export default function TeacherRollCall() {
     { label: 'Roll call' },
   ];
 
-  const loadError = course.error ?? day.error;
-  const loading = course.loading || day.loading;
+  const loadError = list.error ?? course.error;
+  const loading = list.loading || (course.loading && !asked);
 
   return (
     <Page>
@@ -137,7 +167,17 @@ export default function TeacherRollCall() {
         </View>
         {badDate ? <Notice tone="warn" message="That date was not valid or is in the future, so today is shown." /> : null}
         {!loading && !loadError ? (
-          hasClass ? (
+          liveSessionId ? (
+            <Notice
+              tone="warn"
+              title="A live session is running on this date"
+              message="Mark students present in the session instead. You can correct this date here after it ends."
+            >
+              <Link href={liveHref(liveSessionId, courseInfoId)} asChild>
+                <Button label="Open the live session" icon={Radio} compact />
+              </Link>
+            </Notice>
+          ) : hasClass ? (
             <Notice
               tone="info"
               title={`${formatDateWithWeekday(date)} already has a class`}
@@ -150,6 +190,9 @@ export default function TeacherRollCall() {
               message="Saving adds a class for this date. Everyone starts as absent: tap Present for each student, or Mark all present."
             />
           )
+        ) : null}
+        {problem ? (
+          <Notice tone="warn" live title="Not saved" message={problem} />
         ) : null}
         {saved ? (
           <Notice tone="success" message={saved}>
@@ -170,7 +213,7 @@ export default function TeacherRollCall() {
             message={loadError.message}
             onRetry={() => {
               void course.reload();
-              void day.reload();
+              void list.reload();
             }}
           />
         </Card>
@@ -192,7 +235,7 @@ export default function TeacherRollCall() {
               label="Mark all present"
               icon={CheckCheck}
               compact
-              disabled={saving || presentCount === rows.length}
+              disabled={saving || !!liveSessionId || presentCount === rows.length}
               onPress={() => setMarks(Object.fromEntries(rows.map((row) => [row.profile_id, 'PRESENT' as const])))}
             />
           }
@@ -220,7 +263,7 @@ export default function TeacherRollCall() {
                   <AttendanceToggle
                     name={row.name}
                     value={marks[row.profile_id] ?? null}
-                    disabled={saving}
+                    disabled={saving || !!liveSessionId}
                     onChange={(status) => setMarks((current) => ({ ...current, [row.profile_id]: status }))}
                   />
                 </View>
@@ -244,7 +287,7 @@ export default function TeacherRollCall() {
               variant="primary"
               icon={Save}
               loading={saving}
-              disabled={hasClass && changes === 0}
+              disabled={!!liveSessionId || (hasClass && changes === 0)}
               onPress={save}
             />
           </View>

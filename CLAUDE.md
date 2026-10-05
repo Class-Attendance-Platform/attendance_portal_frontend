@@ -90,7 +90,8 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   login). It has no imports so `tests/refresh.test.mjs` can run it in Node.
 - `lib/session.ts` saved login: web `localStorage` `portal_user`; phones `expo-secure-store` (separate
   keys: values are limited to ~2 KB). `lib/device.ts` random per-install `device_id` (check-ins).
-- `lib/format.ts` dates "05 Oct 2026", times (Dhaka), percent, "Level 3 · Term I", names, initials;
+- `lib/format.ts` dates "05 Oct 2026", times (Dhaka), percent (rounded **down**, so 74.5 never reads as
+  "75%" next to "Below 75%": `lib/percent.ts`, `tests/format.test.mjs`), "Level 3 · Term I", names, initials;
   `lib/dates.ts` `YYYY-MM-DD` maths in Dhaka time (calendar grid, today, no-future checks);
   `lib/routes.ts` role homes and safe `?redirect=`; `lib/theme.ts` tokens as hex; `lib/utils.ts` `cn`;
   `lib/methods.ts` how a day was marked ("QR scan", "Typed code", "Class photo", "Marked by teacher"),
@@ -100,12 +101,18 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   refresh token via `/auth/logout/`), `refreshUser`, `setUser`. Signing out in one web tab signs out the
   others; signing in there with another account signs this tab out too.
   `hooks/useBreakpoint.ts` (768 px). `hooks/useAppConfig.ts` GET /config/app/ once per app start
-  (minimum %, levels, terms, app name; defaults until it answers).
+  (minimum %, levels, terms, app name; defaults until it answers). `hooks/useLeaveGuard.ts` asks
+  before unsaved work is dropped (back: `useConfirm`; web reload/close: the browser asks; the desktop
+  app asks in `main.js`): roll call, import passwords. `hooks/useKeyboardOverlap.ts`: Android draws
+  edge to edge, so the window no longer shrinks for the keyboard; `Page`, `PublicPage` and `Dialog`
+  pad by the covered height (not testable on the web: check on a phone).
 - `desktop/` own npm project (Electron 42 + electron-builder): `main.js` opens the live web app in a
   locked-down window (no Node, other sites open in the browser, camera allowed for the portal only,
   `offline.html` when unreachable; keeps the old "Class Attendance Portal" data folder so people stay
   signed in). Web updates reach it without a new installer.
-- `android/` committed prebuild (**never run `expo prebuild`**); `app/build.gradle` takes the version
+- `android/` committed prebuild (**never run `expo prebuild`**); `MainActivity.kt` / `MainApplication.kt`
+  live in `app/src/main/java/com/grinch/classattendanceportal/` (the package must match the
+  namespace); `app/build.gradle` takes the version
   and release signing key from env (`ANDROID_*`, set by the workflow from repo secrets; debug key if
   missing). Launcher icons and splash logo are generated from `assets/images/hstu.png`.
 - `.github/workflows/`: `checks.yml` (PRs: tsc + web build), `android.yml` (APK), `desktop.yml`

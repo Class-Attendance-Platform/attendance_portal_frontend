@@ -60,10 +60,15 @@ export default function AdminTeachers() {
   async function restore(teacher: AdminTeacher) {
     setRestoring(true);
     try {
-      await adminApi.restoreTeacher(teacher.id);
+      const result = await adminApi.restoreTeacher(teacher.id);
       drop(teacher);
       setSelected(null);
-      message.success(`${fullName(teacher)} was restored and can sign in again.`);
+      // A rejected sign-up comes back still waiting for approval.
+      message.success(
+        result.teacher?.is_verified !== false
+          ? `${fullName(teacher)} was restored and can sign in again.`
+          : `${fullName(teacher)} was restored and is waiting for approval again (Approvals).`
+      );
     } catch (caught) {
       message.error(toApiError(caught).message);
     } finally {
