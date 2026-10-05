@@ -13,6 +13,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppVersionGate } from '@/components/auth/AppUpdate';
 import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 import { MessageProvider } from '@/components/ui/message-bar';
 import { ErrorState } from '@/components/ui/states';
@@ -50,13 +51,16 @@ export default function RootLayout() {
             <ConfirmProvider>
               <AuthProvider>
                 <StatusBar style="dark" />
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    animation: 'none',
-                    contentStyle: { backgroundColor: colors.bg },
-                  }}
-                />
+                {/* Phones: "Please update" over everything when the app is below the minimum version. */}
+                <AppVersionGate>
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      animation: 'none',
+                      contentStyle: { backgroundColor: colors.bg },
+                    }}
+                  />
+                </AppVersionGate>
               </AuthProvider>
             </ConfirmProvider>
           </MessageProvider>
