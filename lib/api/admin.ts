@@ -195,6 +195,19 @@ export interface RosterResponse extends Ok {
   students: RosterMember[];
 }
 
+export interface AddRosterResponse extends OkMessage {
+  /** New members. */
+  added: number;
+  /** Former members who came back (their first joined date is kept). */
+  rejoined: number;
+  /** Already current members (nothing changed). */
+  already_in: number;
+}
+
+export interface RemoveRosterResponse extends OkMessage {
+  removed: number;
+}
+
 export interface SemesterCourse {
   course_info_id: UUID;
   course: { id: UUID; code: string; title: string; credits: string };
@@ -348,6 +361,8 @@ export const adminApi = {
   // Semesters
   /** GET /admin/semesters/: active first, then newest session, level, term. */
   semesters: (status?: SemesterStatus) => api.get<Ok & { semesters: Semester[] }>('/api/admin/semesters/', { status }),
+  /** GET /admin/semesters/<id>/ (also for a deleted semester). */
+  semester: (semesterId: UUID) => api.get<SemesterResponse>(`/api/admin/semesters/${semesterId}/`),
   /** POST /admin/semesters/ (also creates its hidden class group). 400 level_has_active_semester. */
   createSemester: (body: CreateSemesterBody) => api.post<SemesterResponse>('/api/admin/semesters/', body),
   /** PATCH /admin/semesters/<id>/ */
@@ -368,12 +383,15 @@ export const adminApi = {
   /** GET /admin/semesters/<id>/students/ (`includeLeft` adds former members). */
   semesterStudents: (semesterId: UUID, { includeLeft = false } = {}) =>
     api.get<RosterResponse>(`/api/admin/semesters/${semesterId}/students/`, { include_left: includeLeft ? 'true' : undefined }),
-  /** POST /admin/semesters/<id>/students/: adds them (joined today). */
+  /**
+   * POST /admin/semesters/<id>/students/: adds them (joined today once the semester has held a
+   * class; before that, from the start). 400 for an unknown id or a deleted account.
+   */
   addSemesterStudents: (semesterId: UUID, profileIds: UUID[]) =>
-    api.post<Ok & { message?: string }>(`/api/admin/semesters/${semesterId}/students/`, { profile_ids: profileIds }),
+    api.post<AddRosterResponse>(`/api/admin/semesters/${semesterId}/students/`, { profile_ids: profileIds }),
   /** POST /admin/semesters/<id>/students/remove/: marks them left today (history stays). */
   removeSemesterStudents: (semesterId: UUID, profileIds: UUID[]) =>
-    api.post<Ok & { message?: string }>(`/api/admin/semesters/${semesterId}/students/remove/`, { profile_ids: profileIds }),
+    api.post<RemoveRosterResponse>(`/api/admin/semesters/${semesterId}/students/remove/`, { profile_ids: profileIds }),
 
   /** GET /admin/semesters/<id>/courses/ */
   semesterCourses: (semesterId: UUID) => api.get<SemesterCoursesResponse>(`/api/admin/semesters/${semesterId}/courses/`),

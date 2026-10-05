@@ -1,6 +1,6 @@
 import { api } from './client';
 import type { LiveSession } from './sessions';
-import type { AttendanceStatus, ISODate, ISODateTime, LogMethod, Ok, SemesterRef, UUID } from './types';
+import type { AttendanceStatus, ISODate, ISODateTime, LogMethod, Ok, OkMessage, SemesterRef, UUID } from './types';
 
 // Section 6 of the contract: teacher courses, students, corrections, roll call.
 // Admins can call these too (they pass `can_manage_course`); the admin UI is read-only.
@@ -90,6 +90,12 @@ export interface SetAttendanceBody {
   status: AttendanceStatus;
 }
 
+export interface SetAttendanceResponse extends OkMessage {
+  /** false: the student already had this status. */
+  changed: boolean;
+  day: Omit<StudentDay, 'status'> & { status: AttendanceStatus };
+}
+
 export interface RollCallBody {
   date: ISODate;
   present_profile_ids: UUID[];
@@ -122,7 +128,7 @@ export const teacherApi = {
    * class. 404 no_class_on_date (use roll call), 400 for future dates.
    */
   setAttendance: (courseInfoId: UUID, body: SetAttendanceBody) =>
-    api.put<Ok & { message?: string }>(`/api/teacher/course-info/${courseInfoId}/attendance/`, body),
+    api.put<SetAttendanceResponse>(`/api/teacher/course-info/${courseInfoId}/attendance/`, body),
 
   /** POST /teacher/course-info/<id>/roll-call/: creates or corrects a date's class. 400 future_date. */
   rollCall: (courseInfoId: UUID, body: RollCallBody) =>

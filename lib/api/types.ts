@@ -16,10 +16,10 @@ export type Level = string;
 export type Term = string;
 
 export type AttendanceStatus = 'PRESENT' | 'ABSENT';
-/** How a student was marked in a live session. */
-export type CheckInMethod = 'QR' | 'CODE' | 'TEACHER';
-/** How a saved attendance log was made. */
-export type LogMethod = 'QR' | 'CODE' | 'FACE' | 'TEACHER';
+/** How a student was marked in a live session (FINGERPRINT only from the hidden fingerprint devices). */
+export type CheckInMethod = 'QR' | 'CODE' | 'TEACHER' | 'FINGERPRINT';
+/** How a saved attendance log was made (FINGERPRINT: older fingerprint-device logs). */
+export type LogMethod = 'QR' | 'CODE' | 'FACE' | 'TEACHER' | 'FINGERPRINT';
 export type Delivery = 'IN_CLASS' | 'ONLINE';
 
 /** Every successful response has `success: true`. */

@@ -12,7 +12,8 @@
     "web": "expo start -c --web",
     "clean": "rm -rf .expo node_modules",
     "vercel-build": "expo export --platform web",
-    "build:web": "expo export --clear --platform web --output-dir web-build"
+    "build:web": "expo export --clear --platform web --output-dir web-build",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/*.test.mjs\""
   },
   "dependencies": {
     "@expo-google-fonts/public-sans": "^0.4.2",

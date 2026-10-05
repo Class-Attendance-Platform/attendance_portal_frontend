@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { cn, FOCUS_RING } from '@/lib/utils';
 import { Button } from './button';
 import { Dialog } from './dialog';
-import { controlBoxClass, FieldFrame } from './field';
+import { controlBoxClass, describedBy, FieldFrame } from './field';
 import { Icon } from './icon';
 import { Text } from './text';
 
@@ -45,6 +45,7 @@ export function Select<T extends string | number>({
   className,
 }: SelectProps<T>) {
   const [open, setOpen] = React.useState(false);
+  const messageId = React.useId();
   const selected = options.find((option) => option.value === value);
 
   return (
@@ -55,12 +56,14 @@ export function Select<T extends string | number>({
       error={error}
       required={required}
       onLabelPress={() => !disabled && setOpen(true)}
+      messageId={messageId}
       className={cn('gap-1.5', className)}
     >
       <Pressable
         role="button"
         accessibilityLabel={`${label}: ${selected ? selected.label : 'not chosen'}`}
         accessibilityHint={error ?? hint ?? 'Opens the list of choices'}
+        {...describedBy(messageId, !!(error || hint))}
         accessibilityState={{ disabled: !!disabled, expanded: open }}
         aria-haspopup="dialog"
         disabled={disabled}

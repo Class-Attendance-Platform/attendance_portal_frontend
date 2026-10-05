@@ -115,7 +115,8 @@ export default function LoginScreen() {
             onSubmitEditing={() => passwordRef.current?.focus()}
             disabled={submitting}
           />
-          <View className="gap-2">
+          {/* 14 px: the link's 44 px touch area must not reach into the password box. */}
+          <View className="gap-3.5">
             <PasswordField
               ref={passwordRef}
               label="Password"

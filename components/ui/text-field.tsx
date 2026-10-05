@@ -3,7 +3,7 @@ import { Platform, TextInput, View, type TextInputProps, type TextStyle } from '
 
 import { colors, typeScale } from '@/lib/theme';
 import { cn } from '@/lib/utils';
-import { controlBoxClass, FieldFrame } from './field';
+import { controlBoxClass, describedBy, FieldFrame } from './field';
 import { useFontStyle } from './text';
 
 export type TextFieldProps = Omit<TextInputProps, 'style' | 'editable'> & {
@@ -32,6 +32,7 @@ export const TextField = React.forwardRef<TextInput, TextFieldProps>(function Te
   React.useImperativeHandle(forwardedRef, () => inputRef.current as TextInput);
   const [focused, setFocused] = React.useState(false);
   const font = useFontStyle('regular');
+  const messageId = React.useId();
 
   return (
     <FieldFrame
@@ -41,6 +42,7 @@ export const TextField = React.forwardRef<TextInput, TextFieldProps>(function Te
       error={error}
       required={required}
       onLabelPress={() => inputRef.current?.focus()}
+      messageId={messageId}
       className={cn('gap-1.5', className)}
     >
       <View className={controlBoxClass({ focused, error: !!error, disabled })}>
@@ -50,6 +52,7 @@ export const TextField = React.forwardRef<TextInput, TextFieldProps>(function Te
           editable={!disabled}
           accessibilityLabel={accessibilityLabel ?? label}
           accessibilityHint={error ?? hint ?? undefined}
+          {...describedBy(messageId, !!(error || hint))}
           aria-invalid={!!error}
           aria-required={required}
           placeholderTextColor={colors.muted}

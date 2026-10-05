@@ -87,7 +87,8 @@ export default function AccountScreen() {
         <Button label="Sign out" icon={LogOut} loading={signingOut} onPress={signOut} />
       </Card>
 
-      <View className="flex-row flex-wrap gap-x-6 gap-y-2">
+      {/* Rows 24 px apart when they wrap, so the links' 44 px touch areas do not overlap. */}
+      <View className="flex-row flex-wrap gap-x-6 gap-y-6">
         {user.role === 'STUDENT' ? (
           <Link href="/student/face" asChild>
             <TextLink label="Face registration" />

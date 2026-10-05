@@ -56,7 +56,7 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | `DateField` | A date as "05 Oct 2026", calendar grid; `noFuture` for attendance dates (Dhaka time). |
 | `Dialog` | A centred dialog; closes on the X, backdrop, Android back and Escape (unless `dismissable={false}`). |
 | `useConfirm()` | Yes/no questions: `if (await confirm({ title, message, destructive: true }))`. Never `Alert.alert`. |
-| `useMessage()` | Short results at the top: `message.success('Saved.')`, `message.error(error.message)`, `message.info(...)`. Stays until closed or 5 s. |
+| `useMessage()` | Short results at the top: `message.success('Saved.')`, `message.error(error.message)`, `message.info(...)`. Stays until closed or 5 s. While a dialog is open it shows inside the top dialog. |
 | `Notice` | Inline panel in a page or form: `info`, `warn`, `error`, `success` (e.g. sign-in errors). |
 | `Card` | White box with border; optional `title`, `titleNote`, `actions`; `padded={false}` for lists. |
 | `StatTile` | One number with a label; `tone="warn"` when it needs attention. |
@@ -68,7 +68,7 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | `EmptyState` / `ErrorState` / `LoadingState` | Nothing yet (say why, offer the action) / failed with Retry / plain spinner with "Loading…". |
 | `PageHeader` | Top of every page: breadcrumb, title, meta line, actions. |
 | `Avatar` | Initials in a circle (no photos). |
-| `TextLink` | Green link text; wrap in `<Link href asChild>` to navigate. |
+| `TextLink` | Green link text; wrap in `<Link href asChild>` to navigate. Its touch box is 44 px tall but takes only the text's line in the layout, so keep 13 px (small) / 11 px (body) free above and below it, or the box covers its neighbours. |
 
 ## Layout (`components/layout/`)
 
@@ -88,7 +88,9 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
   `LoadingState`, fail with `ErrorState` + Retry, empty with `EmptyState`.
 - Lists: `DataTable` on desktop, `ListRow`s in a `Card padded={false}` on phones.
 - Forms: fields in a column with 16 px gaps, the primary button last; show server field errors with
-  `error.field('email')` on the field and other errors in a `Notice` or `message.error`.
+  `error.field('email')` on the field and other errors in a `Notice` or `message.error`. A form inside
+  a `Dialog` shows its errors in a `Notice` inside the dialog, next to the fields; `message.*` is for
+  the result after the dialog closes ("Saved.").
 - Destructive actions ask with `useConfirm({ destructive: true })`, then report with `useMessage()`.
 - Data: screens call `lib/api/*` only. Errors are `ApiError {message, code, fieldErrors, status}`;
   `message` is always readable. Dates/times/percentages/names through `lib/format.ts`.

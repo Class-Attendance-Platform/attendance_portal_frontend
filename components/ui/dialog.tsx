@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { IconButton } from './button';
+import { DialogMessageBar } from './message-bar';
 import { Text } from './text';
 
 export type DialogProps = {
@@ -64,6 +65,8 @@ export function Dialog({ open, onClose, title, description, children, actions, d
           {children ? (
             <ScrollView
               className="flex-grow-0"
+              overScrollMode="never"
+              bounces={false}
               contentContainerClassName={cn('px-5 pt-4', !actions && 'pb-5')}
               keyboardShouldPersistTaps="handled"
             >
@@ -73,6 +76,8 @@ export function Dialog({ open, onClose, title, description, children, actions, d
           {actions ? <View className="flex-row flex-wrap justify-end gap-2 px-5 pb-5 pt-5">{actions}</View> : null}
           {!actions && !children ? <View className="h-4" /> : null}
         </View>
+        {/* Messages sent while the dialog is open show here, above the backdrop and the panel. */}
+        <DialogMessageBar open={open} />
       </View>
     </Modal>
   );

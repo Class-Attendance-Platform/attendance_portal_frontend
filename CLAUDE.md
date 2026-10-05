@@ -26,7 +26,8 @@ CLAUDE.md for the API, safety rules and demo logins, and its `deploy/README.md` 
 ## Commands
 ```
 npm ci
-npx tsc --noEmit            # type check (there is no test runner)
+npx tsc --noEmit            # type check (also runs tests/*.typetest.ts: the API types' null cases)
+npm test                    # unit tests: Node's own runner on tests/*.test.mjs (pure logic, no app)
 npm run web                 # dev server (expo start -c --web)
 npm run build:web           # production web build into web-build/ (--clear: env changes need it)
 cd desktop && npm ci && npm start                 # desktop app (ATTENDANCE_APP_URL=... to point it elsewhere)
@@ -52,19 +53,23 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   ProgressBar, Tabs (`?tab=`), DataTable, ListRow, Empty/Error/LoadingState, PageHeader, Avatar, TextLink.
 - `components/layout/`: `AppShell` (sidebar ≥ 768 px; phones: top bar + tab bar + "More"), `nav.ts`
   (role nav), `RequireAuth` (guards), `Page`, `PublicPage`, `PlaceholderPage`, `PublicPlaceholder`.
-- `lib/api/`: `client.ts` (axios, Bearer token, refresh with **rotation** and the multi-tab retry,
-  session-expiry handler, every error → `ApiError {message, code, fieldErrors, status, body}`), then one
-  typed module per area of the contract: `auth`, `config`, `student`, `teacher`, `sessions`, `admin`,
-  `faces`, `reports` (+ `download.ts` / `download.web.ts`: phones share sheet, web file save). Screens
-  import from these only. Multipart uploads via `lib/upload.ts` (`appendFile` / `appendPhoto`).
+- `lib/api/`: `client.ts` (axios, Bearer token, refresh with **rotation**, session-expiry handler,
+  every error → `ApiError {message, code, fieldErrors, status, body}`), then one typed module per area
+  of the contract: `auth`, `config`, `student`, `teacher`, `sessions`, `admin`, `faces`, `reports`
+  (+ `download.ts` / `download.web.ts`: phones share sheet, web file save). Screens import from these
+  only. Multipart uploads via `lib/upload.ts` (`appendFile` / `appendPhoto`).
+  `refresh-core.ts` holds the multi-tab refresh rules (tabs take turns with Web Locks, reuse a pair
+  another tab saved, drop a result that arrives after a sign-out, never touch another account's saved
+  login). It has no imports so `tests/refresh.test.mjs` can run it in Node.
 - `lib/session.ts` saved login: web `localStorage` `portal_user`; phones `expo-secure-store` (separate
   keys: values are limited to ~2 KB). `lib/device.ts` random per-install `device_id` (check-ins).
 - `lib/format.ts` dates "05 Oct 2026", times (Dhaka), percent, "Level 3 · Term I", names, initials;
   `lib/dates.ts` `YYYY-MM-DD` maths in Dhaka time (calendar grid, today, no-future checks);
   `lib/routes.ts` role homes and safe `?redirect=`; `lib/theme.ts` tokens as hex; `lib/utils.ts` `cn`.
 - `hooks/AuthContext.tsx` `user` (API v2 shape), `login` (rejects with ApiError codes
-  `pending_approval` / `account_disabled` / `invalid_credentials`), `logout` (blacklists the refresh
-  token via `/auth/logout/`), `refreshUser`, `setUser`. Signing out in one web tab signs out the others.
+  `pending_approval` / `account_disabled` / `invalid_credentials`), `logout` (blacklists the newest
+  refresh token via `/auth/logout/`), `refreshUser`, `setUser`. Signing out in one web tab signs out the
+  others; signing in there with another account signs this tab out too.
   `hooks/useBreakpoint.ts` (768 px).
 - `desktop/` own npm project (Electron 42 + electron-builder): `main.js` opens the live web app in a
   locked-down window (no Node, other sites open in the browser, camera allowed for the portal only,

@@ -1,5 +1,5 @@
 import { updateSession } from '../session';
-import { api, bareClient, isApiError, setTokens } from './client';
+import { api, bareClient, getTokenOwner, isApiError, setTokens } from './client';
 import type { Ok, OkMessage, User } from './types';
 
 // Section 1 of the contract: accounts and sign-in.
@@ -117,7 +117,10 @@ export const authApi = {
   changePassword: async (body: ChangePasswordBody) => {
     const response = await api.post<ChangePasswordResponse>('/api/auth/password/change/', body);
     setTokens(response.tokens.access, response.tokens.refresh);
-    await updateSession({ accessToken: response.tokens.access, refreshToken: response.tokens.refresh }, { onlyIfSaved: true });
+    await updateSession(
+      { accessToken: response.tokens.access, refreshToken: response.tokens.refresh },
+      { onlyIfSaved: true, userId: getTokenOwner() }
+    );
     return response;
   },
 

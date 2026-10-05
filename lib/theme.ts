@@ -63,6 +63,9 @@ export const fallbackWeights: Record<FontWeightName, '400' | '500' | '600' | '70
 
 export const radius = { control: 8, card: 10, cardPhone: 12, pill: 999 } as const;
 
+/** Smallest touch target (px), width and height. */
+export const MIN_TOUCH = 44;
+
 export const space = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32 } as const;
 
 /** Smallest touch target (px). */
