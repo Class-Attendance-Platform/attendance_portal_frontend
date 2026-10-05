@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
+import { loadSession, updateSession } from './session';
 
 // Backend address. Set EXPO_PUBLIC_API_URL (e.g. in .env.local) for a deployed backend.
 // No trailing slash: paths are joined as `${API_BASE}/api/...`.
@@ -9,6 +10,11 @@ const getBaseUrl = () => {
 };
 
 export const API_BASE = getBaseUrl();
+
+// Public address of the web app (EXPO_PUBLIC_WEB_URL). QR check-in links point here, so
+// students can open them in any phone browser even when the teacher uses the Android or
+// desktop app. Empty in local development.
+export const WEB_BASE = (process.env.EXPO_PUBLIC_WEB_URL || '').replace(/\/+$/, '');
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
@@ -98,19 +104,11 @@ export async function refreshAccessToken(): Promise<boolean> {
       if (response.data.refresh) {
         refreshToken = response.data.refresh;
       }
-      if (Platform.OS === 'web') {
-        try {
-          const stored = localStorage.getItem('portal_user');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            parsed.accessToken = accessToken;
-            parsed.refreshToken = refreshToken;
-            localStorage.setItem('portal_user', JSON.stringify(parsed));
-          }
-        } catch (e) {
-          console.error('Failed to update localStorage with refreshed access token', e);
-        }
-      }
+      // Keep the saved login in step (web: localStorage, phones: secure store)
+      const tokens = { accessToken, refreshToken };
+      loadSession().then((saved) => {
+        if (saved?.user) updateSession(tokens);
+      });
 
       isRefreshing = false;
       const subscribers = refreshSubscribers;

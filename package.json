@@ -5,23 +5,6 @@
   "expo": {
     "entry": "expo-router/entry"
   },
-  "build": {
-    "appId": "com.grinch.classattendanceportal",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "main.js",
-      "package.json"
-    ],
-    "linux": {
-      "target": "AppImage"
-    },
-    "win": {
-      "target": "nsis"
-    }
-  },
   "scripts": {
     "dev": "expo start -c",
     "android": "expo start -c --android",
@@ -29,7 +12,7 @@
     "web": "expo start -c --web",
     "clean": "rm -rf .expo node_modules",
     "vercel-build": "expo export --platform web",
-    "build:electron": "npx expo export --platform web && electron-builder"
+    "build:web": "expo export --clear --platform web --output-dir web-build"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.11",
@@ -43,13 +26,15 @@
     "axios": "^1.17.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "electron-is-dev": "^3.0.1",
     "expo": "~55.0.19",
     "expo-camera": "~55.0.23",
     "expo-constants": "~55.0.15",
+    "expo-file-system": "~55.0.26",
     "expo-image-picker": "~55.0.24",
     "expo-linking": "~55.0.14",
     "expo-router": "~55.0.13",
+    "expo-secure-store": "~55.0.18",
+    "expo-sharing": "~55.0.24",
     "expo-splash-screen": "~55.0.19",
     "expo-status-bar": "~55.0.5",
     "expo-system-ui": "~55.0.16",
@@ -59,6 +44,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.6",
+    "react-native-qrcode-svg": "^6.3.26",
     "react-native-reanimated": "4.2.1",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
@@ -78,7 +64,6 @@
     "@react-native/metro-config": "^0.86.0",
     "@types/react": "~19.2.10",
     "babel-preset-expo": "~55.0.23",
-    "electron": "^42.5.1",
     "patch-package": "^8.0.1",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",

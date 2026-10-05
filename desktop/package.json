@@ -1,0 +1,43 @@
+{
+  "name": "class-attendance-portal-desktop",
+  "productName": "Class Attendance Portal",
+  "version": "1.0.0",
+  "description": "Desktop app for the HSTU Class Attendance Portal (opens the web app).",
+  "author": "Inan Ahammad <user.grinch@gmail.com>",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "42.5.1",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.grinch.classattendanceportal.desktop",
+    "productName": "Class Attendance Portal",
+    "publish": null,
+    "directories": {
+      "output": "../release"
+    },
+    "files": [
+      "main.js",
+      "offline.html",
+      "build/icon.png"
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "Class-Attendance-Portal-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Education",
+      "artifactName": "Class-Attendance-Portal-${version}.${ext}"
+    }
+  }
+}
