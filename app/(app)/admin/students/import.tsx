@@ -22,6 +22,7 @@ import {
   type Column,
 } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { adminApi, type ApiError, type ImportResult, type ImportRow } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { todayISO } from '@/lib/dates';
@@ -29,7 +30,7 @@ import { plural } from '@/lib/format';
 
 const COLUMNS: { name: string; required: boolean; about: string }[] = [
   { name: 'student_id', required: true, about: 'University roll number, e.g. 2302001' },
-  { name: 'name', required: false, about: 'Full name (or two columns: first_name and last_name)' },
+  { name: 'name', required: true, about: 'Full name (or two columns: first_name and last_name)' },
   { name: 'email', required: true, about: 'Their email address; it is also their sign-in' },
   { name: 'level', required: true, about: 'First, Second, Third or Fourth (1–4 also works)' },
   { name: 'term', required: true, about: 'I or II (1 or 2 also works)' },
@@ -98,7 +99,18 @@ export default function AdminStudentImport() {
   const [checking, setChecking] = React.useState(false);
   const [applying, setApplying] = React.useState(false);
   const [error, setError] = React.useState<ApiError | null>(null);
+  const [downloaded, setDownloaded] = React.useState(false);
   const web = Platform.OS === 'web';
+
+  // The temporary passwords are shown only once: ask before they are dropped unsaved.
+  const unsavedPasswords = !!applied?.created?.length && !downloaded;
+  const discardPasswords = {
+    title: 'Leave without the passwords?',
+    message: "The temporary passwords are not shown again. Without them, each new student's password has to be reset one by one.",
+    confirmLabel: 'Leave anyway',
+    cancelLabel: 'Stay',
+  };
+  useLeaveGuard(unsavedPasswords, discardPasswords);
 
   async function pick() {
     const chosen = await chooseFile();
@@ -139,6 +151,7 @@ export default function AdminStudentImport() {
     try {
       const result = await adminApi.importStudents({ file: { blob: file.blob, name: file.name }, apply: true, semesterId: semesterId || undefined });
       setApplied(result);
+      setDownloaded(false);
       setPreview(null);
       message.success(`${plural(result.created?.length ?? 0, 'student')} added.`);
     } catch (caught) {
@@ -161,9 +174,11 @@ export default function AdminStudentImport() {
       `new-student-passwords-${todayISO()}.csv`,
       toCsv(['student_id', 'email', 'temporary_password'], created.map((row) => [row.student_id, row.email, row.temporary_password]))
     );
+    setDownloaded(true);
   }
 
-  function startOver() {
+  async function startOver() {
+    if (unsavedPasswords && !(await confirm({ ...discardPasswords, confirmLabel: 'Import another file', destructive: true }))) return;
     setFile(null);
     setPreview(null);
     setApplied(null);
@@ -277,6 +292,11 @@ export default function AdminStudentImport() {
                       onChange={setSemesterId}
                       hint="Optional. The new students join this semester's class list."
                     />
+                    {semesters.error ? (
+                      <Notice tone="error" title="Couldn't load the semesters" message={semesters.error.message}>
+                        <Button label="Try again" compact icon={RefreshCw} loading={semesters.loading} onPress={() => void semesters.reload()} />
+                      </Notice>
+                    ) : null}
                     <Button label="Check the file" variant={file ? 'primary' : 'secondary'} icon={CircleCheck} loading={checking} disabled={!file} onPress={() => check()} />
                   </>
                 ) : (

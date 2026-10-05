@@ -81,10 +81,15 @@ export default function AdminStudents() {
   async function restore(student: AdminStudent) {
     setRestoring(true);
     try {
-      await adminApi.restoreStudent(student.id);
+      const result = await adminApi.restoreStudent(student.id);
       drop(student);
       setSelected(null);
-      message.success(`${fullName(student)} was restored and can sign in again.`);
+      // A rejected sign-up comes back still waiting for approval.
+      message.success(
+        result.student?.is_verified !== false
+          ? `${fullName(student)} was restored and can sign in again.`
+          : `${fullName(student)} was restored and is waiting for approval again (Approvals).`
+      );
     } catch (caught) {
       message.error(toApiError(caught).message);
     } finally {

@@ -130,13 +130,13 @@ export default function AdminCourseAttendance() {
   const [student, setStudent] = React.useState<CourseStudent | null>(null);
 
   const detail = useLoad(async (): Promise<TeacherCourseDetail & { teacherName: string | null }> => {
-    const [course, infos] = await Promise.all([
-      teacherApi.course(courseInfoId),
-      // The teacher's name is only in the admin list; the page works without it.
-      adminApi.courseInfos().catch(() => null),
-    ]);
+    const course = await teacherApi.course(courseInfoId);
+    // The teacher's name is only in the admin list (this semester's courses only); the page works without it.
+    const infos = await adminApi.courseInfos({ semesterId: course.course.semester.id }).catch(() => null);
     const info = infos?.course_infos.find((row) => row.id === courseInfoId);
-    return { ...course, teacherName: info ? info.teacher?.name ?? 'No teacher yet' : null };
+    const teacher = info?.teacher;
+    const teacherName = !info ? null : !teacher ? 'No teacher yet' : teacher.deleted ? `${teacher.name} (deleted)` : teacher.name;
+    return { ...course, teacherName };
   }, [courseInfoId]);
 
   const data = detail.data;

@@ -15,6 +15,7 @@ import { TextField } from '@/components/ui/text-field';
 import { TextLink } from '@/components/ui/text-link';
 import { authApi, AUTH_ERRORS } from '@/lib/api/auth';
 import { isApiError } from '@/lib/api/client';
+import { configApi, DEFAULT_APP_CONFIG } from '@/lib/api/config';
 
 type Problem = Pick<NoticeProps, 'tone' | 'title' | 'message'>;
 
@@ -26,6 +27,18 @@ export default function ForgotPasswordScreen() {
   const [problem, setProblem] = React.useState<Problem | null>(null);
   const [sent, setSent] = React.useState<{ email: string; message: string } | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  // The server says email reset is off: say so at once instead of a form that cannot work. (The
+  // defaults also say "off", so only a real answer counts; the 503 below stays as a fallback.)
+  const [emailOff, setEmailOff] = React.useState(false);
+  React.useEffect(() => {
+    let alive = true;
+    void configApi.appCached().then((config) => {
+      if (alive && config !== DEFAULT_APP_CONFIG && !config.email_reset_enabled) setEmailOff(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function submit() {
     if (submitting) return;
@@ -88,6 +101,16 @@ export default function ForgotPasswordScreen() {
                 The link works once, for 1 day. No email after a few minutes? Check your spam folder, or ask an admin to
                 reset your password.
               </Text>
+              <Button label="Back to sign in" variant="primary" fullWidth onPress={backToSignIn} />
+            </>
+          ) : emailOff ? (
+            <>
+              <FormHeading title="Forgot your password?" />
+              <Notice
+                tone="warn"
+                title="Password reset by email is not set up"
+                message="Ask an admin or the department office to reset your password. They give you a temporary one; change it after you sign in."
+              />
               <Button label="Back to sign in" variant="primary" fullWidth onPress={backToSignIn} />
             </>
           ) : (

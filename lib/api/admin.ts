@@ -208,10 +208,15 @@ export interface RemoveRosterResponse extends OkMessage {
   removed: number;
 }
 
+/** A course's teacher; `deleted`: their account was deleted (choose another teacher). */
+export interface TeacherRef extends PersonRef {
+  deleted?: boolean;
+}
+
 export interface SemesterCourse {
   course_info_id: UUID;
   course: { id: UUID; code: string; title: string; credits: string };
-  teacher: PersonRef | null;
+  teacher: TeacherRef | null;
 }
 
 export interface SemesterCoursesResponse extends Ok {
@@ -290,7 +295,7 @@ export interface Overview extends Ok {
 export interface AdminCourseInfo {
   id: UUID;
   course: { code: string; title: string };
-  teacher: PersonRef | null;
+  teacher: TeacherRef | null;
   semester: { id: UUID; label: string; is_active: boolean };
   student_count: number;
   classes_held: number;

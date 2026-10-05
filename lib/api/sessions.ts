@@ -24,6 +24,8 @@ export const SESSION_ERRORS = {
   alreadyCheckedIn: 'already_checked_in',
   deviceUsed: 'device_used',
   sessionEnded: 'session_ended',
+  /** 400 on start (and on face recognize/confirm): the course's semester is finished. */
+  semesterFinished: 'semester_finished',
 } as const;
 
 export type SessionMinutes = 2 | 5 | 10 | 15;

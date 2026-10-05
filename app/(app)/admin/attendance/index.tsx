@@ -59,7 +59,14 @@ export default function AdminAttendance() {
       key: 'teacher',
       title: 'Teacher',
       flex: 1.5,
-      render: (row) => (row.teacher ? row.teacher.name : <Pill label="No teacher yet" tone="warn" />),
+      render: (row) =>
+        !row.teacher ? (
+          <Pill label="No teacher yet" tone="warn" />
+        ) : row.teacher.deleted ? (
+          <Pill label={`${row.teacher.name}: deleted`} tone="warn" />
+        ) : (
+          row.teacher.name
+        ),
     },
     { key: 'students', title: 'Students', width: 84, align: 'right', render: (row) => String(row.student_count) },
     { key: 'classes', title: 'Classes', width: 80, align: 'right', render: (row) => String(row.classes_held) },
@@ -104,7 +111,8 @@ export default function AdminAttendance() {
                   children: (
                     <>
                       <Text variant="small" tone="muted">
-                        {row.teacher ? row.teacher.name : 'No teacher yet'} · {plural(row.student_count, 'student')} ·{' '}
+                        {row.teacher ? `${row.teacher.name}${row.teacher.deleted ? ' (deleted)' : ''}` : 'No teacher yet'} ·{' '}
+                        {plural(row.student_count, 'student')} ·{' '}
                         {plural(row.classes_held, 'class', 'classes')}
                       </Text>
                       {average(row, false)}

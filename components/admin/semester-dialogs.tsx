@@ -220,7 +220,8 @@ export function useSemesterActions() {
       const error = toApiError(caught);
       message.error(
         error.code === ADMIN_ERRORS.levelHasActiveSemester
-          ? `${error.message} Finish the other one first, then reopen this one.`
+          ? // "Level 3 already has an active semester. Finish it first." → say which one to finish
+            `${error.message.replace(/\s*Finish it first\.?\s*$/, '')} Finish that one first, then reopen this one.`
           : error.message
       );
       return null;

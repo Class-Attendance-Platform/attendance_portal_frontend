@@ -12,6 +12,7 @@ import { Notice } from '@/components/ui/notice';
 import { PasswordField } from '@/components/ui/password-field';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { useAuth } from '@/hooks/AuthContext';
 import { authApi, AUTH_ERRORS } from '@/lib/api/auth';
 import { isApiError } from '@/lib/api/client';
 
@@ -66,6 +67,20 @@ export default function ResetPasswordScreen() {
   const [state, setState] = React.useState<'form' | 'done' | 'invalid'>(uid && token ? 'form' : 'invalid');
   const [submitting, setSubmitting] = React.useState(false);
   const confirmRef = React.useRef<TextInput>(null);
+  const { user, logout } = useAuth();
+  const [leaving, setLeaving] = React.useState(false);
+
+  // This browser may still be signed in to another account (a shared lab PC): sign it out first,
+  // so "Sign in" shows the form instead of that account's pages.
+  async function goToSignIn() {
+    setLeaving(true);
+    try {
+      if (user) await logout();
+    } finally {
+      setLeaving(false);
+      router.replace('/login');
+    }
+  }
 
   async function submit() {
     if (submitting) return;
@@ -101,7 +116,7 @@ export default function ResetPasswordScreen() {
             message="You can sign in with your new password now."
           >
             <Text tone="muted">For safety, you were signed out on your other devices.</Text>
-            <Button label="Sign in" variant="primary" fullWidth onPress={() => router.replace('/login')} />
+            <Button label="Sign in" variant="primary" fullWidth loading={leaving} onPress={goToSignIn} />
           </Outcome>
         ) : state === 'invalid' ? (
           <Outcome

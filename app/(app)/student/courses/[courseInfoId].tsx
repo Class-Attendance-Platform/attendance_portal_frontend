@@ -14,20 +14,20 @@ import { Pill, StatusPill } from '@/components/ui/pill';
 import { StatTile } from '@/components/ui/stat-tile';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
-import { catchUpText, firstParam, outsideReason } from '@/components/student/logic';
+import { catchUpState, catchUpText, firstParam, outsideReason } from '@/components/student/logic';
 import { useLoad } from '@/components/student/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { configApi } from '@/lib/api/config';
-import { studentApi, type StudentCourseDay } from '@/lib/api/student';
-import { formatDateWithWeekday, formatPercent, plural } from '@/lib/format';
+import { studentApi, type StudentCourseDay, type StudentCourseDetail } from '@/lib/api/student';
+import { formatDate, formatDateWithWeekday, formatPercent, plural } from '@/lib/format';
 import { methodLabel } from '@/lib/methods';
 import { cn } from '@/lib/utils';
 
 type DayRow = StudentCourseDay & { how: string };
 
 /** How a day was marked, or why it does not count. */
-function howText(day: StudentCourseDay, days: StudentCourseDay[], index: number): string {
-  if (!day.status) return outsideReason(days, index);
+function howText(day: StudentCourseDay, detail: StudentCourseDetail, index: number): string {
+  if (!day.status) return outsideReason(detail.days, index, detail);
   const method = methodLabel(day.method);
   if (method) return method;
   return day.status === 'ABSENT' ? 'Not checked in' : '';
@@ -121,7 +121,10 @@ export default function StudentCourse() {
   const noClasses = detail.held === 0 || detail.percent === null;
   const low = !noClasses && (detail.percent ?? 0) < min;
   const needed = detail.classes_needed;
-  const rows: DayRow[] = detail.days.map((day, index) => ({ ...day, how: howText(day, detail.days, index) }));
+  // More classes can count only in a semester that is running and that the student is still in.
+  const state = catchUpState(course.semester.is_active, detail.left_at);
+  const closedHint = state === 'finished' ? 'Semester finished' : 'You left this semester';
+  const rows: DayRow[] = detail.days.map((day, index) => ({ ...day, how: howText(day, detail, index) }));
   const meta = `${course.code} · ${course.teacher_name || 'No teacher yet'}\n${course.semester.label}`;
   const numbers: NumberItem[] = [
     {
@@ -134,14 +137,17 @@ export default function StudentCourse() {
     {
       // "Needed" on phones: three numbers share one row there.
       label: isDesktop ? 'Classes needed' : 'Needed',
-      value: needed === null ? '—' : needed === 0 ? 'None' : String(needed),
-      hint:
-        needed === null
-          ? `${min}% can't be reached`
-          : needed === 0
-            ? `At or above ${min}%`
-            : `${needed === 1 ? 'class' : 'classes'} to reach ${min}%`,
-      tone: low ? 'warn' : 'default',
+      value: noClasses || (low && state !== 'open') ? '—' : needed === null ? '—' : needed === 0 ? 'None' : String(needed),
+      hint: noClasses
+        ? 'No classes yet'
+        : low && state !== 'open'
+          ? closedHint
+          : needed === null
+            ? `${min}% can't be reached`
+            : needed === 0
+              ? `At or above ${min}%`
+              : `${needed === 1 ? 'class' : 'classes'} to reach ${min}%`,
+      tone: low && state === 'open' ? 'warn' : 'default',
     },
   ];
   const anyChanged = rows.some((row) => row.changed);
@@ -179,7 +185,22 @@ export default function StudentCourse() {
         <PhoneNumbers numbers={numbers} />
       )}
 
-      {low ? <Notice tone="warn" title={`Below ${min}%`} message={catchUpText(needed, min)} /> : null}
+      {low ? (
+        <Notice
+          tone="warn"
+          title={`Below ${min}%`}
+          message={
+            state === 'open'
+              ? catchUpText(needed, min)
+              : state === 'finished'
+                ? 'This semester is finished, so no more classes count in this course.'
+                : 'You left this semester, so no more classes count for you here.'
+          }
+        />
+      ) : null}
+      {state === 'open' && detail.joined_at && detail.held === 0 && rows.length ? (
+        <Notice message={`You joined on ${formatDate(detail.joined_at)}. Classes from then on count for you.`} />
+      ) : null}
 
       <Card title="Class days" titleNote={rows.length ? `(${rows.length})` : undefined} padded={false}>
         <View className="mt-3">

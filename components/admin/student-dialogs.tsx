@@ -297,7 +297,10 @@ export function StudentManageDialog({
         />
         {student.deleted ? (
           <View className="gap-3">
-            <Notice tone="info" message="This account is deleted: it cannot sign in. Restoring it brings it back with its history." />
+            <Notice
+              tone="info"
+              message="This account is deleted: it cannot sign in. Restoring it brings it back with its history. Classes held while it was deleted count as absent; their teachers can mark those days present."
+            />
             <Button label="Restore student" variant="primary" icon={RotateCcw} loading={restoring} onPress={onRestore} />
           </View>
         ) : (

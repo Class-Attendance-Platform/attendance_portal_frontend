@@ -10,12 +10,13 @@ import { Pill } from '@/components/ui/pill';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
 import { CourseRow } from '@/components/student/CourseRow';
-import { currentSemester, orderSemesters } from '@/components/student/logic';
+import { catchUpState, currentSemester, orderSemesters } from '@/components/student/logic';
 import { useLoad } from '@/components/student/use-load';
 import { useAuth } from '@/hooks/AuthContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { configApi } from '@/lib/api/config';
 import { studentApi, type StudentSemester } from '@/lib/api/student';
+import { addDays } from '@/lib/dates';
 import { formatDate, formatPercent } from '@/lib/format';
 
 function SemesterCard({ semester, current, min }: { semester: StudentSemester; current: boolean; min: number }) {
@@ -23,12 +24,17 @@ function SemesterCard({ semester, current, min }: { semester: StudentSemester; c
   const overall = semester.overall_percent;
   const low = overall !== null && overall < min;
   // Finished: the semester is over. Left: the student moved out of it (promoted or removed).
+  // left_at is the first day that no longer counts (the day after, when they left after a class),
+  // so the last counted day is the day before it.
   const status = current ? (
     <Pill label="Current" tone="primary" dot />
   ) : !semester.is_active ? (
     <Pill label="Finished" tone="neutral" />
   ) : (
-    <Pill label={semester.left_at ? `Left on ${formatDate(semester.left_at)}` : 'Not current'} tone="neutral" />
+    <Pill
+      label={semester.left_at ? `Left · counted until ${formatDate(addDays(semester.left_at, -1))}` : 'Not current'}
+      tone="neutral"
+    />
   );
   return (
     <Card padded={false}>
@@ -56,6 +62,7 @@ function SemesterCard({ semester, current, min }: { semester: StudentSemester; c
               classesNeeded={course.classes_needed}
               belowMin={course.below_min}
               min={min}
+              catchUp={catchUpState(semester.is_active, semester.left_at)}
               divider={index > 0}
             />
           ))
@@ -107,7 +114,7 @@ export default function StudentCourses() {
     body = (
       <>
         {current ? null : (
-          <Notice message="You're not in a semester right now. Ask the department office to add you to your semester." />
+          <Notice message="You're not in a current semester. Your past semesters are below; the department office adds you to the next one." />
         )}
         {orderSemesters(data.semesters).map((semester) => (
           <SemesterCard key={semester.id} semester={semester} current={semester === current} min={data.min} />

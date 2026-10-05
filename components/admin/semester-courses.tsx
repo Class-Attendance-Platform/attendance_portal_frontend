@@ -81,7 +81,8 @@ function CourseAssignDialog({
   React.useEffect(() => {
     if (!open) return;
     setCourseId(null);
-    setTeacherId(editing?.teacher?.id ?? NO_TEACHER);
+    // A deleted teacher is not among the choices: start from "No teacher yet".
+    setTeacherId(editing?.teacher && !editing.teacher.deleted ? editing.teacher.id : NO_TEACHER);
     setMissing(null);
     setError(null);
   }, [open, editing]);
@@ -207,7 +208,17 @@ export function SemesterCourses({ semester, onChanged }: { semester: Semester; o
   }
 
   const teacherCell = (row: SemesterCourse, prefix = false) =>
-    row.teacher ? <Text>{prefix ? `Teacher: ${row.teacher.name}` : row.teacher.name}</Text> : <Pill label="No teacher yet" tone="warn" />;
+    !row.teacher ? (
+      <Pill label="No teacher yet" tone="warn" />
+    ) : row.teacher.deleted ? (
+      // Nobody can take this course's attendance until another teacher is chosen.
+      <View className="items-start gap-1">
+        <Text>{prefix ? `Teacher: ${row.teacher.name}` : row.teacher.name}</Text>
+        <Pill label="Deleted: choose another" tone="warn" />
+      </View>
+    ) : (
+      <Text>{prefix ? `Teacher: ${row.teacher.name}` : row.teacher.name}</Text>
+    );
 
   const buttons = (row: SemesterCourse) =>
     readOnly ? null : (

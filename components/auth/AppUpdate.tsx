@@ -2,7 +2,7 @@ import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { Download } from 'lucide-react-native';
 import * as React from 'react';
-import { Image, Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Image, Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -34,19 +34,47 @@ export type AppUpdate = {
   config: AppConfig;
 };
 
-/** GET /config/app/ (once per app start, shared) compared with this app's version. Native only. */
-export function useAppUpdate(): AppUpdate {
+/** How often the gate asks the server again when the app comes back to the front. */
+const RECHECK_MS = 5 * 60 * 1000;
+
+/**
+ * GET /config/app/ (once per app start, shared) compared with this app's version. Native only.
+ * `recheck` (the gate): ask again when the app comes back to the front (Android keeps apps alive
+ * for days), at once if the first try could not reach the server, else every 5 minutes at most.
+ */
+export function useAppUpdate({ recheck = false }: { recheck?: boolean } = {}): AppUpdate {
   const [config, setConfig] = React.useState<AppConfig | null>(null);
+  const configRef = React.useRef(config);
+  configRef.current = config;
   React.useEffect(() => {
     if (!CHECKS_VERSION) return;
     let active = true;
     configApi.appCached().then((value) => {
       if (active) setConfig(value);
     });
+    if (!recheck) {
+      return () => {
+        active = false;
+      };
+    }
+    let lastCheck = Date.now();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const fellBack = !configRef.current || configRef.current === DEFAULT_APP_CONFIG;
+      if (!fellBack && Date.now() - lastCheck < RECHECK_MS) return;
+      lastCheck = Date.now();
+      configApi
+        .app()
+        .then((value) => {
+          if (active) setConfig(value);
+        })
+        .catch(() => undefined); // offline: keep what we have, try again next time
+    });
     return () => {
       active = false;
+      subscription.remove();
     };
-  }, []);
+  }, [recheck]);
   const installed = appVersion();
   const status = config ? updateStatus(installed, config.min_app_version, config.latest_app_version) : 'current';
   return { status, installed, config: config ?? DEFAULT_APP_CONFIG };
@@ -106,7 +134,7 @@ export function UpdateRequiredScreen({ installed, minimum, downloadUrl }: { inst
   const openDownload = useOpenDownload(downloadUrl);
   return (
     // zIndex only: elevation would draw a shadow on Android.
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, zIndex: 100 }]} role="alert">
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, zIndex: 100 }]} role="alert" accessibilityViewIsModal>
       <ScrollView
         overScrollMode="never"
         bounces={false}
@@ -154,11 +182,15 @@ export function UpdateRequiredScreen({ installed, minimum, downloadUrl }: { inst
  * minimum the "Please update" screen covers everything. The web app never checks.
  */
 export function AppVersionGate({ children }: { children: React.ReactNode }) {
-  const { status, installed, config } = useAppUpdate();
+  const { status, installed, config } = useAppUpdate({ recheck: true });
+  const blocked = status === 'required';
   return (
     <View style={{ flex: 1 }}>
-      {children}
-      {status === 'required' ? (
+      {/* While blocked, screen readers can't reach the app under the "Please update" screen. */}
+      <View style={{ flex: 1 }} importantForAccessibility={blocked ? 'no-hide-descendants' : 'auto'} aria-hidden={blocked || undefined}>
+        {children}
+      </View>
+      {blocked ? (
         <UpdateRequiredScreen installed={installed} minimum={config.min_app_version} downloadUrl={config.download_url} />
       ) : null}
     </View>

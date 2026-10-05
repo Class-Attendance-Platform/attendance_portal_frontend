@@ -9,7 +9,7 @@ import { Text } from '@/components/ui/text';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { formatPercent, plural } from '@/lib/format';
 import { cn, FOCUS_RING } from '@/lib/utils';
-import { catchUpText } from './logic';
+import { belowMinText, type CatchUpState } from './logic';
 
 export type CourseRowProps = {
   courseInfoId: string;
@@ -24,17 +24,18 @@ export type CourseRowProps = {
   belowMin: boolean;
   /** The minimum percentage (75). */
   min: number;
+  /** Whether more classes can still count (no catch-up advice for a finished or left semester). */
+  catchUp?: CatchUpState;
   /** Draw the divider above (all rows but the first). */
   divider?: boolean;
 };
 
 /** The warning under a course below the minimum (words, not colour alone). */
-export function BelowMinNote({ classesNeeded, min }: { classesNeeded: number | null; min: number }) {
-  const catchUp = catchUpText(classesNeeded, min);
+export function BelowMinNote({ text }: { text: string }) {
   return (
     <View className="self-stretch rounded-[6px] border border-warn-border bg-warn-soft px-2 py-1.5">
       <Text variant="small" tone="warnInk">
-        {`Below ${min}%.${catchUp ? ` ${catchUp}` : ''}`}
+        {text}
       </Text>
     </View>
   );
@@ -55,6 +56,7 @@ export function CourseRow({
   classesNeeded,
   belowMin,
   min,
+  catchUp = 'open',
   divider,
 }: CourseRowProps) {
   const { isDesktop } = useBreakpoint();
@@ -63,11 +65,11 @@ export function CourseRow({
   const name = `${code} · ${title}`;
   const count = noClasses ? 'No classes yet' : `${attended} of ${plural(held, 'class', 'classes')}`;
   const percentText = noClasses ? '—' : formatPercent(percent);
-  const catchUp = low ? catchUpText(classesNeeded, min) : '';
+  const note = low ? belowMinText(classesNeeded, min, catchUp) : '';
   const label = [
     `${code} ${title}`,
     noClasses ? 'No classes yet' : `${percentText} attendance, ${count}`,
-    low ? `Below ${min} percent. ${catchUp}` : '',
+    note.replace(`${min}%`, `${min} percent`),
   ]
     .filter(Boolean)
     .join('. ');
@@ -109,7 +111,7 @@ export function CourseRow({
               <Text variant="small" tone="muted">
                 {count}
               </Text>
-              {low ? <BelowMinNote classesNeeded={classesNeeded} min={min} /> : null}
+              {low ? <BelowMinNote text={note} /> : null}
             </View>
             <Icon as={ChevronRight} size={18} color="muted" />
           </>
@@ -125,7 +127,7 @@ export function CourseRow({
             <Text variant="small" tone="muted">
               {teacher ? `${count} · ${teacher}` : count}
             </Text>
-            {low ? <BelowMinNote classesNeeded={classesNeeded} min={min} /> : null}
+            {low ? <BelowMinNote text={note} /> : null}
           </>
         )}
       </Pressable>

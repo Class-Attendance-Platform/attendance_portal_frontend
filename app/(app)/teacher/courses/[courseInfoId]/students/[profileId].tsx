@@ -20,7 +20,8 @@ import { membershipNote } from '@/components/teacher/students-tab';
 import { useLoad, useMinPercent } from '@/components/teacher/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { teacherApi, type SetAttendanceResponse, type StudentDay } from '@/lib/api/teacher';
-import { formatDateTime, formatDateWithWeekday, formatPercent } from '@/lib/format';
+import { addDays } from '@/lib/dates';
+import { formatDate, formatDateTime, formatDateWithWeekday, formatPercent } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 function changedText(day: StudentDay): string {
@@ -29,6 +30,15 @@ function changedText(day: StudentDay): string {
 }
 
 /** /teacher/courses/[courseInfoId]/students/[profileId]: one student's days in the course, with corrections. */
+/** Which classes count for a student who joined late and/or left (left_at = first day not counted). */
+function countedText(student: { joined_at: string | null; left_at: string | null }): string {
+  if (student.joined_at && student.left_at) {
+    return `Only classes from ${formatDate(student.joined_at)} to ${formatDate(addDays(student.left_at, -1))} count for this student.`;
+  }
+  if (student.joined_at) return `Only classes from ${formatDate(student.joined_at)} on count for this student.`;
+  return `Classes from ${formatDate(student.left_at)} on do not count for this student.`;
+}
+
 export default function TeacherCourseStudent() {
   const params = useLocalSearchParams<{ courseInfoId: string; profileId: string }>();
   const courseInfoId = param(params.courseInfoId) ?? '';
@@ -146,7 +156,7 @@ export default function TeacherCourseStudent() {
           <StatTile label="Absent" value={String(Math.max(0, student.held - student.attended))} className={tile} />
         </View>
         {low ? <Notice tone="warn" message={`Below the ${minPercent}% minimum.`} /> : null}
-        {note ? <Notice tone="info" message={`${note}. Only classes from the join date count for this student.`} /> : null}
+        {note ? <Notice tone="info" message={`${note}. ${countedText(student)}`} /> : null}
       </Card>
 
       <Card title="Class days" titleNote={`(${days.length})`} padded={false} className="pb-2">

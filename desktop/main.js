@@ -1,6 +1,6 @@
 // Desktop app (Windows / Linux): a window around the live web app, so it is
 // always up to date. Build installers with `npm run dist` in this folder.
-const { app, BrowserWindow, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, session, shell } = require('electron');
 const path = require('path');
 
 // The app was renamed (Class Attendance Portal → HSTU Attendance Portal). Keep the first
@@ -60,6 +60,21 @@ function createWindow() {
       event.preventDefault();
       openInBrowser(url);
     }
+  });
+
+  // A page with unsaved changes (e.g. a roll call) asks before it closes or reloads. Electron would
+  // otherwise refuse to close the window without a word.
+  mainWindow.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: 'question',
+      buttons: ['Leave', 'Stay'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Leave this page?',
+      message: 'You have changes that are not saved.',
+      detail: 'If you leave now, they are lost.',
+    });
+    if (choice === 0) event.preventDefault(); // leave anyway
   });
 
   // No internet or server down: show a small page with a Retry button.
