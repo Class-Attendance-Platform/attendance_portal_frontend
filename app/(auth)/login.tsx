@@ -1,7 +1,9 @@
-import { Link, Redirect, useLocalSearchParams, type Href } from 'expo-router';
+import { Link, Redirect, router, type Href } from 'expo-router';
 import * as React from 'react';
 import { View, type TextInput } from 'react-native';
 
+import { emailProblem, FormHeading } from '@/components/auth/forms';
+import { authHref, useRedirectParam } from '@/components/auth/guest';
 import { PublicPage } from '@/components/layout/PublicPage';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,22 +16,14 @@ import { TextLink } from '@/components/ui/text-link';
 import { useAuth } from '@/hooks/AuthContext';
 import { AUTH_ERRORS } from '@/lib/api/auth';
 import { isApiError } from '@/lib/api/client';
-import { homeFor, safeRedirect } from '@/lib/routes';
+import { homeFor } from '@/lib/routes';
 
 type Problem = Pick<NoticeProps, 'tone' | 'title' | 'message'>;
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** What to show for a failed sign-in. The server's message is already readable. */
 function problemFor(error: unknown): Problem {
   if (!isApiError(error)) return { tone: 'error', message: 'Could not sign in. Please try again.' };
   switch (error.code) {
-    case AUTH_ERRORS.pendingApproval:
-      return {
-        tone: 'warn',
-        title: 'Waiting for approval',
-        message: error.message || 'Your account is waiting for admin approval.',
-      };
     case AUTH_ERRORS.accountDisabled:
       return {
         tone: 'error',
@@ -45,8 +39,7 @@ function problemFor(error: unknown): Problem {
 
 export default function LoginScreen() {
   const { user, isLoading, login } = useAuth();
-  const params = useLocalSearchParams<{ redirect?: string }>();
-  const redirect = safeRedirect(params.redirect);
+  const redirect = useRedirectParam();
 
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -62,9 +55,7 @@ export default function LoginScreen() {
   async function submit() {
     if (submitting) return;
     const trimmed = email.trim();
-    const nextErrors: typeof errors = {};
-    if (!trimmed) nextErrors.email = 'Enter your email address.';
-    else if (!EMAIL_PATTERN.test(trimmed)) nextErrors.email = 'Enter a valid email address, like name@example.com.';
+    const nextErrors: typeof errors = { email: emailProblem(trimmed) };
     if (!password) nextErrors.password = 'Enter your password.';
     setErrors(nextErrors);
     setProblem(null);
@@ -75,12 +66,16 @@ export default function LoginScreen() {
       await login(trimmed, password);
       // The redirect above runs on the next render.
     } catch (error) {
-      if (isApiError(error) && (error.field('email') || error.field('password'))) {
+      setSubmitting(false);
+      if (isApiError(error) && error.code === AUTH_ERRORS.pendingApproval) {
+        // Right password, not approved yet: explain what happens next.
+        setPassword('');
+        router.push(authHref('/pending', redirect, { email: trimmed }));
+      } else if (isApiError(error) && (error.field('email') || error.field('password'))) {
         setErrors({ email: error.field('email'), password: error.field('password') });
       } else {
         setProblem(problemFor(error));
       }
-      setSubmitting(false);
     }
   }
 
@@ -89,10 +84,7 @@ export default function LoginScreen() {
   return (
     <PublicPage footerLinks={[{ label: 'About this app', href: '/about' }]}>
       <Card className="gap-5">
-        <View className="gap-1">
-          <Text variant="title">Sign in</Text>
-          <Text tone="muted">Use the email address of your portal account.</Text>
-        </View>
+        <FormHeading title="Sign in" lead="Use the email address of your portal account." />
 
         {checkingIn && !problem ? <Notice tone="info" message="Sign in to check in to your class." /> : null}
         {problem ? <Notice live {...problem} /> : null}
@@ -128,7 +120,7 @@ export default function LoginScreen() {
               disabled={submitting}
             />
             <View className="items-end">
-              <Link href="/forgot-password" asChild>
+              <Link href={authHref('/forgot-password', redirect)} asChild>
                 <TextLink label="Forgot password?" small />
               </Link>
             </View>
@@ -145,7 +137,7 @@ export default function LoginScreen() {
 
         <View className="flex-row flex-wrap items-center justify-center gap-x-1.5 border-t border-border pt-4">
           <Text tone="muted">New to the portal?</Text>
-          <Link href="/register" asChild>
+          <Link href={authHref('/register', redirect)} asChild>
             <TextLink label="Create an account" />
           </Link>
         </View>
