@@ -22,9 +22,10 @@ import { Select } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { TextLink } from '@/components/ui/text-link';
+import { useAppConfig } from '@/hooks/useAppConfig';
 import { authApi, type RegisterBody } from '@/lib/api/auth';
 import { isApiError } from '@/lib/api/client';
-import { configApi, DEFAULT_APP_CONFIG } from '@/lib/api/config';
+import { DEFAULT_APP_CONFIG } from '@/lib/api/config';
 import { levelLabel } from '@/lib/format';
 
 type FieldName =
@@ -125,18 +126,10 @@ export default function RegisterScreen() {
   const [errors, setErrors] = React.useState<Errors>({});
   const [problem, setProblem] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  const [lists, setLists] = React.useState({ levels: DEFAULT_APP_CONFIG.levels, terms: DEFAULT_APP_CONFIG.terms });
+  const config = useAppConfig();
+  const lists =
+    config.levels?.length && config.terms?.length ? config : { levels: DEFAULT_APP_CONFIG.levels, terms: DEFAULT_APP_CONFIG.terms };
   const refs = React.useRef<Partial<Record<FieldName, TextInput | null>>>({});
-
-  React.useEffect(() => {
-    let active = true;
-    configApi.appCached().then((config) => {
-      if (active && config.levels?.length && config.terms?.length) setLists({ levels: config.levels, terms: config.terms });
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const set = (name: FieldName) => (value: string) => {
     setValues((current) => ({ ...current, [name]: value }));

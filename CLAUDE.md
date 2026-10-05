@@ -17,7 +17,7 @@ CLAUDE.md for the API, safety rules and demo logins, and its `deploy/README.md` 
 - `dist/` is old committed build output (unused now): don't hand-edit it. The real build goes to
   `web-build/` (gitignored).
 - `.env.production` (tracked, public URLs only) sets the live API and web addresses for production builds.
-- The redesign (mockup A, "Campus Green") is being built in phases: `docs/redesign.md` is the binding
+- The redesign (mockup A, "Campus Green") covers every screen now: `docs/redesign.md` is the binding
   brief, `docs/design-system.md` the tokens/components, the backend's `docs/api-v2.md` the API contract.
   **No animations or effects**, light theme only, no `Alert.alert` (use `useConfirm` / `useMessage`).
 - The old screens (before the redesign) are in git history: `git show b78af00:app/dashboard/teacher/index.tsx`
@@ -44,17 +44,42 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
     pieces (forms, `GuestOnly`, account cards, app version check) are in `components/auth/`.
   - `about.tsx` (public: version, credits, face-model licence, privacy note). Phones check the app
     version at start (`AppVersionGate` in `_layout.tsx`): "Please update" below the minimum.
-  - `(app)/_layout.tsx`: signed-in guard + `AppShell`. `(app)/account.tsx` (profile, sign out),
-    `(app)/check-in.tsx` (`/check-in?s=&c=` QR target, students). Role groups with their own guard
-    layout: `(app)/student/*`, `(app)/teacher/*` (`courses/[courseInfoId]/…`, `live/[sessionId]` full
-    screen), `(app)/admin/*`. Feature pages are placeholders until their phase is built.
-  - Old URLs redirect: `dashboard/*`, `attendance/submit`, `face/register`, `face/class`, `verify`.
+  - `(app)/_layout.tsx`: signed-in guard + `AppShell`. `(app)/account.tsx` (name, password change,
+    a student's face status, sign out), `(app)/check-in.tsx` (`/check-in?s=&c=` QR target: sends the
+    code once, then drops it from the address). Role groups with their own guard layout:
+    `(app)/student/*` (home, courses, check-in, face), `(app)/teacher/*` (course list;
+    `courses/[courseInfoId]?tab=attendance|students|history|reports`, `…/roll-call`, `…/face`,
+    `…/students/[profileId]`; `live/[sessionId]` full screen, no shell), `(app)/admin/*` (overview,
+    approvals, students + import, teachers, courses, semesters, read-only attendance).
+  - Old URLs redirect: `dashboard/*`, `attendance/submit` (explains old QR codes), `face/register`,
+    `face/class`, `verify`.
+- Each area keeps its pieces in `components/<area>/` (screens import them; other areas may too):
+  - `student/`: `CheckInFlow` (code entry + results; used by both check-in routes), `QrScanner`
+    (Android only), `LiveBanner` + `use-live-sessions` (GET /student/live/ every 25 s while shown),
+    `CourseRow`, `FaceCapture` (3 poses, countdown, consent), `FaceReminder`, `use-load`; `logic.ts`
+    (pure, no imports: link parsing, code cleaning, catch-up text; `tests/student-logic.test.mjs`).
+  - `teacher/`: the course tabs (`attendance-tab`, `students-tab`, `history-tab`, `export-form`),
+    `start-session-card`, `live-panel` + `use-live-session` (code refetched as it changes, lists every
+    5 s; a running session reopens after reload), `correction`, `choice-group` (`ChoiceGroup`,
+    `AttendanceToggle`), `month-calendar`, `face-photos`, `course-card`, `labels.ts` (hrefs, words),
+    `use-load`; `rules.ts` (pure; `tests/teacher-rules.test.mjs`). `export-form`'s `ExportDialog` is
+    also the admin attendance page's export.
+  - `admin/`: `hooks` (`useLoad`, `useDebounced`), `parts` (`LoadBlock`, `ResponsiveList`, `ChoiceCard`,
+    …), student/teacher/semester dialogs, `semester-roster` / `-courses` / `-promote`, `password`
+    (temporary passwords and admin reset), `files` (CSV in the browser), `options`. Android has no
+    file picker for the import (the page says to use the web or desktop app).
+  - `auth/`: see `(auth)/` above; `version.ts` is pure (`tests/version.test.mjs`).
+  - The three `use-load` hooks differ on purpose (student: retry and quiet refresh; teacher:
+    `refreshOnFocus`; admin: keeps old data while reloading); pick the area's own.
 - `components/ui/` building blocks (`index.ts` exports all; see `docs/design-system.md`): Text, Icon,
   Button/IconButton, TextField, PasswordField, SearchField, Select, Checkbox, DateField, Dialog,
-  ConfirmDialog (`useConfirm`), MessageBar (`useMessage`), Notice, Card, StatTile, Pill/StatusPill,
-  ProgressBar, Tabs (`?tab=`), DataTable, ListRow, Empty/Error/LoadingState, PageHeader, Avatar, TextLink.
+  ConfirmDialog (`useConfirm`; mounts only while asking, so it shows on top of an open Dialog),
+  MessageBar (`useMessage`), Notice, Card, StatTile, Pill/StatusPill, ProgressBar, Tabs (`?tab=`;
+  `dense` for four tabs on a phone), DataTable, ListRow, Empty/Error/LoadingState, PageHeader, Avatar,
+  TextLink.
 - `components/layout/`: `AppShell` (sidebar ≥ 768 px; phones: top bar + tab bar + "More"), `nav.ts`
-  (role nav), `RequireAuth` (guards), `Page`, `PublicPage`, `PlaceholderPage`, `PublicPlaceholder`.
+  (role nav), `RequireAuth` (guards), `Page`, `PublicPage`; `PlaceholderPage` / `PublicPlaceholder`
+  (unused now, kept for future screens).
 - `lib/api/`: `client.ts` (axios, Bearer token, refresh with **rotation**, session-expiry handler,
   every error → `ApiError {message, code, fieldErrors, status, body}`), then one typed module per area
   of the contract: `auth`, `config`, `student`, `teacher`, `sessions`, `admin`, `faces`, `reports`
@@ -67,12 +92,15 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   keys: values are limited to ~2 KB). `lib/device.ts` random per-install `device_id` (check-ins).
 - `lib/format.ts` dates "05 Oct 2026", times (Dhaka), percent, "Level 3 · Term I", names, initials;
   `lib/dates.ts` `YYYY-MM-DD` maths in Dhaka time (calendar grid, today, no-future checks);
-  `lib/routes.ts` role homes and safe `?redirect=`; `lib/theme.ts` tokens as hex; `lib/utils.ts` `cn`.
+  `lib/routes.ts` role homes and safe `?redirect=`; `lib/theme.ts` tokens as hex; `lib/utils.ts` `cn`;
+  `lib/methods.ts` how a day was marked ("QR scan", "Typed code", "Class photo", "Marked by teacher"),
+  the same words in every area (pure; `tests/methods.test.mjs`).
 - `hooks/AuthContext.tsx` `user` (API v2 shape), `login` (rejects with ApiError codes
   `pending_approval` / `account_disabled` / `invalid_credentials`), `logout` (blacklists the newest
   refresh token via `/auth/logout/`), `refreshUser`, `setUser`. Signing out in one web tab signs out the
   others; signing in there with another account signs this tab out too.
-  `hooks/useBreakpoint.ts` (768 px).
+  `hooks/useBreakpoint.ts` (768 px). `hooks/useAppConfig.ts` GET /config/app/ once per app start
+  (minimum %, levels, terms, app name; defaults until it answers).
 - `desktop/` own npm project (Electron 42 + electron-builder): `main.js` opens the live web app in a
   locked-down window (no Node, other sites open in the browser, camera allowed for the portal only,
   `offline.html` when unreachable; keeps the old "Class Attendance Portal" data folder so people stay
@@ -95,7 +123,8 @@ shadows. Text size/colour through `Text` props; icons with explicit `color`/`siz
 `docs/design-system.md`.
 
 ## Notes
-- Face screens (to be restyled): the old flow followed mockup option C (artifact "Face Attendance Mockups").
+- Face screens keep the old flows (mockup option C, artifact "Face Attendance Mockups"), restyled.
+- Fingerprint hardware is hidden everywhere; old FINGERPRINT logs show as "Device".
 - The camera in a browser needs HTTPS or localhost.
 - `npx expo install` can't reach Expo's API from some sandboxes: pick versions from
   `node_modules/expo/bundledNativeModules.json` and install with npm (keep `~` ranges).

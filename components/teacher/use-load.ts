@@ -1,8 +1,8 @@
 import { useFocusEffect } from 'expo-router';
 import * as React from 'react';
 
+import { useAppConfig } from '@/hooks/useAppConfig';
 import { ApiError, toApiError } from '@/lib/api/client';
-import { DEFAULT_APP_CONFIG, configApi } from '@/lib/api/config';
 
 export type Loaded<T> = {
   data: T | null;
@@ -68,15 +68,5 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList, {
 
 /** The attendance minimum from GET /config/app/ (75 until it answers). */
 export function useMinPercent(): number {
-  const [min, setMin] = React.useState(DEFAULT_APP_CONFIG.attendance_min_percent);
-  React.useEffect(() => {
-    let alive = true;
-    configApi.appCached().then((config) => {
-      if (alive) setMin(config.attendance_min_percent);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return min;
+  return useAppConfig().attendance_min_percent;
 }

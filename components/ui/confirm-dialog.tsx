@@ -50,24 +50,28 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   return (
     <ConfirmContext.Provider value={confirm}>
       {children}
-      <Dialog
-        open={!!pending}
-        onClose={() => finish(false)}
-        title={pending?.title ?? ''}
-        size="sm"
-        actions={
-          <>
-            <Button label={pending?.cancelLabel ?? 'Cancel'} variant="secondary" onPress={() => finish(false)} />
-            <Button
-              label={pending?.confirmLabel ?? (pending?.destructive ? 'Delete' : 'Confirm')}
-              variant={pending?.destructive ? 'danger' : 'primary'}
-              onPress={() => finish(true)}
-            />
-          </>
-        }
-      >
-        {pending?.message ? <Text tone="muted">{pending.message}</Text> : null}
-      </Dialog>
+      {/* Mounted only while asking: on the web each dialog's layer is added to the page when it
+          mounts, so a question asked from an open dialog must mount after it to show on top. */}
+      {pending ? (
+        <Dialog
+          open
+          onClose={() => finish(false)}
+          title={pending.title}
+          size="sm"
+          actions={
+            <>
+              <Button label={pending.cancelLabel ?? 'Cancel'} variant="secondary" onPress={() => finish(false)} />
+              <Button
+                label={pending.confirmLabel ?? (pending.destructive ? 'Delete' : 'Confirm')}
+                variant={pending.destructive ? 'danger' : 'primary'}
+                onPress={() => finish(true)}
+              />
+            </>
+          }
+        >
+          {pending.message ? <Text tone="muted">{pending.message}</Text> : null}
+        </Dialog>
+      ) : null}
     </ConfirmContext.Provider>
   );
 }

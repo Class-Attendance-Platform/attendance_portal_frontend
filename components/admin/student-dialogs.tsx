@@ -354,7 +354,7 @@ export function FacesDialog({
   async function reset() {
     if (!student) return;
     const name = fullName(student);
-    // Close this dialog first: the question must not open underneath it.
+    // Close this dialog first, then ask: the result shows on the list.
     onClose();
     const ok = await confirm({
       title: `Reset ${name}'s face?`,

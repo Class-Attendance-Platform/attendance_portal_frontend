@@ -5,6 +5,7 @@ import { View } from 'react-native';
 
 import { useAppConfig, useLoad } from '@/components/admin/hooks';
 import { LoadBlock, ResponsiveList, TwoLines } from '@/components/admin/parts';
+import { ExportDialog } from '@/components/teacher/export-form';
 import { Page } from '@/components/layout/Page';
 import {
   Button,
@@ -16,43 +17,31 @@ import {
   PageHeader,
   Pill,
   ProgressBar,
-  Select,
   StatTile,
   StatusPill,
   Tabs,
   Text,
-  useMessage,
   useTab,
   type Column,
   type TabItem,
 } from '@/components/ui';
 import {
   adminApi,
-  EXPORT_FORMATS,
-  reportsApi,
   teacherApi,
   type ClassDate,
   type CourseStudent,
   type CourseStudentDetail,
-  type ExportFormat,
-  type LogMethod,
   type TeacherCourseDetail,
   type UUID,
 } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { formatDate, formatDateTime, formatDateWithWeekday, formatPercent, plural } from '@/lib/format';
+import { methodLabel } from '@/lib/methods';
 
 const TABS: TabItem[] = [
   { key: 'students', label: 'Students' },
   { key: 'dates', label: 'Class dates' },
 ];
-
-const METHOD_LABELS: Partial<Record<LogMethod, string>> = {
-  QR: 'Scanned the QR',
-  CODE: 'Typed the code',
-  FACE: 'Face photo',
-  TEACHER: 'Marked by the teacher',
-};
 
 const percentOf = (present: number, total: number) => (total ? (present / total) * 100 : null);
 
@@ -61,73 +50,6 @@ function membershipLine(student: { joined_at: string | null; left_at: string | n
   if (student.joined_at) parts.push(`Joined ${formatDate(student.joined_at)}`);
   if (student.left_at) parts.push(`Left ${formatDate(student.left_at)}`);
   return parts.length ? parts.join(' · ') : null;
-}
-
-/** Download the course's attendance: format and (optionally) one date. */
-function ExportDialog({
-  open,
-  courseInfoId,
-  dates,
-  onClose,
-}: {
-  open: boolean;
-  courseInfoId: UUID;
-  dates: ClassDate[];
-  onClose: () => void;
-}) {
-  const message = useMessage();
-  const [format, setFormat] = React.useState<ExportFormat>('pdf');
-  const [date, setDate] = React.useState('');
-  const [busy, setBusy] = React.useState(false);
-
-  // Each time it opens: the whole course (the format stays as last chosen).
-  React.useEffect(() => {
-    if (open) setDate('');
-  }, [open]);
-
-  async function download() {
-    setBusy(true);
-    try {
-      await reportsApi.download(courseInfoId, { format, date: date || null });
-      message.success('The file is downloaded.');
-      onClose();
-    } catch (caught) {
-      message.error(toApiError(caught).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Export attendance"
-      description="Every student with each class date and their numbers. Dates before a student joined stay blank."
-      size="sm"
-      dismissable={!busy}
-      actions={
-        <>
-          <Button label="Cancel" onPress={onClose} disabled={busy} />
-          <Button label="Download" variant="primary" icon={Download} loading={busy} onPress={download} />
-        </>
-      }
-    >
-      <View className="gap-4">
-        <Select label="Format" value={format} options={EXPORT_FORMATS} onChange={setFormat} />
-        <Select
-          label="Classes"
-          value={date}
-          options={[
-            { label: 'All class dates', value: '' },
-            ...dates.map((row) => ({ label: formatDateWithWeekday(row.date), value: row.date, description: `${row.present} of ${row.total} present` })),
-          ]}
-          onChange={setDate}
-          hint="One date gives a single Status column."
-        />
-      </View>
-    </Dialog>
-  );
 }
 
 /** One student's days in the course (read-only). */
@@ -171,7 +93,7 @@ function StudentDaysDialog({ courseInfoId, student, onClose }: { courseInfoId: U
       ) : (
         <View role="list" accessibilityLabel="Days" className="-mx-1">
           {detail.days.map((day, index) => {
-            const method = day.status === 'PRESENT' && day.method ? METHOD_LABELS[day.method] : null;
+            const method = day.status === 'PRESENT' ? methodLabel(day.method) || null : null;
             const changed = day.changed_by ? `Changed by ${day.changed_by}${day.changed_at ? `, ${formatDateTime(day.changed_at)}` : ''}` : null;
             return (
               <View
@@ -395,7 +317,13 @@ export default function AdminCourseAttendance() {
                 Read-only. The course's teacher takes attendance and makes corrections.
               </Text>
 
-              <ExportDialog open={exporting} courseInfoId={courseInfoId} dates={loaded.dates} onClose={() => setExporting(false)} />
+              <ExportDialog
+                open={exporting}
+                courseInfoId={courseInfoId}
+                courseCode={loaded.course.code}
+                dates={loaded.dates}
+                onClose={() => setExporting(false)}
+              />
               <StudentDaysDialog courseInfoId={courseInfoId} student={student} onClose={() => setStudent(null)} />
             </>
           );

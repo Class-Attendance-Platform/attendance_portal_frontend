@@ -55,14 +55,14 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | `Checkbox` | On/off with its label; the whole row is the target. |
 | `DateField` | A date as "05 Oct 2026", calendar grid; `noFuture` for attendance dates (Dhaka time). |
 | `Dialog` | A centred dialog; closes on the X, backdrop, Android back and Escape (unless `dismissable={false}`). |
-| `useConfirm()` | Yes/no questions: `if (await confirm({ title, message, destructive: true }))`. Never `Alert.alert`. |
+| `useConfirm()` | Yes/no questions: `if (await confirm({ title, message, destructive: true }))`. Never `Alert.alert`. Works from inside an open dialog too (the question mounts on top). |
 | `useMessage()` | Short results at the top: `message.success('Saved.')`, `message.error(error.message)`, `message.info(...)`. Stays until closed or 5 s. While a dialog is open it shows inside the top dialog. |
 | `Notice` | Inline panel in a page or form: `info`, `warn`, `error`, `success` (e.g. sign-in errors). |
 | `Card` | White box with border; optional `title`, `titleNote`, `actions`; `padded={false}` for lists. |
 | `StatTile` | One number with a label; `tone="warn"` when it needs attention. |
 | `Pill` / `StatusPill` | Small labels (`Live`, `Finished`); `StatusPill` for Present / Absent / Not enrolled. |
 | `ProgressBar` | Attendance bars; `min={75}` turns it orange below the minimum. Pair with the number. |
-| `Tabs` + `useTab()` | Tabs inside a page; links that set `?tab=` so reload and back work. |
+| `Tabs` + `useTab()` | Tabs inside a page; links that set `?tab=` so reload and back work. `dense` packs four tabs into a 390 px phone. |
 | `DataTable` | Tables at ≥ 768 px (in a `Card padded={false}`). |
 | `ListRow` | The same rows on phones, or short lists anywhere. |
 | `EmptyState` / `ErrorState` / `LoadingState` | Nothing yet (say why, offer the action) / failed with Retry / plain spinner with "Loading…". |
@@ -80,7 +80,7 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
   role → own home.
 - `Page`: the scrolling content column (max 1200 px; padding 24/32 desktop, 8/20 phone; 20 px gaps).
 - `PublicPage`: pages without the shell (sign-in, about): logo and name, a centred column, footer links.
-- `PlaceholderPage` / `PublicPlaceholder`: routes whose screen is still being rebuilt.
+- `PlaceholderPage` / `PublicPlaceholder`: for a route whose screen is not built yet (no route uses them now).
 
 ## Page patterns
 

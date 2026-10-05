@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { ApiError, configApi, DEFAULT_APP_CONFIG, type AppConfig } from '@/lib/api';
+import { ApiError } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 
 // Small data hooks for the admin pages.
@@ -61,19 +61,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList): 
 }
 
 /** The server's app settings (minimum %, levels, terms); defaults until it answers. */
-export function useAppConfig(): AppConfig {
-  const [config, setConfig] = React.useState<AppConfig>(DEFAULT_APP_CONFIG);
-  React.useEffect(() => {
-    let alive = true;
-    configApi.appCached().then((value) => {
-      if (alive) setConfig(value);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return config;
-}
+export { useAppConfig } from '@/hooks/useAppConfig';
 
 /** A value that follows `value` after it has stopped changing for `delay` ms (search boxes). */
 export function useDebounced<T>(value: T, delay = 300): T {
