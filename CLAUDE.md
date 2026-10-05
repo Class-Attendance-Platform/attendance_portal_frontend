@@ -39,9 +39,11 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
 ## Code map
 - `app/` routes (expo-router). `_layout.tsx`: Public Sans fonts, safe area, MessageProvider,
   ConfirmProvider, AuthProvider, one Stack (no animation). `index.tsx` → role home or `/login`.
-  - `(auth)/` public: `login` (works: pending/disabled messages, `?redirect=`), `register`,
-    `forgot-password`, `reset-password` (placeholders), `pending` (waiting for approval).
-  - `about.tsx` (public: version, credits, face-model licence, privacy note).
+  - `(auth)/` public: `login`, `register` (role first), `pending` (`?email=`, `?created=1`),
+    `forgot-password`, `reset-password?uid=&token=`; they keep `?redirect=` between them. Their
+    pieces (forms, `GuestOnly`, account cards, app version check) are in `components/auth/`.
+  - `about.tsx` (public: version, credits, face-model licence, privacy note). Phones check the app
+    version at start (`AppVersionGate` in `_layout.tsx`): "Please update" below the minimum.
   - `(app)/_layout.tsx`: signed-in guard + `AppShell`. `(app)/account.tsx` (profile, sign out),
     `(app)/check-in.tsx` (`/check-in?s=&c=` QR target, students). Role groups with their own guard
     layout: `(app)/student/*`, `(app)/teacher/*` (`courses/[courseInfoId]/…`, `live/[sessionId]` full

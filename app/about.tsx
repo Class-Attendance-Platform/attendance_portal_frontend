@@ -1,20 +1,15 @@
-import * as Application from 'expo-application';
-import Constants from 'expo-constants';
 import * as React from 'react';
 import { Linking, Platform, View } from 'react-native';
 
+import { appVersion, UpdateNotice } from '@/components/auth/AppUpdate';
 import { PublicPage } from '@/components/layout/PublicPage';
 import { Card } from '@/components/ui/card';
+import { useMessage } from '@/components/ui/message-bar';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { useAuth } from '@/hooks/AuthContext';
+import { configApi, DEFAULT_APP_CONFIG } from '@/lib/api/config';
 import { homeFor } from '@/lib/routes';
-
-/** The installed app's version (Android/desktop builds set it from the release tag). */
-function appVersion(): string {
-  const native = Platform.OS !== 'web' ? Application.nativeApplicationVersion : null;
-  return native || Constants.expoConfig?.version || '1.0.0';
-}
 
 const PLATFORM_NAME = Platform.select({ web: 'Web app', android: 'Android app', ios: 'iPhone app', default: 'App' });
 
@@ -22,20 +17,42 @@ function Row({ label, value, first }: { label: string; value: string; first?: bo
   return (
     <View className={`flex-row flex-wrap justify-between gap-2 py-2.5 ${first ? '' : 'border-t border-border'}`}>
       <Text tone="muted">{label}</Text>
-      <Text weight="semibold" tabular>
+      <Text weight="semibold" tabular selectable>
         {value}
       </Text>
     </View>
   );
 }
 
-function Paragraph({ children }: { children: React.ReactNode }) {
-  return <Text>{children}</Text>;
+/** A link out of the app, with room above and below for its 44 px touch area. */
+function OutLink({ label, url }: { label: string; url: string }) {
+  const message = useMessage();
+  return (
+    <View className="flex-row py-1.5">
+      <TextLink
+        label={label}
+        accessibilityHint="Opens in your browser"
+        onPress={() => Linking.openURL(url).catch(() => message.error(`Could not open ${url}.`))}
+      />
+    </View>
+  );
 }
 
-/** /about: version, credits, the face model licence and a short privacy note. Public. */
+/** /about: name and version, what the app is, credits, the face model licence and privacy. Public. */
 export default function AboutScreen() {
   const { user } = useAuth();
+  const [appName, setAppName] = React.useState(DEFAULT_APP_CONFIG.app_name);
+
+  React.useEffect(() => {
+    let active = true;
+    configApi.appCached().then((config) => {
+      if (active && config.app_name) setAppName(config.app_name);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <PublicPage
       width="wide"
@@ -43,64 +60,66 @@ export default function AboutScreen() {
     >
       <View className="gap-1">
         <Text variant="title">About this app</Text>
-        <Text tone="muted">Class attendance for the Department of Computer Science and Engineering, HSTU.</Text>
+        <Text tone="muted">Class attendance for the Department of CSE, HSTU.</Text>
       </View>
+
+      <UpdateNotice />
 
       <Card title="This app">
         <View className="mt-2">
-          <Row first label="App" value={PLATFORM_NAME ?? 'App'} />
+          <Row first label="Name" value={appName} />
+          <Row label="App" value={PLATFORM_NAME ?? 'App'} />
           <Row label="Version" value={appVersion()} />
         </View>
       </Card>
 
+      <Card title="What it is" className="gap-3">
+        <Text>
+          {appName} keeps class attendance for the Department of Computer Science and Engineering at Hajee Mohammad
+          Danesh Science and Technology University (HSTU), Dinajpur.
+        </Text>
+        <Text>
+          Teachers take attendance with a QR code that students scan in class, a 6-digit code for online classes, a
+          class photo, or a roll call. Students see their own attendance for each course; admins manage students,
+          teachers, courses and semesters.
+        </Text>
+      </Card>
+
       <Card title="Credits" className="gap-3">
-        <Paragraph>
-          HSTU Attendance Portal is made for the Department of Computer Science and Engineering at Hajee Mohammad Danesh
-          Science and Technology University (HSTU), Dinajpur. It is an open-source project of the Class Attendance
-          Platform team.
-        </Paragraph>
-        <Paragraph>
-          Built with Expo and React Native (web, Android and desktop), Django REST framework, and the Public Sans
-          typeface (SIL Open Font License). Icons by Lucide (ISC License).
-        </Paragraph>
-        <View className="flex-row">
-          <TextLink
-            label="Source code and releases on GitHub"
-            onPress={() => Linking.openURL('https://github.com/Class-Attendance-Platform')}
-          />
-        </View>
+        <Text>Built for the Department of CSE, HSTU.</Text>
+        <Text>
+          Made with Expo and React Native (web, Android and desktop), Django REST framework, the Public Sans typeface
+          (SIL Open Font License) and Lucide icons (ISC License).
+        </Text>
       </Card>
 
       <Card title="Face recognition model" className="gap-3">
-        <Paragraph>
-          Face attendance uses the InsightFace “buffalo_l” models (a face detector and the ArcFace face recognition model),
+        <Text>
+          Face attendance uses the InsightFace “buffalo_l” models (a face detector and the ArcFace recognition model),
           running on the portal’s own server.
-        </Paragraph>
-        <Paragraph>
-          These models are licensed by InsightFace for non-commercial, academic and research use only. This portal uses them
-          only to take attendance at the university; they may not be used commercially.
-        </Paragraph>
-        <View className="flex-row">
-          <TextLink label="InsightFace on GitHub" onPress={() => Linking.openURL('https://github.com/deepinsight/insightface')} />
-        </View>
+        </Text>
+        <Text>
+          InsightFace licenses these models for non-commercial, academic and research use only. The portal uses them only
+          to take class attendance at the university; they may not be used commercially.
+        </Text>
+        <OutLink label="InsightFace on GitHub" url="https://github.com/deepinsight/insightface" />
       </Card>
 
       <Card title="Privacy" className="gap-3">
-        <Paragraph>
+        <Text>
           The portal keeps your name, email, student or employee ID and attendance records, so teachers can take attendance
           and you can see your own.
-        </Paragraph>
-        <Paragraph>
-          If you register your face, it keeps three small face pictures and the numbers the model makes from them, to find
-          you in class photos. Class photos themselves are never stored. You can delete your face data at any time on the
-          face registration page, or ask an admin to do it.
-        </Paragraph>
-        <Paragraph>
+        </Text>
+        <Text>
+          If you register your face, the portal stores three small face pictures and the numbers the model makes from them,
+          only to recognise you in class photos. Class photos are never stored. You can delete your face data at any time
+          on the face registration page, or ask an admin to do it.
+        </Text>
+        <Text>
           To stop one phone checking in several students, the app keeps a random device number. It is not linked to your
           phone’s hardware. Your data is used only for class attendance.
-        </Paragraph>
+        </Text>
       </Card>
-
     </PublicPage>
   );
 }
