@@ -1,15 +1,15 @@
 {
   "expo": {
-    
-    "name": "Class Attendance Portal",
-    "description": "Class Attendance Portal",
+    "name": "HSTU Attendance Portal",
+    "description": "Class attendance for the Department of Computer Science and Engineering, HSTU.",
     "author": "Inan Ahammad <user.grinch@gmail.com>",
     "slug": "class-attendance-portal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "class-attendance-portal",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F5F7F5",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
@@ -31,7 +31,13 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "HSTU Attendance Portal",
+      "shortName": "HSTU Attendance",
+      "description": "Class attendance for the Department of Computer Science and Engineering, HSTU.",
+      "lang": "en",
+      "themeColor": "#0A6B3B",
+      "backgroundColor": "#F5F7F5"
     },
     "plugins": [
       "expo-router",
