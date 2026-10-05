@@ -147,8 +147,8 @@ export function FaceCapture({ onRegistered, cancel }: FaceCaptureProps) {
         setShots(index + 1);
       }
       setPhase('uploading');
+      // The upload finishes even if the student left the page meanwhile: the result is kept.
       const status = await facesApi.registerMine(photos as RegisterFacePhotos);
-      if (!active.current) return;
       setPhase('ready');
       setShots(0);
       onRegistered(status);
