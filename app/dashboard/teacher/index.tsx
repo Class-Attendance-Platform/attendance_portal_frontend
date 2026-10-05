@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Linking, Platform, Alert, useWindowDimensions, Animated } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, View, Modal, Image, Platform, Alert, useWindowDimensions, Animated } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ExpoLinking from 'expo-linking';
 import { useAuth } from '@/hooks/AuthContext';
 import { teacherService, sessionService, reportService } from '@/lib/services';
+import { WEB_BASE } from '@/lib/api';
+import { shareExportNative } from '@/lib/native-export';
+import QRCode from 'react-native-qrcode-svg';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -442,7 +445,11 @@ export default function TeacherDashboard() {
     setError('');
 
     if (Platform.OS !== 'web') {
-      Linking.openURL(reportService.getExportUrl(activeCourseId, format, date));
+      try {
+        await shareExportNative(activeCourseId, format, date);
+      } catch (err: any) {
+        setError(err.message || 'Failed to export course data.');
+      }
       return;
     }
 
@@ -485,10 +492,14 @@ export default function TeacherDashboard() {
   if (activeSessionId) submissionParams.set('sessionId', activeSessionId);
   if (activeSessionToken) submissionParams.set('qrToken', activeSessionToken);
   const submissionPath = `/attendance/submit?${submissionParams.toString()}`;
+  // Always a web address, so students can open it in any phone browser
+  // (even when the teacher runs the session from the Android app).
   const submissionUrl =
     Platform.OS === 'web' && typeof window !== 'undefined'
       ? `${window.location.origin}${submissionPath}`
-      : ExpoLinking.createURL(submissionPath.replace(/^\//, ''));
+      : WEB_BASE
+        ? `${WEB_BASE}${submissionPath}`
+        : ExpoLinking.createURL(submissionPath.replace(/^\//, ''));
 
   const renderCalendar = () => {
     if (!courseInfo) return null;
@@ -1515,10 +1526,8 @@ export default function TeacherDashboard() {
 
             <View className="flex-col sm:flex-row items-center gap-6 py-4">
               <View className="w-48 h-48 bg-white items-center justify-center rounded-2xl border border-border shadow-inner p-2">
-                <Image
-                  source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(submissionUrl)}` }}
-                  style={{ width: 170, height: 170 }}
-                />
+                {/* Drawn in the app: the check-in link is not sent to any outside service */}
+                <QRCode value={submissionUrl} size={170} />
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Instructions</Text>

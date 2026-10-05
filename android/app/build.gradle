@@ -92,8 +92,9 @@ android {
         applicationId 'com.grinch.classattendanceportal'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        // CI sets ANDROID_VERSION_CODE (it must grow for every APK that replaces an older one)
+        versionCode (System.getenv('ANDROID_VERSION_CODE') ?: '1').toInteger()
+        versionName System.getenv('ANDROID_VERSION_NAME') ?: "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -104,15 +105,25 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // Private release key, given by the build machine (GitHub Actions secrets).
+        // Never commit the key file or its passwords.
+        release {
+            if (System.getenv('ANDROID_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('ANDROID_KEYSTORE_PATH'))
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // The private release key when it is provided; otherwise the debug key
+            // (fine for testing, but such an APK cannot update one signed with the release key).
+            signingConfig System.getenv('ANDROID_KEYSTORE_PATH') ? signingConfigs.release : signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

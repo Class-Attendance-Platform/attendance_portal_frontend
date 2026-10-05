@@ -39,3 +39,7 @@ yarn-error.*
 expo-env.d.ts
 # @end expo-cli
 .vercel
+
+# Production web build (served by nginx on the VPS) and desktop installers
+web-build/
+release/
