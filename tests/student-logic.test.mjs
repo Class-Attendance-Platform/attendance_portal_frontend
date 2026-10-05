@@ -7,7 +7,6 @@ import {
   cleanCode,
   currentSemester,
   describeCheckInError,
-  methodLabel,
   orderSemesters,
   outsideReason,
   queryParams,
@@ -61,14 +60,6 @@ test('queryParams decodes values and keeps the first of repeated keys', () => {
   assert.deepEqual(queryParams('/a?x=1&y=a%20b&x=2&z'), { x: '1', y: 'a b', z: '' });
   assert.deepEqual(queryParams('/a'), {});
   assert.deepEqual(queryParams('/a?bad=%E0%A4'), { bad: '%E0%A4' });
-});
-
-test('methodLabel names how a day was marked', () => {
-  assert.equal(methodLabel('QR'), 'QR scan');
-  assert.equal(methodLabel('CODE'), 'Code');
-  assert.equal(methodLabel('FACE'), 'Face');
-  assert.equal(methodLabel('TEACHER'), 'Marked by teacher');
-  assert.equal(methodLabel(null), '');
 });
 
 test('catchUpText says how many classes to attend', () => {

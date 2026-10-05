@@ -3,21 +3,13 @@ import type { Href } from 'expo-router';
 import type { TeacherCourse } from '@/lib/api/teacher';
 import type { CheckInMethod, Delivery, ISODate, LogMethod, UUID } from '@/lib/api/types';
 import { plural } from '@/lib/format';
+import { methodLabel as plainMethodLabel } from '@/lib/methods';
 
 // Words and links shared by the teacher screens.
 
-const METHOD_LABELS: Record<LogMethod | CheckInMethod, string> = {
-  QR: 'QR scan',
-  CODE: 'Typed code',
-  FACE: 'Class photo',
-  TEACHER: 'Teacher',
-  // Older logs from the (hidden) fingerprint devices.
-  FINGERPRINT: 'Device',
-};
-
-/** "QR scan", "Typed code", "Class photo", "Teacher"; null → "—". */
+/** "QR scan", "Typed code", "Class photo", "Marked by teacher" (lib/methods.ts); none → "—". */
 export function methodLabel(method: LogMethod | CheckInMethod | null | undefined): string {
-  return method ? (METHOD_LABELS[method] ?? method) : '—';
+  return plainMethodLabel(method) || '—';
 }
 
 export function deliveryLabel(delivery: Delivery): string {

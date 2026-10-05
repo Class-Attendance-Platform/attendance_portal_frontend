@@ -92,7 +92,7 @@ export default function TeacherCourseStudent() {
   const columns: Column<StudentDay>[] = [
     { key: 'date', title: 'Date', flex: 1.4, render: (day) => formatDateWithWeekday(day.date) },
     { key: 'status', title: 'Status', width: 140, render: (day) => <StatusPill status={day.status} emptyLabel="Not enrolled" /> },
-    { key: 'method', title: 'How', width: 110, render: (day) => (day.status ? methodLabel(day.method) : '—') },
+    { key: 'method', title: 'How', width: 150, render: (day) => (day.status ? methodLabel(day.method) : '—') },
     {
       key: 'changed',
       title: 'Changed by',

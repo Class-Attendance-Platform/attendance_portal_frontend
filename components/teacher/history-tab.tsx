@@ -152,7 +152,7 @@ function DayRecords({ courseInfoId, date, onChanged, onDeleted }: DayRecordsProp
       },
     },
     { key: 'status', title: 'Status', width: 120, render: (log) => <StatusPill status={log.status} /> },
-    { key: 'method', title: 'How', width: 110, render: (log) => methodLabel(log.method) },
+    { key: 'method', title: 'How', width: 150, render: (log) => methodLabel(log.method) },
     {
       key: 'action',
       title: 'Change',

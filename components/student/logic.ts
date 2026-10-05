@@ -90,19 +90,6 @@ export function readCheckInLink(data: string | null | undefined): ScannedLink {
   return { kind: 'check-in', sessionId: params.s, code };
 }
 
-const METHOD_LABELS: Record<string, string> = {
-  QR: 'QR scan',
-  CODE: 'Code',
-  FACE: 'Face',
-  TEACHER: 'Marked by teacher',
-  FINGERPRINT: 'Fingerprint',
-};
-
-/** How a class day was marked, for people ("QR scan", "Code", "Face", "Marked by teacher"). */
-export function methodLabel(method: string | null | undefined): string {
-  return (method && METHOD_LABELS[method]) || '';
-}
-
 /**
  * The catch-up line for a course below the minimum: "Attend the next 3 classes to reach 75%."
  * Empty when already there (0); a plain sentence when it can no longer be reached (null).

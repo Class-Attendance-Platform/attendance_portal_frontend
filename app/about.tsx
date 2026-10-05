@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { Linking, Platform, View } from 'react-native';
 
 import { appVersion, UpdateNotice } from '@/components/auth/AppUpdate';
@@ -8,7 +7,8 @@ import { useMessage } from '@/components/ui/message-bar';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { useAuth } from '@/hooks/AuthContext';
-import { configApi, DEFAULT_APP_CONFIG } from '@/lib/api/config';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { DEFAULT_APP_CONFIG } from '@/lib/api/config';
 import { homeFor } from '@/lib/routes';
 
 const PLATFORM_NAME = Platform.select({ web: 'Web app', android: 'Android app', ios: 'iPhone app', default: 'App' });
@@ -41,17 +41,8 @@ function OutLink({ label, url }: { label: string; url: string }) {
 /** /about: name and version, what the app is, credits, the face model licence and privacy. Public. */
 export default function AboutScreen() {
   const { user } = useAuth();
-  const [appName, setAppName] = React.useState(DEFAULT_APP_CONFIG.app_name);
-
-  React.useEffect(() => {
-    let active = true;
-    configApi.appCached().then((config) => {
-      if (active && config.app_name) setAppName(config.app_name);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const config = useAppConfig();
+  const appName = config.app_name || DEFAULT_APP_CONFIG.app_name;
 
   return (
     <PublicPage

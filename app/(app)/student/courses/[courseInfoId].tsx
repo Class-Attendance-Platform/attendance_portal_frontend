@@ -14,12 +14,13 @@ import { Pill, StatusPill } from '@/components/ui/pill';
 import { StatTile } from '@/components/ui/stat-tile';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
-import { catchUpText, firstParam, methodLabel, outsideReason } from '@/components/student/logic';
+import { catchUpText, firstParam, outsideReason } from '@/components/student/logic';
 import { useLoad } from '@/components/student/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { configApi } from '@/lib/api/config';
 import { studentApi, type StudentCourseDay } from '@/lib/api/student';
 import { formatDateWithWeekday, formatPercent, plural } from '@/lib/format';
+import { methodLabel } from '@/lib/methods';
 import { cn } from '@/lib/utils';
 
 type DayRow = StudentCourseDay & { how: string };
