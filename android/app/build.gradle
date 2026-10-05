@@ -92,9 +92,10 @@ android {
         applicationId 'com.grinch.classattendanceportal'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // CI sets ANDROID_VERSION_CODE (it must grow for every APK that replaces an older one)
-        versionCode (System.getenv('ANDROID_VERSION_CODE') ?: '1').toInteger()
-        versionName System.getenv('ANDROID_VERSION_NAME') ?: "1.0.0"
+        // CI sets ANDROID_VERSION_CODE (it must grow for every APK that replaces an older one).
+        // Keep the call style: `versionCode (x).toInteger()` would apply toInteger() to the call.
+        versionCode Integer.parseInt(System.getenv('ANDROID_VERSION_CODE') ?: '1')
+        versionName(System.getenv('ANDROID_VERSION_NAME') ?: '1.0.0')
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }

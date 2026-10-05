@@ -1,6 +1,6 @@
 import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
-import { loadSession, updateSession } from './session';
+import { updateSession } from './session';
 
 // Backend address. Set EXPO_PUBLIC_API_URL (e.g. in .env.local) for a deployed backend.
 // No trailing slash: paths are joined as `${API_BASE}/api/...`.
@@ -25,6 +25,12 @@ export const setTokens = (access: string | null, refresh: string | null) => {
 };
 
 export const getAccessToken = () => accessToken;
+
+// Called when the server no longer accepts the saved login (refresh token expired or revoked).
+let onSessionExpired: (() => void) | null = null;
+export const setSessionExpiredHandler = (handler: (() => void) | null) => {
+  onSessionExpired = handler;
+};
 
 const axiosInstance = axios.create({
   baseURL: API_BASE,
@@ -104,11 +110,9 @@ export async function refreshAccessToken(): Promise<boolean> {
       if (response.data.refresh) {
         refreshToken = response.data.refresh;
       }
-      // Keep the saved login in step (web: localStorage, phones: secure store)
-      const tokens = { accessToken, refreshToken };
-      loadSession().then((saved) => {
-        if (saved?.user) updateSession(tokens);
-      });
+      // Keep the saved login in step (web: localStorage, phones: secure store), unless the
+      // user logged out meanwhile.
+      updateSession({ accessToken, refreshToken }, { onlyIfSaved: true });
 
       isRefreshing = false;
       const subscribers = refreshSubscribers;
@@ -116,8 +120,11 @@ export async function refreshAccessToken(): Promise<boolean> {
       subscribers.forEach((callback) => callback(accessToken!));
       return true;
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error refreshing token', err);
+    // 401: the refresh token itself is expired or revoked, so this login is over.
+    // (Network errors are not: the user stays logged in and can retry.)
+    if (err?.response?.status === 401) onSessionExpired?.();
   }
 
   isRefreshing = false;

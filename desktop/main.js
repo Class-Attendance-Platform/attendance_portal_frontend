@@ -15,6 +15,16 @@ const isOwnSite = (url) => {
   }
 };
 
+// Only web and mail links may leave the app. Other schemes (file:, ms-msdt:, search-ms:, ...)
+// could make the computer start a program, so they are ignored.
+const openInBrowser = (url) => {
+  try {
+    if (['https:', 'http:', 'mailto:'].includes(new URL(url).protocol)) shell.openExternal(url);
+  } catch {
+    // not a valid URL: ignore
+  }
+};
+
 let mainWindow = null;
 
 function createWindow() {
@@ -38,13 +48,13 @@ function createWindow() {
 
   // Links to other sites open in the normal browser, not inside the app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!isOwnSite(url)) shell.openExternal(url);
+    if (!isOwnSite(url)) openInBrowser(url);
     return { action: 'deny' };
   });
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!isOwnSite(url) && !url.startsWith('file://')) {
+    if (!isOwnSite(url)) {
       event.preventDefault();
-      shell.openExternal(url);
+      openInBrowser(url);
     }
   });
 
