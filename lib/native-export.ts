@@ -39,7 +39,8 @@ export async function shareExportNative(courseInfoId: string, format: string, da
 
   // Use the file name the server suggests, e.g. CSE301_attendance_full.xlsx
   const disposition = result.headers['Content-Disposition'] || result.headers['content-disposition'] || '';
-  const name = disposition.match(/filename="?([^"]+)"?/i)?.[1];
+  // (only letters, digits, dot, dash and underscore: a course code may contain "/" or "#")
+  const name = disposition.match(/filename="?([^"]+)"?/i)?.[1]?.replace(/[^\w.-]/g, '_');
   let fileUri = result.uri;
   if (name) {
     fileUri = `${FileSystem.cacheDirectory}${name}`;

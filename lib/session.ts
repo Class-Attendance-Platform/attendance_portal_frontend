@@ -15,6 +15,18 @@ const NATIVE_KEYS = { user: 'portal_user', accessToken: 'portal_access', refresh
 
 const isWeb = Platform.OS === 'web';
 
+// Saves and deletes run one at a time, so a logout never interleaves with a save that started
+// before it (phones write each key separately and asynchronously).
+let queue: Promise<void> = Promise.resolve();
+function inOrder(task: () => Promise<void>, failure: string): Promise<void> {
+  queue = queue.then(task).catch((e) => console.error(failure, e));
+  return queue;
+}
+
+// Changes on every logout, so slow work that started before it can tell and drop its result.
+let generation = 0;
+export const sessionGeneration = () => generation;
+
 export async function loadSession(): Promise<StoredSession | null> {
   try {
     if (isWeb) {
@@ -39,9 +51,13 @@ export async function loadSession(): Promise<StoredSession | null> {
   }
 }
 
-/** Saves the parts given and keeps the rest (e.g. new tokens after a refresh). */
-export async function updateSession(changes: Partial<StoredSession>): Promise<void> {
-  try {
+/**
+ * Saves the parts given and keeps the rest (e.g. new tokens after a refresh).
+ * `onlyIfSaved`: skip it when no login is saved any more (the user logged out meanwhile).
+ */
+export function updateSession(changes: Partial<StoredSession>, { onlyIfSaved = false } = {}): Promise<void> {
+  return inOrder(async () => {
+    if (onlyIfSaved && !(await loadSession())?.user) return;
     if (isWeb) {
       const current = JSON.parse(localStorage.getItem(WEB_KEY) || '{}');
       localStorage.setItem(WEB_KEY, JSON.stringify({ ...current, ...changes }));
@@ -54,19 +70,16 @@ export async function updateSession(changes: Partial<StoredSession>): Promise<vo
         return SecureStore.setItemAsync(NATIVE_KEYS[key], key === 'user' ? JSON.stringify(value) : value);
       })
     );
-  } catch (e) {
-    console.error('Failed to save the login.', e);
-  }
+  }, 'Failed to save the login.');
 }
 
-export async function clearSession(): Promise<void> {
-  try {
+export function clearSession(): Promise<void> {
+  generation += 1;
+  return inOrder(async () => {
     if (isWeb) {
       localStorage.removeItem(WEB_KEY);
       return;
     }
     await Promise.all(Object.values(NATIVE_KEYS).map((key) => SecureStore.deleteItemAsync(key)));
-  } catch (e) {
-    console.error('Failed to clear the saved login.', e);
-  }
+  }, 'Failed to clear the saved login.');
 }
