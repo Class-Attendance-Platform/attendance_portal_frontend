@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 
-import { readWebRefreshToken, updateSession } from '../session';
+import { readWebTokens, sessionGeneration, updateSession, waitForWebSessionChange } from '../session';
+import { refreshTokens, type RefreshEnv } from './refresh-core';
 
 declare module 'axios' {
   interface AxiosRequestConfig {
@@ -139,69 +140,109 @@ export function toApiError(error: unknown): ApiError {
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
+// Id of the user the tokens belong to: a tab never takes over a saved login of another account.
+let tokenOwner: string | null = null;
 
-export function setTokens(access: string | null, refresh: string | null) {
+/**
+ * Sets this tab's tokens. `owner` (the user's id) is kept when left out; signing out (both null)
+ * forgets it.
+ */
+export function setTokens(access: string | null, refresh: string | null, owner?: string | null) {
   accessToken = access;
   refreshToken = refresh;
+  if (owner !== undefined) tokenOwner = owner;
+  else if (!access && !refresh) tokenOwner = null;
 }
 
 export const getAccessToken = () => accessToken;
 export const getRefreshToken = () => refreshToken;
+export const getTokenOwner = () => tokenOwner;
 
-// Called when the server no longer accepts the saved login (refresh token expired or revoked).
-let onSessionExpired: (() => void) | null = null;
-export function setSessionExpiredHandler(handler: (() => void) | null) {
+// Called when the server no longer accepts the saved login (refresh token expired or revoked),
+// with the refresh token it refused.
+let onSessionExpired: ((refused: string) => void) | null = null;
+export function setSessionExpiredHandler(handler: ((refused: string) => void) | null) {
   onSessionExpired = handler;
 }
 
 // Plain instance for the refresh call itself (no interceptors, so no loops).
 const bare = axios.create({ baseURL: API_BASE, timeout: 30000 });
 
+// Web Locks (every current browser and the desktop app): one tab refreshes at a time.
+const locks: LockManager | null =
+  typeof navigator !== 'undefined' && typeof navigator.locks?.request === 'function' ? navigator.locks : null;
+
+/**
+ * Runs `task` while no tab is refreshing (web), so it sees the newest saved pair; sign-out uses it.
+ * Waits at most `maxWaitMs` for another tab's refresh, then runs anyway: signing out must not hang
+ * on a slow network (a refresh that finishes after the sign-out throws its result away).
+ * Elsewhere it just runs the task.
+ */
+export function whileNotRefreshing<T>(task: () => Promise<T>, maxWaitMs = 3000): Promise<T> {
+  if (!locks || typeof AbortController === 'undefined') return task();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), maxWaitMs);
+  let started = false;
+  const run = () => {
+    started = true;
+    clearTimeout(timer);
+    return task();
+  };
+  const locked = locks.request('portal-refresh', { signal: controller.signal }, run) as unknown as Promise<T>;
+  return locked.catch((error) => {
+    if (started) throw error;
+    clearTimeout(timer);
+    return task(); // waited too long (or no lock): go ahead without it
+  });
+}
+
+function withRefreshLock<T>(manager: LockManager, task: () => Promise<T>): Promise<T> {
+  // The browser waits for the task's promise (the DOM types say Promise<Promise<T>>).
+  return manager.request('portal-refresh', task) as unknown as Promise<T>;
+}
+
+const refreshEnv: RefreshEnv = {
+  getTokens: () => ({ access: accessToken, refresh: refreshToken }),
+  setTokens: (access, refresh) => setTokens(access, refresh),
+  owner: () => tokenOwner,
+  readSaved: readWebTokens,
+  save: (access, refresh) =>
+    updateSession({ accessToken: access, refreshToken: refresh }, { onlyIfSaved: true, userId: tokenOwner }),
+  send: async (token) => (await bare.post('/api/auth/refresh/', { refresh: token })).data,
+  revoke: ({ access, refresh }) => {
+    bare
+      .post('/api/auth/logout/', { refresh }, { headers: { Authorization: `Bearer ${access}` } })
+      .catch(() => {});
+  },
+  generation: sessionGeneration,
+  lock: locks ? (task) => withRefreshLock(locks, task) : null,
+  waitForOtherTab: () => waitForWebSessionChange(1500),
+  now: () => Date.now(),
+};
+
 let refreshing: Promise<boolean> | null = null;
 
 /**
  * Gets a new access token with the refresh token. The backend rotates refresh tokens (the old
- * one stops working), so the new pair is saved. Several callers share one refresh.
- * Returns false if it failed; a 401 means the login is over (the expiry handler runs).
+ * one stops working), so the new pair is saved; on the web the tabs take turns and share the
+ * newest pair (lib/api/refresh-core.ts). Several callers in a tab share one refresh.
+ * Returns false if it failed; when the server refused the login the expiry handler runs.
  */
 export function refreshAccessToken(): Promise<boolean> {
   if (!refreshing) {
-    refreshing = doRefresh().finally(() => {
-      refreshing = null;
-    });
+    refreshing = refreshTokens(refreshEnv)
+      .then((result) => {
+        if (result.ok) return true;
+        // Network errors are not the end of the login: the user stays signed in and can retry.
+        if (result.expired) onSessionExpired?.(result.expired);
+        return false;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshing = null;
+      });
   }
   return refreshing;
-}
-
-async function doRefresh(): Promise<boolean> {
-  // Web: another tab may have rotated the token already; use the newest saved one.
-  refreshToken = readWebRefreshToken() ?? refreshToken;
-  if (!refreshToken) return false;
-  const send = (token: string) => bare.post('/api/auth/refresh/', { refresh: token });
-  try {
-    let response;
-    try {
-      response = await send(refreshToken);
-    } catch (error: any) {
-      // Another tab may have rotated it while we were sending: retry once with the newest one.
-      const latest = readWebRefreshToken();
-      if (error?.response?.status !== 401 || !latest || latest === refreshToken) throw error;
-      refreshToken = latest;
-      response = await send(latest);
-    }
-    const data = response.data ?? {};
-    if (!data.access) return false;
-    accessToken = data.access;
-    if (data.refresh) refreshToken = data.refresh;
-    // Keep the saved login in step, unless the user signed out meanwhile.
-    updateSession({ accessToken, refreshToken }, { onlyIfSaved: true });
-    return true;
-  } catch (error: any) {
-    // 401: the refresh token itself is expired or revoked, so this login is over.
-    // (Network errors are not: the user stays signed in and can retry.)
-    if (error?.response?.status === 401) onSessionExpired?.();
-    return false;
-  }
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -17,6 +17,8 @@ export type FieldFrameProps = {
   /** Pressing the label focuses the control. */
   onLabelPress?: () => void;
   nativeID?: string;
+  /** Id for the hint/error text; point the control at it with `describedBy(messageId, ...)`. */
+  messageId?: string;
   children: React.ReactNode;
   className?: string;
 };
@@ -29,6 +31,7 @@ export function FieldFrame({
   required,
   onLabelPress,
   nativeID,
+  messageId,
   children,
   className,
 }: FieldFrameProps) {
@@ -43,15 +46,24 @@ export function FieldFrame({
         </Pressable>
       )}
       {children}
-      <FieldMessage hint={hint} error={error} />
+      <FieldMessage hint={hint} error={error} nativeID={messageId} />
     </View>
   );
 }
 
-export function FieldMessage({ hint, error }: { hint?: string | null; error?: string | null }) {
+/**
+ * Web: `aria-describedby` so screen readers read the hint or error with the control (React
+ * Native's accessibilityHint does that on phones but does nothing on the web).
+ */
+export function describedBy(messageId: string, hasMessage: boolean): object {
+  return Platform.OS === 'web' && hasMessage ? { 'aria-describedby': messageId } : {};
+}
+
+export function FieldMessage({ hint, error, nativeID }: { hint?: string | null; error?: string | null; nativeID?: string }) {
   if (error) {
     return (
       <View
+        nativeID={nativeID}
         className="flex-row items-start gap-1.5"
         role="alert"
         accessibilityLiveRegion="polite"
@@ -68,7 +80,7 @@ export function FieldMessage({ hint, error }: { hint?: string | null; error?: st
   }
   if (hint) {
     return (
-      <Text variant="small" tone="muted">
+      <Text variant="small" tone="muted" nativeID={nativeID}>
         {hint}
       </Text>
     );

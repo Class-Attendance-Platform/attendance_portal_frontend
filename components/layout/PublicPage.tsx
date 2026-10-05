@@ -25,6 +25,8 @@ export function PublicPage({ children, width = 'narrow', footerLinks }: PublicPa
   return (
     <ScrollView
       className="flex-1 bg-bg"
+      overScrollMode="never"
+      bounces={false}
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{
         flexGrow: 1,
@@ -53,7 +55,8 @@ export function PublicPage({ children, width = 'narrow', footerLinks }: PublicPa
         </View>
         {children}
         {footerLinks?.length ? (
-          <View className="flex-row flex-wrap items-center justify-center gap-x-5 gap-y-1">
+          // Rows 28 px apart when they wrap, so the links' 44 px touch areas do not overlap.
+          <View className="flex-row flex-wrap items-center justify-center gap-x-5 gap-y-7">
             {footerLinks.map((link) => (
               <Link key={link.label} href={link.href} asChild>
                 <TextLink label={link.label} small />

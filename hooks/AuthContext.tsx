@@ -3,9 +3,25 @@ import { Platform } from 'react-native';
 
 import { useMessage } from '@/components/ui/message-bar';
 import { authApi } from '@/lib/api/auth';
-import { getAccessToken, getRefreshToken, isApiError, setSessionExpiredHandler, setTokens } from '@/lib/api/client';
+import {
+  getAccessToken,
+  getRefreshToken,
+  isApiError,
+  setSessionExpiredHandler,
+  setTokens,
+  whileNotRefreshing,
+} from '@/lib/api/client';
+import { afterRefused, newestTokens } from '@/lib/api/refresh-core';
 import type { Role, User } from '@/lib/api/types';
-import { clearSession, loadSession, sessionGeneration, updateSession, WEB_SESSION_KEY } from '@/lib/session';
+import {
+  clearSession,
+  invalidateSession,
+  loadSession,
+  readWebTokens,
+  sessionGeneration,
+  updateSession,
+  WEB_SESSION_KEY,
+} from '@/lib/session';
 
 export type { Role as UserRole, User } from '@/lib/api/types';
 
@@ -66,10 +82,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return clearSession();
   }, []);
 
+  /** Signs out this tab only; the saved login (another tab's) stays. */
+  const leave = useCallback(() => {
+    invalidateSession();
+    setUserState(null);
+    setTokens(null, null);
+  }, []);
+
   const startSession = useCallback((rawUser: unknown, access: string | null, refresh: string | null) => {
     const signedIn = normaliseUser(rawUser);
     if (!signedIn) throw new Error('The server sent an unexpected answer. Please try again.');
-    setTokens(access, refresh);
+    setTokens(access, refresh, signedIn.id);
     setUserState(signedIn);
     updateSession({ user: signedIn, accessToken: access, refreshToken: refresh });
     return signedIn;
@@ -83,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!fresh) return null;
     setUserState(fresh);
     // Save only the profile: the tokens may have been refreshed (rotated) meanwhile.
-    await updateSession({ user: fresh }, { onlyIfSaved: true });
+    await updateSession({ user: fresh }, { onlyIfSaved: true, userId: fresh.id });
     return fresh;
   }, []);
 
@@ -99,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return;
       }
-      setTokens(stored.accessToken, stored.refreshToken);
+      setTokens(stored.accessToken, stored.refreshToken, savedUser.id);
       setUserState(savedUser);
       // Open the app now; the profile refresh can be slow on a bad connection.
       setIsLoading(false);
@@ -114,26 +137,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // The server no longer accepts this login (e.g. not used for a long time): sign out here.
   useEffect(() => {
-    setSessionExpiredHandler(() => {
-      if (!userRef.current) return;
-      forget();
-      message.info('Your sign-in has expired. Please sign in again.');
+    setSessionExpiredHandler((refused) => {
+      const current = userRef.current;
+      if (!current) return;
+      const saved = readWebTokens();
+      switch (afterRefused(saved, refused, current.id)) {
+        case 'adopt':
+          // Another tab saved a newer login of this user: carry on with it.
+          setTokens(saved!.access, saved!.refresh, current.id);
+          return;
+        case 'leave':
+          // Another account signed in in another tab: keep its saved login.
+          leave();
+          return;
+        case 'clear':
+          forget();
+          message.info('Your sign-in has expired. Please sign in again.');
+      }
     });
     return () => setSessionExpiredHandler(null);
-  }, [forget, message]);
+  }, [forget, leave, message]);
 
-  // Web: signing out in another tab signs out this one too.
+  // Web: signing out in another tab signs out this one too; so does signing in there with
+  // another account (that login stays saved; this tab's own is blacklisted).
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onStorage = (event: StorageEvent) => {
-      if (event.key === WEB_SESSION_KEY && event.newValue === null && userRef.current) {
-        setUserState(null);
-        setTokens(null, null);
+      if (event.key !== WEB_SESSION_KEY && event.key !== null) return; // null: storage cleared
+      const saved = readWebTokens();
+      const current = userRef.current;
+      if (!saved) {
+        // Signed out. Also when no user is shown yet: a start-up profile load or a refresh that
+        // is still running must not sign this tab back in (leave() changes the session generation).
+        leave();
+        return;
+      }
+      if (current && saved.userId && saved.userId !== current.id) {
+        const tokens = { access: getAccessToken(), refresh: getRefreshToken() };
+        leave();
+        authApi.logout(tokens);
+        message.info('Another account signed in in another tab, so this tab was signed out.');
       }
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, []);
+  }, [leave, message]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -145,9 +193,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const logout = useCallback(async () => {
-    const tokens = { access: getAccessToken(), refresh: getRefreshToken() };
     setSignedOut(true);
-    await forget();
+    // Web: another tab may have rotated the tokens, so blacklist the newest saved pair, read
+    // while no tab is refreshing (a refresh that finishes after this is blacklisted by itself).
+    const tokens = await whileNotRefreshing(async () => {
+      const newest = newestTokens(readWebTokens(), userRef.current?.id ?? null, {
+        access: getAccessToken(),
+        refresh: getRefreshToken(),
+      });
+      await forget();
+      return newest;
+    });
     // Blacklist the refresh token in the background; signing out here does not wait for it.
     authApi.logout(tokens);
   }, [forget]);
@@ -156,7 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const normalised = normaliseUser(next);
     if (!normalised) return;
     setUserState(normalised);
-    updateSession({ user: normalised }, { onlyIfSaved: true });
+    updateSession({ user: normalised }, { onlyIfSaved: true, userId: normalised.id });
   }, []);
 
   const value = useMemo(

@@ -7,7 +7,7 @@ import { formatDate, formatDateWithWeekday, formatMonth, weekdayShort } from '@/
 import { cn, FOCUS_RING } from '@/lib/utils';
 import { Button, IconButton } from './button';
 import { Dialog } from './dialog';
-import { controlBoxClass, FieldFrame } from './field';
+import { controlBoxClass, describedBy, FieldFrame } from './field';
 import { Icon } from './icon';
 import { Text } from './text';
 
@@ -47,6 +47,7 @@ export function DateField({
   className,
 }: DateFieldProps) {
   const [open, setOpen] = React.useState(false);
+  const messageId = React.useId();
   const today = todayISO();
   const latest = noFuture ? (maxDate && compareISODate(maxDate, today) < 0 ? maxDate : today) : maxDate;
   const start = parseISODate(value) ?? parseISODate(latest && compareISODate(latest, today) < 0 ? latest : today)!;
@@ -76,12 +77,14 @@ export function DateField({
       error={error}
       required={required}
       onLabelPress={openCalendar}
+      messageId={messageId}
       className={cn('gap-1.5', className)}
     >
       <Pressable
         role="button"
         accessibilityLabel={`${label}: ${value ? formatDateWithWeekday(value) : 'not chosen'}`}
         accessibilityHint={error ?? hint ?? 'Opens a calendar'}
+        {...describedBy(messageId, !!(error || hint))}
         accessibilityState={{ disabled: !!disabled, expanded: open }}
         aria-haspopup="dialog"
         disabled={disabled}

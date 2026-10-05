@@ -1,4 +1,4 @@
-# Type check and production web build on every pull request.
+# Type check, unit tests and production web build on every pull request.
 name: Checks
 
 on:
@@ -21,6 +21,9 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit -p .
+
+      - name: Unit tests
+        run: npm test
 
       - name: Production web build
         run: npm run build:web

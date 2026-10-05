@@ -3,6 +3,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { cn } from '@/lib/utils';
 import { Text } from './text';
 import { TextLink } from './text-link';
 
@@ -25,7 +26,14 @@ export function PageHeader({ title, breadcrumb, meta, actions }: PageHeaderProps
     <View className="flex-row flex-wrap items-end justify-between gap-4">
       <View className="min-w-[220px] flex-1 gap-1">
         {breadcrumb?.length ? (
-          <View role="navigation" accessibilityLabel="Breadcrumb" className="flex-row flex-wrap items-center gap-1.5">
+          // The links' 44 px touch areas reach 13 px above and below the text: on top of the title
+          // (zIndex), inside the page's top padding (6 px more on phones) and apart when they wrap.
+          <View
+            role="navigation"
+            accessibilityLabel="Breadcrumb"
+            className={cn('flex-row flex-wrap items-center gap-x-1.5 gap-y-7', !isDesktop && 'pt-1.5')}
+            style={{ zIndex: 1 }}
+          >
             {breadcrumb.map((crumb, index) => (
               <View key={`${crumb.label}-${index}`} className="flex-row items-center gap-1.5">
                 {index > 0 ? (

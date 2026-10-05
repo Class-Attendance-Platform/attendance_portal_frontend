@@ -33,7 +33,7 @@ export function Tabs({ tabs, value, param = 'tab', label }: TabsProps) {
   const pathname = usePathname();
   return (
     <View className="border-b border-border">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} role="tablist" accessibilityLabel={label}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} overScrollMode="never" bounces={false} role="tablist" accessibilityLabel={label}>
         <View className="flex-row gap-1">
           {tabs.map((tab, index) => {
             const active = tab.key === value;

@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { colors } from '@/lib/theme';
 
 export type ProgressBarProps = {
-  /** 0–100; null shows an empty track. */
+  /** 0–100; null shows an empty track (read as "No classes yet"). */
   value: number | null | undefined;
   /** Read by screen readers, e.g. "CSE 301 attendance". */
   label: string;
@@ -16,8 +16,9 @@ export type ProgressBarProps = {
 
 /** A flat bar (no animation). Pair it with the number in words next to it. */
 export function ProgressBar({ value, label, min, thin }: ProgressBarProps) {
-  const clamped = value === null || value === undefined || Number.isNaN(value) ? 0 : Math.max(0, Math.min(100, value));
-  const low = min !== undefined && value !== null && value !== undefined && value < min;
+  const known = value !== null && value !== undefined && !Number.isNaN(value);
+  const clamped = known ? Math.max(0, Math.min(100, value)) : 0;
+  const low = known && min !== undefined && value < min;
   const height = thin ? 6 : 8;
   return (
     <View
@@ -25,7 +26,9 @@ export function ProgressBar({ value, label, min, thin }: ProgressBarProps) {
       accessibilityLabel={label}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={Math.round(clamped)}
+      // No value (e.g. no classes held yet, shown as "—"): no number, not "0 percent".
+      aria-valuenow={known ? Math.round(clamped) : undefined}
+      aria-valuetext={known ? undefined : 'No classes yet'}
       style={{ height, borderRadius: height / 2, backgroundColor: colors.track, overflow: 'hidden' }}
     >
       <View style={{ width: `${clamped}%`, height: '100%', backgroundColor: low ? colors.warn : colors.primary }} />

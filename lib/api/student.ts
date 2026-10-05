@@ -21,20 +21,29 @@ export interface StudentCourseSummary {
   /** attended / held; null when no class was held yet. */
   percent: number | null;
   below_min: boolean;
-  /** Classes in a row needed to reach the minimum; 0 if already there. */
-  classes_needed: number;
+  /** Classes in a row needed to reach the minimum; 0 if already there; null if it can never be reached. */
+  classes_needed: number | null;
 }
 
 export interface StudentSemester {
   id: UUID;
   level: string;
   semester: string;
+  /** "2025-26" */
+  session: string;
   start_date: ISODate | null;
   end_date: ISODate | null;
   /** False = finished. */
   is_active: boolean;
   /** "Level 3 · Term I · 2025-26" */
   label: string;
+  /** The student's membership: null = from the start. */
+  joined_at: ISODate | null;
+  /**
+   * Set when the student left this semester (promoted or removed): history only, not current.
+   * The current semester is the one with `is_active && left_at === null`.
+   */
+  left_at: ISODate | null;
   overall_percent: number | null;
   courses: StudentCourseSummary[];
 }
@@ -64,7 +73,9 @@ export interface StudentCourseDetail extends Ok {
   attended: number;
   held: number;
   percent: number | null;
-  classes_needed: number;
+  /** Classes in a row needed to reach the minimum; 0 if already there; null if it can never be reached. */
+  classes_needed: number | null;
+  /** Every class date of the course, newest first. */
   days: StudentCourseDay[];
 }
 

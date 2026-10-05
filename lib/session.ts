@@ -25,9 +25,14 @@ function inOrder(task: () => Promise<void>, failure: string): Promise<void> {
   return queue;
 }
 
-// Changes on every logout, so slow work that started before it can tell and drop its result.
+// Changes on every sign-out (here or, on the web, in another tab), so slow work that started
+// before it can tell and drop its result.
 let generation = 0;
 export const sessionGeneration = () => generation;
+/** Marks the end of this tab's login without touching the saved one (sign-out in another tab). */
+export function invalidateSession() {
+  generation += 1;
+}
 
 export async function loadSession(): Promise<StoredSession | null> {
   try {
@@ -54,26 +59,57 @@ export async function loadSession(): Promise<StoredSession | null> {
 }
 
 /**
- * Web only: the newest refresh token saved by any tab (another tab may have rotated it).
- * Phones have one app instance, so this returns null there.
+ * Web only: the saved login's tokens and user id, as the newest tab left them (another tab may
+ * have rotated the tokens or signed in as someone else). Phones have one app instance: null there.
  */
-export function readWebRefreshToken(): string | null {
+export function readWebTokens(): { userId: string | null; access: string | null; refresh: string | null } | null {
   if (!isWeb) return null;
   try {
     const stored = localStorage.getItem(WEB_SESSION_KEY);
-    return stored ? (JSON.parse(stored).refreshToken ?? null) : null;
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return {
+      userId: parsed?.user?.id != null ? String(parsed.user.id) : null,
+      access: parsed?.accessToken ?? null,
+      refresh: parsed?.refreshToken ?? null,
+    };
   } catch {
     return null;
   }
 }
 
+/** Web only: resolves when another tab changes the saved login, or after `ms`. Phones: at once. */
+export function waitForWebSessionChange(ms: number): Promise<void> {
+  if (!isWeb || typeof window === 'undefined') return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      window.removeEventListener('storage', onStorage);
+      resolve();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === WEB_SESSION_KEY || event.key === null) done();
+    };
+    const timer = setTimeout(done, ms);
+    window.addEventListener('storage', onStorage);
+  });
+}
+
 /**
  * Saves the parts given and keeps the rest (e.g. new tokens after a refresh).
  * `onlyIfSaved`: skip it when no login is saved any more (the user logged out meanwhile).
+ * `userId`: skip it when the saved login is another user's (web: signed in in another tab).
  */
-export function updateSession(changes: Partial<StoredSession>, { onlyIfSaved = false } = {}): Promise<void> {
+export function updateSession(
+  changes: Partial<StoredSession>,
+  { onlyIfSaved = false, userId }: { onlyIfSaved?: boolean; userId?: string | null } = {}
+): Promise<void> {
   return inOrder(async () => {
-    if (onlyIfSaved && !(await loadSession())?.user) return;
+    if (onlyIfSaved || userId) {
+      const saved = (await loadSession())?.user as { id?: unknown } | null | undefined;
+      if (onlyIfSaved && !saved) return;
+      if (userId && saved?.id != null && String(saved.id) !== userId) return;
+    }
     if (isWeb) {
       const current = JSON.parse(localStorage.getItem(WEB_SESSION_KEY) || '{}');
       localStorage.setItem(WEB_SESSION_KEY, JSON.stringify({ ...current, ...changes }));
@@ -90,7 +126,7 @@ export function updateSession(changes: Partial<StoredSession>, { onlyIfSaved = f
 }
 
 export function clearSession(): Promise<void> {
-  generation += 1;
+  invalidateSession();
   return inOrder(async () => {
     if (isWeb) {
       localStorage.removeItem(WEB_SESSION_KEY);

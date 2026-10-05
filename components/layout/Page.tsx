@@ -23,6 +23,8 @@ export function Page({ children, scroll = true, refreshControl, className }: Pag
   return (
     <ScrollView
       className="flex-1"
+      overScrollMode="never"
+      bounces={false}
       contentContainerClassName={content}
       keyboardShouldPersistTaps="handled"
       refreshControl={refreshControl}

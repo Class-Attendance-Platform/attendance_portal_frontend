@@ -123,7 +123,8 @@ export interface HistoryLog {
   student_id: number;
   name: string;
   status: AttendanceStatus;
-  method: LogMethod;
+  /** How the student was marked; null when absent in a live or face session. */
+  method: LogMethod | null;
   changed_by: string | null;
   changed_at: ISODateTime | null;
 }
@@ -137,6 +138,17 @@ export interface HistoryDay {
 export interface HistoryResponse extends Ok {
   course_info_id?: UUID;
   history: HistoryDay[];
+}
+
+export interface HistoryFilter {
+  /** Only this date (`YYYY-MM-DD`). */
+  date?: ISODate;
+  /** Only this student (profile id). */
+  profileId?: UUID;
+}
+
+export interface MarkResponse extends OkMessage {
+  student: CheckedInStudent;
 }
 
 export const sessionsApi = {
@@ -154,7 +166,7 @@ export const sessionsApi = {
 
   /** POST /sessions/<id>/mark/: the teacher checks a student in while the session is live. */
   mark: (sessionId: UUID, profileId: UUID) =>
-    api.post<Ok & { message?: string }>(`/api/sessions/${sessionId}/mark/`, { profile_id: profileId }),
+    api.post<MarkResponse>(`/api/sessions/${sessionId}/mark/`, { profile_id: profileId }),
 
   /** POST /sessions/<id>/stop/: ends and saves now. */
   stop: (sessionId: UUID) => api.post<StopResponse>(`/api/sessions/${sessionId}/stop/`),
@@ -171,6 +183,7 @@ export const sessionsApi = {
     return api.post<CheckInResponse>('/api/sessions/check-in/', { ...body, code: body.code.replace(/\s+/g, ''), device_id });
   },
 
-  /** GET /sessions/course-info/<id>/history/: every class date with its logs. */
-  history: (courseInfoId: UUID) => api.get<HistoryResponse>(`/api/sessions/course-info/${courseInfoId}/history/`),
+  /** GET /sessions/course-info/<id>/history/: every class date with its logs (newest first). */
+  history: (courseInfoId: UUID, { date, profileId }: HistoryFilter = {}) =>
+    api.get<HistoryResponse>(`/api/sessions/course-info/${courseInfoId}/history/`, { date, student_id: profileId }),
 };
