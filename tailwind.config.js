@@ -1,73 +1,67 @@
-const { hairlineWidth } = require('nativewind/theme');
+// Campus Green design tokens (light only). Colours come from the CSS variables in global.css;
+// lib/theme.ts has the same values as hex for code that needs raw colours.
+// No animation plugin, no shadows: see docs/redesign.md.
+const color = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: 'class',
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}', './hooks/**/*.{ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
+        bg: color('bg'),
+        surface: color('surface'),
+        border: color('border'),
+        text: color('text'),
+        muted: color('muted'),
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+          DEFAULT: color('primary'),
+          hover: color('primary-hover'),
+          soft: color('primary-soft'),
         },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
+        present: color('present'),
+        absent: {
+          DEFAULT: color('absent'),
+          soft: color('absent-soft'),
         },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
+        warn: {
+          DEFAULT: color('warn'),
+          ink: color('warn-ink'),
+          soft: color('warn-soft'),
+          border: color('warn-border'),
         },
-        muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
+        info: {
+          DEFAULT: color('info'),
+          soft: color('info-soft'),
         },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
-        popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
-        },
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
-        },
+        track: color('track'),
       },
+      // Text sizes are set by the Text component (components/ui/Text.tsx); these match it.
+      fontSize: {
+        caption: ['12px', '16px'],
+        small: ['13px', '18px'],
+        body: ['15px', '22px'],
+        section: ['17px', '24px'],
+        'title-phone': ['20px', '26px'],
+        title: ['26px', '32px'],
+        code: ['40px', '48px'],
+      },
+      // No font family / weight classes here: Public Sans needs one family name per weight on
+      // Android, so the Text component picks the font (use its `weight` prop).
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        control: '8px',
+        card: '10px',
+        'card-phone': '12px',
+        pill: '999px',
       },
-      borderWidth: {
-        hairline: hairlineWidth(),
-      },
-      keyframes: {
-        'accordion-down': {
-          from: { height: '0' },
-          to: { height: 'var(--radix-accordion-content-height)' },
-        },
-        'accordion-up': {
-          from: { height: 'var(--radix-accordion-content-height)' },
-          to: { height: '0' },
-        },
-      },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
+      maxWidth: {
+        page: '1200px',
       },
     },
   },
   future: {
     hoverOnlyWhenSupported: true,
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [],
 };

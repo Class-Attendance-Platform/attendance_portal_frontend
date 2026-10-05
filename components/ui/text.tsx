@@ -1,89 +1,113 @@
-import { cn } from '@/lib/utils';
-import { Slot } from '@rn-primitives/slot';
-import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
-import { Platform, Text as RNText, type Role } from 'react-native';
+import { Text as RNText, type TextProps as RNTextProps, type TextStyle } from 'react-native';
 
-const textVariants = cva(
-  cn(
-    'text-foreground text-base',
-    Platform.select({
-      web: 'select-text',
-    })
-  ),
-  {
-    variants: {
-      variant: {
-        default: '',
-        h1: cn(
-          'text-center text-4xl font-extrabold tracking-tight',
-          Platform.select({ web: 'scroll-m-20 text-balance' })
-        ),
-        h2: cn(
-          'border-border border-b pb-2 text-3xl font-semibold tracking-tight',
-          Platform.select({ web: 'scroll-m-20 first:mt-0' })
-        ),
-        h3: cn('text-2xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
-        h4: cn('text-xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
-        p: 'mt-3 leading-7 sm:mt-6',
-        blockquote: 'mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6',
-        code: cn(
-          'bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold'
-        ),
-        lead: 'text-muted-foreground text-xl',
-        large: 'text-lg font-semibold',
-        small: 'text-sm font-medium leading-none',
-        muted: 'text-muted-foreground text-sm',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-    },
-  }
-);
+import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { colors, fallbackWeights, fonts, typeScale, type ColorToken, type FontWeightName } from '@/lib/theme';
 
-type TextVariantProps = VariantProps<typeof textVariants>;
+// Public Sans is loaded in app/_layout.tsx. Until it is ready (or if it fails) text uses the
+// system font with the same weight, so nothing waits for the font.
+const FontsReadyContext = React.createContext(false);
+export const FontsReadyProvider = FontsReadyContext.Provider;
+export const useFontsReady = () => React.useContext(FontsReadyContext);
 
-type TextVariant = NonNullable<TextVariantProps['variant']>;
+/** Font family + weight for a weight name (one family per weight: Android needs that). */
+export function useFontStyle(weight: FontWeightName = 'regular'): TextStyle {
+  const ready = useFontsReady();
+  return ready ? { fontFamily: fonts[weight], fontWeight: 'normal' } : { fontWeight: fallbackWeights[weight] };
+}
 
-const ROLE: Partial<Record<TextVariant, Role>> = {
-  h1: 'heading',
-  h2: 'heading',
-  h3: 'heading',
-  h4: 'heading',
-  blockquote: Platform.select({ web: 'blockquote' as Role }),
-  code: Platform.select({ web: 'code' as Role }),
+export type TextVariant = 'body' | 'small' | 'caption' | 'label' | 'section' | 'title' | 'stat' | 'code';
+
+export type TextTone =
+  | 'default'
+  | 'muted'
+  | 'primary'
+  | 'present'
+  | 'absent'
+  | 'warn'
+  | 'warnInk'
+  | 'info'
+  | 'inverse';
+
+const TONES: Record<TextTone, ColorToken> = {
+  default: 'text',
+  muted: 'muted',
+  primary: 'primary',
+  present: 'present',
+  absent: 'absent',
+  warn: 'warn',
+  warnInk: 'warnInk',
+  info: 'info',
+  inverse: 'white',
 };
 
-const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
-  h1: '1',
-  h2: '2',
-  h3: '3',
-  h4: '4',
+const DEFAULT_WEIGHT: Record<TextVariant, FontWeightName> = {
+  body: 'regular',
+  small: 'regular',
+  caption: 'regular',
+  label: 'medium',
+  section: 'semibold',
+  title: 'bold',
+  stat: 'bold',
+  code: 'bold',
 };
 
-const TextClassContext = React.createContext<string | undefined>(undefined);
+export type TextProps = RNTextProps & {
+  /** body 15 · small 13 · caption 12 · label 15 medium · section 17 · title 20/26 · stat 26 · code 40 */
+  variant?: TextVariant;
+  weight?: FontWeightName;
+  tone?: TextTone;
+  /** Digits line up (counts, percentages, times). */
+  tabular?: boolean;
+  align?: 'left' | 'center' | 'right';
+  className?: string;
+};
 
-function Text({
-  className,
-  asChild = false,
-  variant = 'default',
+/**
+ * All text in the app. Size, weight and colour come from props (not classes), so they work the
+ * same on web and Android. Use `className` only for layout (margins, flex).
+ * `variant="title"` and `variant="section"` are headings for screen readers.
+ */
+export function Text({
+  variant = 'body',
+  weight,
+  tone = 'default',
+  tabular,
+  align,
+  style,
+  role,
   ...props
-}: React.ComponentProps<typeof RNText> &
-  React.RefAttributes<typeof RNText> &
-  TextVariantProps & {
-    asChild?: boolean;
-  }) {
-  const textClass = React.useContext(TextClassContext);
-  const Component = asChild ? Slot : RNText;
+}: TextProps) {
+  const { isDesktop } = useBreakpoint();
+  const font = useFontStyle(weight ?? DEFAULT_WEIGHT[variant]);
+  const size =
+    variant === 'title'
+      ? isDesktop
+        ? typeScale.title
+        : typeScale.titlePhone
+      : variant === 'stat'
+        ? typeScale.title
+        : variant === 'label'
+          ? typeScale.body
+          : typeScale[variant];
+
+  const base: TextStyle = {
+    ...size,
+    ...font,
+    color: colors[TONES[tone]],
+    ...(tabular ? { fontVariant: ['tabular-nums'] } : null),
+    ...(variant === 'code' ? { letterSpacing: 4 } : null),
+    ...(align ? { textAlign: align } : null),
+  };
+
+  const headingRole = variant === 'title' || variant === 'section' ? 'heading' : undefined;
+
   return (
-    <Component
-      className={cn(textVariants({ variant }), textClass, className)}
-      role={variant ? ROLE[variant] : undefined}
-      aria-level={variant ? ARIA_LEVEL[variant] : undefined}
+    <RNText
+      role={role ?? headingRole}
+      aria-level={headingRole && !role ? (variant === 'title' ? 1 : 2) : undefined}
+      style={[base, style]}
       {...props}
     />
   );
 }
-
-export { Text, TextClassContext };

@@ -84,7 +84,7 @@ jobs:
         run: |
           NAME="${GITHUB_REF_NAME#v}"
           if [ "$GITHUB_REF_TYPE" != "tag" ]; then NAME="build-${GITHUB_RUN_NUMBER}"; fi
-          mv android/app/build/outputs/apk/release/app-release.apk "Class-Attendance-Portal-${NAME}.apk"
+          mv android/app/build/outputs/apk/release/app-release.apk "HSTU-Attendance-Portal-${NAME}.apk"
 
       - uses: actions/upload-artifact@v4
         with:

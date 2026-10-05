@@ -1,32 +1,13 @@
-import { useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import * as React from 'react';
-import { useEffect } from 'react';
+
+import { LoadingState } from '@/components/ui/states';
 import { useAuth } from '@/hooks/AuthContext';
-import { ActivityIndicator, View } from 'react-native';
+import { homeFor } from '@/lib/routes';
 
-export default function Screen() {
-  const router = useRouter();
+/** `/`: the user's home, or the sign-in page. */
+export default function Index() {
   const { user, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    if (!user) {
-      router.replace('/(auth)/login');
-    } else {
-      if (user.role === 'ADMIN') {
-        router.replace('/dashboard/admin/courses');
-      } else if (user.role === 'TEACHER') {
-        router.replace('/dashboard/teacher');
-      } else if (user.role === 'STUDENT') {
-        router.replace('/dashboard/student');
-      }
-    }
-  }, [user, isLoading]);
-
-  return (
-    <View className="flex-1 items-center justify-center bg-background">
-      <ActivityIndicator size="large" />
-    </View>
-  );
+  if (isLoading) return <LoadingState fullScreen />;
+  return <Redirect href={user ? homeFor(user.role) : '/login'} />;
 }

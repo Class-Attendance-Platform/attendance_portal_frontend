@@ -3,6 +3,10 @@
 const { app, BrowserWindow, session, shell } = require('electron');
 const path = require('path');
 
+// The app was renamed (Class Attendance Portal → HSTU Attendance Portal). Keep the first
+// releases' data folder, so people stay signed in after the update.
+app.setPath('userData', path.join(app.getPath('appData'), 'Class Attendance Portal'));
+
 // ATTENDANCE_APP_URL lets you point a local test at another address.
 const APP_URL = process.env.ATTENDANCE_APP_URL || 'https://attendanceportal.sakibkx.tech';
 const APP_ORIGIN = new URL(APP_URL).origin;
@@ -33,7 +37,7 @@ function createWindow() {
     height: 820,
     minWidth: 380,
     minHeight: 600,
-    title: 'Class Attendance Portal',
+    title: 'HSTU Attendance Portal',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     show: false,
