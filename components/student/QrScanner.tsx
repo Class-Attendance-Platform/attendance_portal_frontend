@@ -1,4 +1,4 @@
-import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import { CameraView, type BarcodeScanningResult } from 'expo-camera';
 import { useFocusEffect } from 'expo-router';
 import { Camera, Settings } from 'lucide-react-native';
 import * as React from 'react';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
 import { colors } from '@/lib/theme';
+import { useCameraPermission } from './use-camera-permission';
 
 /** The in-app scanner runs on phones (Android); on the web the phone's own camera opens the link. */
 export const HAS_QR_SCANNER = Platform.OS !== 'web';
@@ -21,11 +22,11 @@ export type QrScannerProps = {
 
 /**
  * A back-camera QR scanner (expo-camera). Asks for the camera first, saying why; when the camera
- * was refused for good, points to the phone settings. No animation: a plain frame shows where
- * to hold the QR.
+ * was refused for good, points to the phone settings (and starts once access is turned on there).
+ * No animation: a plain frame shows where to hold the QR.
  */
 export function QrScanner({ onScan, paused }: QrScannerProps) {
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission] = useCameraPermission();
   const [asking, setAsking] = React.useState(false);
   const [failed, setFailed] = React.useState<string | null>(null);
   const last = React.useRef<{ data: string; at: number } | null>(null);
