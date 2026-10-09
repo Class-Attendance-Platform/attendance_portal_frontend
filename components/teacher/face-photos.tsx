@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { RecognizeResult } from '@/lib/api/faces';
 import type { PhotoFile } from '@/lib/upload';
+import { plural } from '@/lib/format';
 import { colors } from '@/lib/theme';
 import { cn, FOCUS_RING } from '@/lib/utils';
 
@@ -53,12 +54,14 @@ export function PhotoViewer({
   result: RecognizeResult;
 }) {
   const [widths, setWidths] = React.useState<Record<number, number>>({});
+  // The server keeps one face per student, so in the other photos that person has no box.
+  const once = result.photos.length > 1 ? ' A person seen in two photos is marked once.' : '';
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title="Class photos"
-      description="Green boxes are matched students. Orange boxes need a check or were not matched."
+      description={`Green boxes are matched students. Orange boxes need a check or were not matched.${once}`}
       size="lg"
     >
       <View className="gap-4 pb-5">
@@ -88,7 +91,7 @@ export function PhotoViewer({
               <Image
                 source={{ uri: photos[info.index]?.uri }}
                 style={{ width: '100%', aspectRatio: info.width / info.height, borderRadius: 8 }}
-                accessibilityLabel={`Class photo ${info.index + 1} with ${boxes.length} faces marked`}
+                accessibilityLabel={`Class photo ${info.index + 1} with ${plural(boxes.length, 'face')} marked`}
               />
               {shown > 0
                 ? boxes.map((item, index) => {

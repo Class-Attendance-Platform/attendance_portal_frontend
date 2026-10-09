@@ -1,6 +1,6 @@
 import { Link, router, useLocalSearchParams, type Href } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, ImagePlus, Images, RotateCcw, Save, ScanFace, SearchX } from 'lucide-react-native';
+import { ArrowLeft, Camera, ImagePlus, Images, RefreshCw, RotateCcw, Save, ScanFace, SearchX } from 'lucide-react-native';
 import * as React from 'react';
 import { Image, Platform, View } from 'react-native';
 
@@ -17,14 +17,28 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
 import { AttendanceToggle, ChoiceGroup } from '@/components/teacher/choice-group';
 import { PhotoThumb, PhotoViewer, type ClassPhoto } from '@/components/teacher/face-photos';
+import {
+  correctedMarks,
+  extraPhotosText,
+  facesShown,
+  noFacesText,
+  photoProblem,
+  photoProblemText,
+  presentIds,
+  skippedText,
+  teacherMarkedIds,
+  withCorrections,
+  type Marks,
+  type PhotoProblem,
+} from '@/components/teacher/face-review';
 import { courseHref, isFinished, param, rollCallHref } from '@/components/teacher/labels';
 import { useLoad } from '@/components/teacher/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { isApiError } from '@/lib/api/client';
 import { facesApi, type FaceReason, type RecognizeResult, type RecognizedStudent } from '@/lib/api/faces';
-import { sessionsApi } from '@/lib/api/sessions';
+import { sessionsApi, type HistoryDay } from '@/lib/api/sessions';
 import { teacherApi } from '@/lib/api/teacher';
-import type { UUID } from '@/lib/api/types';
 import { todayISO } from '@/lib/dates';
 import { formatDate } from '@/lib/format';
 import { colors } from '@/lib/theme';
@@ -42,7 +56,7 @@ const NOTE: Record<FaceReason, string | null> = {
 };
 
 /** Students without a registered face stay under Unsure; the others follow their switch. */
-const groupOf = (student: RecognizedStudent, present: Record<UUID, boolean>): Group =>
+const groupOf = (student: RecognizedStudent, present: Marks): Group =>
   student.reason === 'no_face' ? 'unsure' : present[student.id] ? 'present' : 'absent';
 
 const errorText = (caught: unknown, fallback: string) => (isApiError(caught) ? caught.message : fallback);
@@ -57,21 +71,56 @@ export default function TeacherFaceAttendance() {
   const today = todayISO();
 
   const course = useLoad(() => teacherApi.course(courseInfoId).then((result) => result.course), [courseInfoId]);
-  // Saving again today replaces today's earlier class-photo result: say so.
-  const todayHistory = useLoad(
-    async () => (await sessionsApi.history(courseInfoId, { date: today })).history[0] ?? null,
-    [courseInfoId, today]
-  );
+  // Today's class so far (null = none yet): whether a class photo was already saved today, and
+  // whom a teacher corrected today (a new review starts with those corrections).
+  const loadToday = async () => (await sessionsApi.history(courseInfoId, { date: today })).history[0] ?? null;
+  const todayHistory = useLoad(loadToday, [courseInfoId, today]);
   const savedToday = !!todayHistory.data?.sessions.some((session) => session.mode === 'FACE');
 
   const [photos, setPhotos] = React.useState<ClassPhoto[]>([]);
   const [phase, setPhase] = React.useState<'pick' | 'checking' | 'review' | 'saving'>('pick');
   const [result, setResult] = React.useState<RecognizeResult | null>(null);
-  const [present, setPresent] = React.useState<Record<UUID, boolean>>({});
+  const [present, setPresent] = React.useState<Marks>({});
+  // Today's corrections the review started with, shown as "Corrected earlier".
+  const [corrected, setCorrected] = React.useState<Marks>({});
+  // Today's history could not be loaded for the review, so its corrections are not in the list.
+  const [earlierFailed, setEarlierFailed] = React.useState(false);
+  const [checkingEarlier, setCheckingEarlier] = React.useState(false);
   const [group, setGroup] = React.useState<Group>('present');
   const [query, setQuery] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = React.useState(false);
+
+  // Photos or a reviewed list that are not saved yet. Not while saving: the page then moves on
+  // to History by itself.
+  const reviewing = phase === 'review' && !!result;
+  useLeaveGuard(
+    photos.length > 0 && phase !== 'saving',
+    reviewing
+      ? {
+          title: 'Leave without saving?',
+          message: 'The class photo result and your changes are not saved yet.',
+          confirmLabel: 'Leave',
+          cancelLabel: 'Keep reviewing',
+        }
+      : {
+          title: 'Leave without saving?',
+          message: 'Your class photos will be cleared. Nothing has been saved.',
+          confirmLabel: 'Leave',
+          cancelLabel: 'Stay',
+        }
+  );
+
+  /** Today's history now (null = no class yet today), or undefined when it could not be loaded. */
+  async function fetchToday(): Promise<HistoryDay | null | undefined> {
+    try {
+      const day = await loadToday();
+      todayHistory.setData(day);
+      return day;
+    } catch {
+      return undefined;
+    }
+  }
 
   async function addPhotos(fromCamera: boolean) {
     setError(null);
@@ -94,7 +143,14 @@ export default function TeacherFaceAttendance() {
             quality: 0.9,
           });
       if (picked.canceled) return;
-      const added = picked.assets.slice(0, room).map((asset, index) => ({
+      // Files that can't be used are left out now, not after a long upload.
+      const problems: PhotoProblem[] = [];
+      const usable = picked.assets.filter((asset) => {
+        const problem = photoProblem(asset, Platform.OS === 'web');
+        if (problem) problems.push(problem);
+        return !problem;
+      });
+      const added = usable.slice(0, room).map((asset, index) => ({
         uri: asset.uri,
         name: asset.fileName || `class-photo-${photos.length + index + 1}.jpg`,
         type: asset.mimeType || 'image/jpeg',
@@ -102,9 +158,11 @@ export default function TeacherFaceAttendance() {
         height: asset.height,
       }));
       setPhotos((current) => [...current, ...added].slice(0, MAX_PHOTOS));
-      if (picked.assets.length > room) message.info(`Only ${MAX_PHOTOS} photos can be used. The first ${room} were added.`);
-    } catch (caught) {
-      setError(errorText(caught, 'Could not open the photos. Please try again.'));
+      setError(photoProblemText(problems, picked.assets.length));
+      if (usable.length > room) message.info(extraPhotosText(room, MAX_PHOTOS));
+    } catch {
+      // The browser's picker refuses files that are not pictures; phones show photos only.
+      setError(Platform.OS === 'web' ? photoProblemText(['not_photo'], 1) : 'Could not open the photos. Please try again.');
     }
   }
 
@@ -113,18 +171,50 @@ export default function TeacherFaceAttendance() {
     setError(null);
     setPhase('checking');
     try {
-      const found = await facesApi.recognize(courseInfoId, photos);
+      const [found, day] = await Promise.all([facesApi.recognize(courseInfoId, photos), fetchToday()]);
+      if (found.summary.faces_found === 0) {
+        // Nothing to review. The photos stay, so the teacher can replace them.
+        setError(noFacesText(photos.length));
+        setPhase('pick');
+        return;
+      }
+      // Students a teacher corrected today start with that correction.
+      const earlier = day ? correctedMarks(day.logs) : {};
       setResult(found);
-      setPresent(
-        Object.fromEntries(found.students.map((student) => [student.id, student.status === 'present' || student.reason === 'low_match']))
-      );
+      setCorrected(earlier);
+      setEarlierFailed(day === undefined);
+      setPresent(withCorrections(found.students, earlier));
       setGroup('present');
       setQuery('');
       setPhase('review');
     } catch (caught) {
-      setError(errorText(caught, 'Could not check the photos. Please try again.'));
+      // 413: the upload is over the server's request limit (the photos together).
+      const tooLarge = isApiError(caught) && caught.status === 413;
+      setError(
+        tooLarge
+          ? photos.length === 1
+            ? 'The photo is too large to send. Use a smaller photo.'
+            : 'The photos are too large to send together. Use fewer or smaller photos.'
+          : errorText(caught, 'Could not check the photos. Please try again.')
+      );
       setPhase('pick');
     }
+  }
+
+  /** Loads today's corrections again after a failure; students the teacher switched keep the switch. */
+  async function checkEarlierAgain() {
+    if (!result) return;
+    setCheckingEarlier(true);
+    const day = await fetchToday();
+    setCheckingEarlier(false);
+    if (day === undefined) {
+      message.error("Could not check today's earlier marks. Please try again.");
+      return;
+    }
+    const earlier = day ? correctedMarks(day.logs) : {};
+    setCorrected(earlier);
+    setPresent((current) => withCorrections(result.students, earlier, current));
+    setEarlierFailed(false);
   }
 
   async function startOver() {
@@ -139,6 +229,9 @@ export default function TeacherFaceAttendance() {
     setResult(null);
     setPhotos([]);
     setPresent({});
+    setCorrected({});
+    setEarlierFailed(false);
+    setError(null);
     setPhase('pick');
   }
 
@@ -149,9 +242,15 @@ export default function TeacherFaceAttendance() {
     try {
       const saved = await facesApi.confirm({
         course_info_id: courseInfoId,
-        present_student_ids: result.students.filter((student) => present[student.id]).map((student) => student.id),
+        present_student_ids: presentIds(result.students, present),
+        // Present only by the teacher's hand (not found in the photos): saved as "Marked by teacher".
+        teacher_marked_ids: teacherMarkedIds(result.students, present),
       });
-      message.success(`Saved for ${formatDate(saved.date)}: ${saved.total_present} of ${result.students.length} present.`);
+      const skipped = saved.skipped ?? [];
+      const summary = `Saved for ${formatDate(saved.date)}: ${saved.total_present} of ${result.students.length - skipped.length} present.`;
+      const left = skippedText(skipped);
+      if (left) message.success(left, summary);
+      else message.success(summary);
       router.replace(courseHref(courseInfoId, 'history', { date: saved.date }));
     } catch (caught) {
       setError(errorText(caught, 'Could not save the attendance. Please try again.'));
@@ -169,7 +268,7 @@ export default function TeacherFaceAttendance() {
     <PageHeader
       title="Class photo attendance"
       breadcrumb={breadcrumb}
-      meta={info ? `${info.code} · ${info.title} · Today, ${formatDate(today)}` : `Today, ${formatDate(today)}`}
+      meta={info ? `${info.code} · ${info.title} · Today, ${formatDate(today)}` : course.error ? undefined : `Today, ${formatDate(today)}`}
       actions={
         result && (phase === 'review' || phase === 'saving') ? (
           <Button label="View photos" icon={Images} onPress={() => setViewerOpen(true)} />
@@ -179,6 +278,9 @@ export default function TeacherFaceAttendance() {
   );
 
   if (course.loading || course.error || !info) {
+    // Another teacher's course, or one that is gone: trying again can't help.
+    const denied = course.error?.status === 403;
+    const missing = course.error?.status === 404;
     return (
       <Page>
         {header}
@@ -186,7 +288,26 @@ export default function TeacherFaceAttendance() {
           {course.loading ? (
             <LoadingState label="Loading the course…" />
           ) : (
-            <ErrorState message={course.error?.message ?? 'Not found.'} onRetry={() => course.reload()} />
+            <>
+              <ErrorState
+                title={denied ? 'Not your course' : missing ? 'Course not found' : undefined}
+                message={
+                  denied
+                    ? 'This course is taught by another teacher.'
+                    : missing
+                      ? 'It may have been removed.'
+                      : course.error?.message ?? 'Not found.'
+                }
+                onRetry={denied || missing ? undefined : () => course.reload()}
+              />
+              {denied || missing ? (
+                <View className="items-center pb-4">
+                  <Link href="/teacher" dismissTo asChild>
+                    <Button label="Back to My courses" icon={ArrowLeft} className="self-center" />
+                  </Link>
+                </View>
+              ) : null}
+            </>
           )}
         </Card>
       </Page>
@@ -221,12 +342,15 @@ export default function TeacherFaceAttendance() {
   const counts = { present: 0, absent: 0, unsure: 0 };
   for (const student of students) counts[groupOf(student, present)] += 1;
   const presentCount = students.filter((student) => present[student.id]).length;
+  const correctedCount = students.filter((student) => corrected[student.id] !== undefined).length;
   const search = query.trim().toLowerCase();
   const visible = students.filter(
     (student) =>
       groupOf(student, present) === group &&
       (!search || student.name.toLowerCase().includes(search) || String(student.student_id).includes(search))
   );
+  const shown = result ? facesShown(result) : 0;
+  const busy = phase === 'saving' || checkingEarlier;
 
   return (
     <Page>
@@ -253,7 +377,15 @@ export default function TeacherFaceAttendance() {
               </Text>
             ) : null}
             {savedToday ? (
-              <Notice tone="info" message="You already saved a class photo today. Saving again replaces today's earlier class-photo result." />
+              <Notice
+                tone="info"
+                message="You already saved a class photo today. Saving again changes only the students whose mark is different. Corrections made today are kept unless you change them."
+              />
+            ) : todayHistory.error ? (
+              <Notice
+                tone="info"
+                message="If you already saved a class photo today, saving again changes only the students whose mark is different."
+              />
             ) : null}
 
             {photos.length ? (
@@ -301,7 +433,7 @@ export default function TeacherFaceAttendance() {
         <>
           <Notice
             tone="info"
-            title={`${result.summary.faces_found} ${result.summary.faces_found === 1 ? 'face' : 'faces'} found`}
+            title={`${shown} ${shown === 1 ? 'face' : 'faces'} found`}
             message="Check each list before saving. Switch a student to Present or Absent. Students under Unsure have no registered face: mark them yourself."
           />
 
@@ -327,7 +459,9 @@ export default function TeacherFaceAttendance() {
               <EmptyState icon={SearchX} title="No students here" message={search ? 'Try another name or student ID.' : 'Check the other lists.'} />
             ) : (
               visible.map((student, index) => {
-                const note = NOTE[student.reason];
+                const note = [NOTE[student.reason], corrected[student.id] !== undefined ? 'Corrected earlier' : null]
+                  .filter(Boolean)
+                  .join(' · ');
                 return (
                   <View
                     key={student.id}
@@ -387,6 +521,38 @@ export default function TeacherFaceAttendance() {
             </Card>
           ) : null}
 
+          {earlierFailed ? (
+            <Notice
+              tone="warn"
+              title="Could not check today's earlier marks"
+              message="If you saved a class photo or corrected anyone today, those marks are not shown in this list. Check again, or check those students yourself before saving."
+            >
+              <Button
+                label="Check again"
+                icon={RefreshCw}
+                compact
+                loading={checkingEarlier}
+                disabled={phase === 'saving'}
+                onPress={checkEarlierAgain}
+              />
+            </Notice>
+          ) : savedToday || correctedCount > 0 ? (
+            <Notice
+              tone="info"
+              title={savedToday ? 'You already saved a class photo today' : undefined}
+              message={[
+                savedToday
+                  ? 'Saving again changes only the students whose mark is different, and keeps the history of earlier changes.'
+                  : null,
+                correctedCount > 0
+                  ? 'Students marked "Corrected earlier" start as they were corrected today; you can still change them.'
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            />
+          ) : null}
+
           {error ? <Notice tone="error" message={error} live /> : null}
 
           <View className="flex-row flex-wrap items-center justify-between gap-3">
@@ -394,12 +560,13 @@ export default function TeacherFaceAttendance() {
               {presentCount} of {students.length} will be saved as present for today.
             </Text>
             <View className="flex-row flex-wrap gap-3">
-              <Button label="Start over" icon={RotateCcw} onPress={startOver} disabled={phase === 'saving'} />
+              <Button label="Start over" icon={RotateCcw} onPress={startOver} disabled={busy} />
               <Button
                 label={`Save (${presentCount} present)`}
                 variant="primary"
                 icon={Save}
                 loading={phase === 'saving'}
+                disabled={checkingEarlier}
                 onPress={save}
               />
             </View>
