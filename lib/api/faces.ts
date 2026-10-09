@@ -2,7 +2,7 @@ import { appendPhoto, type PhotoFile } from '../upload';
 import { api, MULTIPART } from './client';
 import type { ISODate, ISODateTime, Ok, OkMessage, UUID } from './types';
 
-// Section 8 of the contract: face attendance, unchanged ("as today").
+// Section 8 of the contract: face attendance.
 // Class photos are never stored; each student keeps 3 small face crops + numeric templates.
 
 export type FacePose = 'STRAIGHT' | 'LEFT' | 'RIGHT';
@@ -56,7 +56,12 @@ export interface ConfirmFaceBody {
   course_info_id: UUID;
   /** Student profile ids marked present. */
   present_student_ids: UUID[];
-  /** Default: today. */
+  /**
+   * The present ids switched to Present by hand (the photos did not find them): saved as
+   * "Marked by teacher" (TEACHER); the other present students as "Class photo" (FACE).
+   */
+  teacher_marked_ids?: UUID[];
+  /** Today only (the default): another date → 400 `not_today`, a future one → `future_date`. */
   date?: ISODate;
 }
 
@@ -64,6 +69,8 @@ export interface ConfirmFaceResponse extends Ok {
   session_id: UUID;
   date: ISODate;
   total_present: number;
+  /** Present ids left out: no longer on the class list that day (removed or deleted during the review). */
+  skipped: { profile_id: UUID; name: string }[];
 }
 
 export interface AdminFaceStatusResponse extends Ok {
@@ -130,7 +137,10 @@ export const facesApi = {
     return api.post<RecognizeResult>('/api/faces/recognize/', form, { ...MULTIPART, timeout: 120000 });
   },
 
-  /** POST /faces/confirm/: saves the reviewed list (replaces that date's earlier face result). */
+  /**
+   * POST /faces/confirm/: saves today's reviewed list. Saving again the same day deletes nothing:
+   * only students whose mark differs change, and earlier corrections keep their history.
+   */
   confirm: (body: ConfirmFaceBody) => api.post<ConfirmFaceResponse>('/api/faces/confirm/', body),
 
   // Admin
