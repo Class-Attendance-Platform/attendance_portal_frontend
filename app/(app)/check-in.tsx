@@ -10,8 +10,7 @@ import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/states';
 import { CheckInFlow } from '@/components/student/CheckInFlow';
-import { firstParam, isCode, isSessionId } from '@/components/student/logic';
-import { HAS_QR_SCANNER } from '@/components/student/QrScanner';
+import { firstParam } from '@/components/student/logic';
 import { useAuth } from '@/hooks/AuthContext';
 import { fullName, roleLabel } from '@/lib/format';
 import { homeFor, loginHref } from '@/lib/routes';
@@ -53,22 +52,23 @@ function NotAStudent() {
 /**
  * /check-in?s=<session>&c=<code>: the QR link target (the phone camera opens it). Signed out:
  * the (app) guard sends people to /login?redirect=… and back here. Students are checked in once,
- * at once; other roles get an explanation.
+ * at once (CheckInFlow draws the header); other roles get an explanation.
  */
 export default function CheckInLinkScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ s?: string; c?: string }>();
-  const student = user?.role === 'STUDENT';
-  // "Checking you in" only while a link's code is there to send (it is dropped after one try).
-  const sending = isSessionId(firstParam(params.s)) && isCode(firstParam(params.c));
-  const idle = HAS_QR_SCANNER ? 'Scan the QR in class, or type the 6-digit code.' : 'Type the 6-digit code your teacher shows.';
-  const meta = student ? (sending ? 'Checking you in to your class.' : idle) : undefined;
   return (
     <Page>
-      <PageHeader title="Check in" meta={meta} />
-      <View className="w-full max-w-[640px] gap-4">
-        {student ? <CheckInFlow sessionId={firstParam(params.s)} code={firstParam(params.c)} /> : <NotAStudent />}
-      </View>
+      {user?.role === 'STUDENT' ? (
+        <CheckInFlow sessionId={firstParam(params.s)} code={firstParam(params.c)} />
+      ) : (
+        <>
+          <PageHeader title="Check in" />
+          <View className="w-full max-w-[640px] gap-4">
+            <NotAStudent />
+          </View>
+        </>
+      )}
     </Page>
   );
 }
