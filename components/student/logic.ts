@@ -153,21 +153,94 @@ export function belowMinText(classesNeeded: number | null | undefined, min: numb
   return `Below ${min}%.${catchUp ? ` ${catchUp}` : ''}`;
 }
 
-type Membership = { is_active: boolean; left_at: string | null };
+/**
+ * A course or semester without a counted class: "No classes yet" while more classes can count,
+ * "No classes held" once the semester is finished or the student left it (no more will come).
+ */
+export function noClassesText(state: CatchUpState = 'open'): 'No classes yet' | 'No classes held' {
+  return state === 'open' ? 'No classes yet' : 'No classes held';
+}
 
-/** The semester the student is in now: active and not left. */
-export function currentSemester<T extends Membership>(semesters: T[]): T | undefined {
-  return semesters.find((semester) => semester.is_active && !semester.left_at);
+type CourseNumbers = { held: number; below_min: boolean; classes_needed: number | null | undefined };
+
+/**
+ * Home's "Courses below 75%" tile (desktop). It agrees with the course rows: no claim about the
+ * courses before a class was held, and "talk to your teacher" when none of the low courses can
+ * reach the minimum any more (classes_needed null, e.g. a 100% minimum).
+ */
+export function belowMinSummary(courses: CourseNumbers[], min: number): { value: string; hint: string; low: number } {
+  if (!courses.length) return { value: '—', hint: 'No courses yet', low: 0 };
+  if (!courses.some((course) => course.held > 0)) return { value: '—', hint: 'No classes yet', low: 0 };
+  const low = courses.filter((course) => course.held > 0 && course.below_min);
+  if (!low.length) return { value: 'None', hint: `All at or above ${min}%`, low: 0 };
+  const canCatchUp = low.some((course) => typeof course.classes_needed === 'number');
+  return {
+    value: String(low.length),
+    hint: canCatchUp
+      ? 'Attend the next classes to catch up'
+      : `${min}% can't be reached any more. Talk to your ${low.length === 1 ? 'teacher' : 'teachers'}.`,
+    low: low.length,
+  };
+}
+
+type Membership = { is_active: boolean; left_at: string | null; level?: string; semester?: string };
+
+/** A semester the student is in now: active (not finished) and not left. */
+export function isCurrentSemester(semester: Membership): boolean {
+  return semester.is_active && !semester.left_at;
 }
 
 /**
- * Semesters for the courses page: the current one first, then the others newest first. The API
- * sorts them by level then term (oldest first).
+ * The semester Home shows: the one the student is in now. A student is in one current semester
+ * only (the office can't add them to a second one), but older data may have two: then the one
+ * matching their profile's level and term, else the highest level (the API sorts by level then
+ * term, so the last one).
  */
-export function orderSemesters<T extends Membership>(semesters: T[]): T[] {
-  const current = currentSemester(semesters);
-  const others = semesters.filter((semester) => semester !== current).reverse();
-  return current ? [current, ...others] : others;
+export function currentSemester<T extends Membership>(
+  semesters: T[],
+  prefer?: { level: string; term: string } | null
+): T | undefined {
+  const current = semesters.filter(isCurrentSemester);
+  const match = prefer ? current.find((semester) => semester.level === prefer.level && semester.semester === prefer.term) : undefined;
+  return match ?? current[current.length - 1];
+}
+
+/**
+ * Semesters for the courses page: the current one first (the one Home shows), then any other
+ * current one, then the others newest first. The API sorts them by level then term (oldest first).
+ */
+export function orderSemesters<T extends Membership>(semesters: T[], prefer?: { level: string; term: string } | null): T[] {
+  const main = currentSemester(semesters, prefer);
+  const otherCurrent = semesters.filter((semester) => semester !== main && isCurrentSemester(semester)).reverse();
+  const others = semesters.filter((semester) => !isCurrentSemester(semester)).reverse();
+  return main ? [main, ...otherCurrent, ...others] : others;
+}
+
+/**
+ * Did a live class end? True when a session of the last "Live now" list (`before`, session ids) is
+ * gone from the new one: the teacher stopped it or its timer ran out, so it is saved now.
+ */
+export function liveEnded(before: readonly string[] | null | undefined, now: readonly string[]): boolean {
+  return !!before && before.some((id) => !now.includes(id));
+}
+
+/**
+ * Why an absent day is absent, from GET /student/course-info/<id>/ `absent_reason` (changed: a
+ * teacher corrected it; roll_call; class_photo; not_checked_in: a live class). '' when unknown.
+ */
+export function absentReasonText(reason: string | null | undefined): string {
+  switch (reason) {
+    case 'changed':
+      return 'Marked absent by teacher';
+    case 'roll_call':
+      return 'Marked absent in roll call';
+    case 'class_photo':
+      return 'Not found in the class photo';
+    case 'not_checked_in':
+      return 'Not checked in';
+    default:
+      return '';
+  }
 }
 
 type Day = { date: string; status: string | null };

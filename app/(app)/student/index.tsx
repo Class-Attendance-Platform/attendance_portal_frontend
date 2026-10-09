@@ -14,15 +14,21 @@ import { TextLink } from '@/components/ui/text-link';
 import { CourseRow } from '@/components/student/CourseRow';
 import { FaceReminder } from '@/components/student/FaceReminder';
 import { LiveBanner } from '@/components/student/LiveBanner';
-import { currentSemester } from '@/components/student/logic';
-import { useLiveSessions } from '@/components/student/use-live-sessions';
+import { belowMinSummary, currentSemester } from '@/components/student/logic';
+import { useLiveSessions, useRefreshAfterLive } from '@/components/student/use-live-sessions';
 import { useLoad } from '@/components/student/use-load';
 import { useAuth } from '@/hooks/AuthContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { configApi } from '@/lib/api/config';
-import { facesApi } from '@/lib/api/faces';
+import { facesApi, onFaceChange } from '@/lib/api/faces';
 import { studentApi, type StudentSemester } from '@/lib/api/student';
 import { firstName, formatPercent, levelTermLabel, plural } from '@/lib/format';
+
+/**
+ * The first time, the page waits at most this long for "Live now" once its own data is in: a
+ * banner arriving later would push the page down while the student reads or taps.
+ */
+const LIVE_WAIT_MS = 2000;
 
 /** Phone: the mockup's "Overall this term" card. */
 function OverallCard({ semester, min }: { semester: StudentSemester; min: number }) {
@@ -50,6 +56,11 @@ function OverallCard({ semester, min }: { semester: StudentSemester; min: number
               {`Below ${min}%`}
             </Text>
           ) : null}
+          {percent === null ? (
+            <Text variant="small" tone="muted">
+              No classes yet
+            </Text>
+          ) : null}
         </View>
         <View className="items-end gap-0.5">
           <Text variant="small" tone="muted" align="right">
@@ -68,7 +79,7 @@ function OverallCard({ semester, min }: { semester: StudentSemester; min: number
 function OverallTiles({ semester, min }: { semester: StudentSemester; min: number }) {
   const percent = semester.overall_percent;
   const low = percent !== null && percent < min;
-  const lowCourses = semester.courses.filter((course) => course.held > 0 && course.below_min).length;
+  const below = belowMinSummary(semester.courses, min);
   return (
     <View className="flex-row flex-wrap gap-5">
       <StatTile
@@ -80,9 +91,9 @@ function OverallTiles({ semester, min }: { semester: StudentSemester; min: numbe
       <StatTile label="Courses" value={String(semester.courses.length)} hint={levelTermLabel(semester.level, semester.semester)} />
       <StatTile
         label={`Courses below ${min}%`}
-        value={lowCourses ? String(lowCourses) : 'None'}
-        hint={lowCourses ? 'Attend the next classes to catch up' : `All at or above ${min}%`}
-        tone={lowCourses ? 'warn' : 'default'}
+        value={below.value}
+        hint={below.hint}
+        tone={below.low ? 'warn' : 'default'}
       />
     </View>
   );
@@ -95,7 +106,7 @@ export default function StudentHome() {
   const live = useLiveSessions();
   const userId = user?.id ?? '';
 
-  const { data, error, loading, retrying, reload } = useLoad(async () => {
+  const { data, error, loading, retrying, reload, refresh, pull } = useLoad(async () => {
     const [semesters, face, config] = await Promise.all([
       studentApi.semesters(userId),
       // The reminder is optional: the page works without the face status.
@@ -105,9 +116,32 @@ export default function StudentHome() {
     return { semesters: semesters.semesters ?? [], face, min: config.attendance_min_percent };
   }, [userId]);
 
+  // A live class that ended is saved now: show the new numbers.
+  useRefreshAfterLive(live.sessions, refresh);
+  // Face registered or deleted on the face page (this page stays open under it): update the reminder.
+  React.useEffect(() => onFaceChange(() => void refresh()), [refresh]);
+
+  // The first view shows the page together with "Live now" (see LIVE_WAIT_MS).
+  const liveKnown = live.sessions !== null;
+  const [liveWaitOver, setLiveWaitOver] = React.useState(false);
+  React.useEffect(() => {
+    if (loading || liveKnown || liveWaitOver) return;
+    const timer = setTimeout(() => setLiveWaitOver(true), LIVE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [loading, liveKnown, liveWaitOver]);
+  const waitingForLive = !liveKnown && !liveWaitOver;
+
+  const refreshLive = live.refresh;
+  const pullBoth = React.useCallback(async () => {
+    refreshLive();
+    await pull();
+  }, [refreshLive, pull]);
+
   if (!user) return null;
   const profile = user.student_profile;
-  const semester = data ? currentSemester(data.semesters) : undefined;
+  const semester = data
+    ? currentSemester(data.semesters, profile ? { level: profile.current_level, term: profile.current_semester } : null)
+    : undefined;
   const meta = [
     profile ? String(profile.student_id) : null,
     semester ? semester.label : profile ? levelTermLabel(profile.current_level, profile.current_semester) : null,
@@ -124,7 +158,7 @@ export default function StudentHome() {
   ) : null;
 
   let body: React.ReactNode;
-  if (loading) {
+  if (loading || waitingForLive) {
     body = <LoadingState label="Loading your attendance…" />;
   } else if (error || !data) {
     body = (
@@ -206,7 +240,7 @@ export default function StudentHome() {
   }
 
   return (
-    <Page>
+    <Page onRefresh={pullBoth}>
       <PageHeader title={`Hi, ${firstName(user)}`} meta={meta || undefined} />
       {liveBanners}
       {body}

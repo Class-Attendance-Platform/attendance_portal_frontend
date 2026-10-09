@@ -1,8 +1,9 @@
 import { useFocusEffect } from 'expo-router';
 import * as React from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { studentApi, type StudentLiveSession } from '@/lib/api/student';
+import { liveEnded } from './logic';
 
 /** How often the "Live now" list is asked for while a screen shows it. */
 export const LIVE_POLL_MS = 25000;
@@ -15,12 +16,14 @@ export type LiveSessions = {
 };
 
 const onWeb = Platform.OS === 'web' && typeof document !== 'undefined';
-const pageHidden = () => onWeb && document.visibilityState === 'hidden';
+// A hidden browser tab, or the app in the background (Android): no polling.
+const pageHidden = () => (onWeb ? document.visibilityState === 'hidden' : AppState.currentState === 'background');
 
 /**
  * GET /student/live/ while the screen is focused: at once, then every 25 s (skipped while the
- * browser tab is hidden, asked again when it shows). Failures keep the last list. The server
- * decides what is live (the phone's clock may be wrong), so nothing is filtered here.
+ * browser tab is hidden or the app is in the background, asked again when it shows). Failures
+ * keep the last list. The server decides what is live (the phone's clock may be wrong), so
+ * nothing is filtered here.
  */
 export function useLiveSessions(): LiveSessions {
   const [sessions, setSessions] = React.useState<StudentLiveSession[] | null>(null);
@@ -46,13 +49,43 @@ export function useLiveSessions(): LiveSessions {
         if (!pageHidden()) check();
       };
       if (onWeb) document.addEventListener('visibilitychange', onVisible);
+      // Android: back to the front.
+      const subscription = onWeb
+        ? null
+        : AppState.addEventListener('change', (state) => {
+            if (state === 'active') check();
+          });
       return () => {
         clearInterval(timer);
         latest.current += 1; // drop answers that arrive after leaving
         if (onWeb) document.removeEventListener('visibilitychange', onVisible);
+        subscription?.remove();
       };
     }, [check])
   );
 
   return { sessions, refresh: check };
+}
+
+/**
+ * Calls `refresh` right after a live class ends (its session leaves the "Live now" list: the
+ * teacher stopped it or its timer ran out, so it is saved), so the numbers on screen include that
+ * class. `courseInfoId`: only that course's sessions count.
+ */
+export function useRefreshAfterLive(
+  sessions: StudentLiveSession[] | null,
+  refresh: () => unknown,
+  courseInfoId?: string
+): void {
+  const before = React.useRef<{ course: string | undefined; ids: string[] } | null>(null);
+  React.useEffect(() => {
+    if (sessions === null) return;
+    const ids = sessions
+      .filter((session) => !courseInfoId || session.course_info_id === courseInfoId)
+      .map((session) => session.session_id);
+    const last = before.current;
+    const previous = last && last.course === courseInfoId ? last.ids : null;
+    before.current = { course: courseInfoId, ids };
+    if (liveEnded(previous, ids)) refresh();
+  }, [sessions, refresh, courseInfoId]);
 }

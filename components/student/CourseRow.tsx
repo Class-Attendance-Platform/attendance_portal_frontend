@@ -9,7 +9,14 @@ import { Text } from '@/components/ui/text';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { formatPercent, plural } from '@/lib/format';
 import { cn, FOCUS_RING } from '@/lib/utils';
-import { belowMinText, type CatchUpState } from './logic';
+import { belowMinText, noClassesText, type CatchUpState } from './logic';
+
+/**
+ * From this window width the row puts its numbers in a 340 px column next to the name. Below it
+ * (phones, tablets, a narrow window: the 248 px sidebar starts at 768 px) the numbers go under
+ * the name, or the name would get only a few pixels.
+ */
+const SIDE_BY_SIDE_MIN = 1024;
 
 export type CourseRowProps = {
   courseInfoId: string;
@@ -33,7 +40,7 @@ export type CourseRowProps = {
 /** The warning under a course below the minimum (words, not colour alone). */
 export function BelowMinNote({ text }: { text: string }) {
   return (
-    <View className="self-stretch rounded-[6px] border border-warn-border bg-warn-soft px-2 py-1.5">
+    <View className="self-stretch rounded-control border border-warn-border bg-warn-soft px-2 py-1.5">
       <Text variant="small" tone="warnInk">
         {text}
       </Text>
@@ -59,16 +66,17 @@ export function CourseRow({
   catchUp = 'open',
   divider,
 }: CourseRowProps) {
-  const { isDesktop } = useBreakpoint();
+  const { isDesktop, width } = useBreakpoint();
+  const sideBySide = width >= SIDE_BY_SIDE_MIN;
   const noClasses = held === 0 || percent === null;
   const low = !noClasses && belowMin;
   const name = `${code} · ${title}`;
-  const count = noClasses ? 'No classes yet' : `${attended} of ${plural(held, 'class', 'classes')}`;
+  const count = noClasses ? noClassesText(catchUp) : `${attended} of ${plural(held, 'class', 'classes')}`;
   const percentText = noClasses ? '—' : formatPercent(percent);
   const note = low ? belowMinText(classesNeeded, min, catchUp) : '';
   const label = [
     `${code} ${title}`,
-    noClasses ? 'No classes yet' : `${percentText} attendance, ${count}`,
+    noClasses ? count : `${percentText} attendance, ${count}`,
     note.replace(`${min}%`, `${min} percent`),
   ]
     .filter(Boolean)
@@ -88,12 +96,12 @@ export function CourseRow({
         accessibilityLabel={label}
         className={cn(
           'active:bg-bg web:hover:bg-bg',
-          isDesktop ? 'min-h-[64px] flex-row items-center gap-6 px-5 py-3.5' : 'gap-1.5 px-4 py-3',
+          sideBySide ? 'min-h-[64px] flex-row items-center gap-6 px-5 py-3.5' : cn('gap-1.5 py-3', isDesktop ? 'px-5' : 'px-4'),
           divider && 'border-t border-border',
           FOCUS_RING
         )}
       >
-        {isDesktop ? (
+        {sideBySide ? (
           <>
             <View className="flex-1 gap-0.5">
               <Text weight="semibold">{name}</Text>
@@ -118,7 +126,8 @@ export function CourseRow({
         ) : (
           <>
             <View className="flex-row items-baseline justify-between gap-2">
-              <Text weight="semibold" className="flex-shrink">
+              {/* min-w-0: a very long word wraps instead of pushing the percentage off the screen. */}
+              <Text weight="semibold" className="min-w-0 flex-shrink">
                 {name}
               </Text>
               {percentNode}
