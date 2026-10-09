@@ -179,17 +179,21 @@ test('a refused token with nothing newer saved ends the login', async () => {
   server.blacklist(refused);
   const tab = makeTab({ storage, server, clock, lock });
 
-  assert.deepEqual(await refreshTokens(tab.env), { ok: false, expired: refused });
+  const result = await refreshTokens(tab.env);
+  assert.equal(result.ok, false);
+  assert.equal(result.expired, refused);
+  assert.equal(result.error?.response?.status, 401, "the server's 401 is passed on");
   assert.equal(afterRefused(storage.get(), refused, 'user-1'), 'clear');
 });
 
 test('network errors keep the login', async () => {
   const { clock, server, storage, lock } = setup({ withLock: true });
   const tab = makeTab({ storage, server, clock, lock });
+  const offline = new Error('Network Error');
   tab.env.send = async () => {
-    throw new Error('Network Error');
+    throw offline;
   };
-  assert.deepEqual(await refreshTokens(tab.env), { ok: false, expired: null });
+  assert.deepEqual(await refreshTokens(tab.env), { ok: false, expired: null, error: offline });
   assert.ok(storage.get());
 });
 

@@ -1,7 +1,12 @@
-import axios, { type AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
+import axios, {
+  type AxiosError,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 
 import { readWebTokens, sessionGeneration, updateSession, waitForWebSessionChange } from '../session';
-import { refreshTokens, type RefreshEnv } from './refresh-core';
+import { refreshTokens, signOutReason, type RefreshEnv, type RefreshResult } from './refresh-core';
 
 declare module 'axios' {
   interface AxiosRequestConfig {
@@ -9,6 +14,10 @@ declare module 'axios' {
     skipAuth?: boolean;
     /** Internal: this request was already retried after a refresh. */
     _retry?: boolean;
+    /** Internal: this request was already sent again with tokens renewed meanwhile. */
+    _resent?: boolean;
+    /** Internal: the sign-in it was first sent under (lib/session.ts sessionGeneration). */
+    _generation?: number;
   }
 }
 
@@ -135,6 +144,22 @@ export function toApiError(error: unknown): ApiError {
   return new ApiError(defaultMessage(-1));
 }
 
+/**
+ * The body of a successful answer. Every API answer is a JSON object, so anything else (an HTML
+ * page from a proxy, or the web app's index.html when EXPO_PUBLIC_API_URL points at the wrong
+ * host) is an error, never an empty result.
+ */
+function jsonBody<T>(response: AxiosResponse<T>): T {
+  const data: unknown = response.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new ApiError('The server sent an unexpected answer. Please try again.', {
+      status: response.status,
+      code: 'bad_response',
+    });
+  }
+  return data as T;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Tokens
 
@@ -159,9 +184,11 @@ export const getRefreshToken = () => refreshToken;
 export const getTokenOwner = () => tokenOwner;
 
 // Called when the server no longer accepts the saved login (refresh token expired or revoked),
-// with the refresh token it refused.
-let onSessionExpired: ((refused: string) => void) | null = null;
-export function setSessionExpiredHandler(handler: ((refused: string) => void) | null) {
+// with the refresh token it refused and, when the server said why (password changed, account
+// disabled or removed), that 401: its message is ready to show.
+type SessionExpiredHandler = (refused: string, reason: ApiError | null) => void;
+let onSessionExpired: SessionExpiredHandler | null = null;
+export function setSessionExpiredHandler(handler: SessionExpiredHandler | null) {
   onSessionExpired = handler;
 }
 
@@ -208,7 +235,7 @@ const refreshEnv: RefreshEnv = {
   readSaved: readWebTokens,
   save: (access, refresh) =>
     updateSession({ accessToken: access, refreshToken: refresh }, { onlyIfSaved: true, userId: tokenOwner }),
-  send: async (token) => (await bare.post('/api/auth/refresh/', { refresh: token })).data,
+  send: async (token) => jsonBody(await bare.post('/api/auth/refresh/', { refresh: token })),
   revoke: ({ access, refresh }) => {
     bare
       .post('/api/auth/logout/', { refresh }, { headers: { Authorization: `Bearer ${access}` } })
@@ -220,7 +247,32 @@ const refreshEnv: RefreshEnv = {
   now: () => Date.now(),
 };
 
-let refreshing: Promise<boolean> | null = null;
+let refreshing: Promise<RefreshResult> | null = null;
+// The first 401 waiting for this refresh that said why the login ended (password changed,
+// account disabled): the user is told so if the server refuses the refresh too.
+let endedBecause: ApiError | null = null;
+
+/** Several callers in a tab share one refresh; `failure` is the 401 that asked for it. */
+function refreshOnce(failure?: ApiError): Promise<RefreshResult> {
+  endedBecause = signOutReason(endedBecause, failure);
+  if (!refreshing) {
+    refreshing = refreshTokens(refreshEnv)
+      .then((result) => {
+        // Network errors are not the end of the login: the user stays signed in and can retry.
+        if (!result.ok && result.expired) {
+          const refusal = result.error ? toApiError(result.error) : null;
+          onSessionExpired?.(result.expired, signOutReason(refusal, endedBecause));
+        }
+        return result;
+      })
+      .catch((): RefreshResult => ({ ok: false, expired: null }))
+      .finally(() => {
+        refreshing = null;
+        endedBecause = null;
+      });
+  }
+  return refreshing;
+}
 
 /**
  * Gets a new access token with the refresh token. The backend rotates refresh tokens (the old
@@ -229,20 +281,7 @@ let refreshing: Promise<boolean> | null = null;
  * Returns false if it failed; when the server refused the login the expiry handler runs.
  */
 export function refreshAccessToken(): Promise<boolean> {
-  if (!refreshing) {
-    refreshing = refreshTokens(refreshEnv)
-      .then((result) => {
-        if (result.ok) return true;
-        // Network errors are not the end of the login: the user stays signed in and can retry.
-        if (result.expired) onSessionExpired?.(result.expired);
-        return false;
-      })
-      .catch(() => false)
-      .finally(() => {
-        refreshing = null;
-      });
-  }
-  return refreshing;
+  return refreshOnce().then((result) => result.ok);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -261,28 +300,45 @@ const http = axios.create({ baseURL: API_BASE, timeout: 30000 });
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (config.url) config.url = withTrailingSlash(config.url);
   if (accessToken && !config.skipAuth) config.headers.set('Authorization', `Bearer ${accessToken}`);
+  if (config._generation === undefined) config._generation = sessionGeneration();
   return config;
 });
 
 http.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    const failure = toApiError(error);
     const config = error.config;
-    if (error.response?.status === 401 && config && !config.skipAuth && !config._retry && refreshToken) {
-      config._retry = true;
-      if (await refreshAccessToken()) {
-        config.headers.set('Authorization', `Bearer ${accessToken}`);
+    // Only within the sign-in it was sent under: never sent again with a later login's tokens.
+    if (
+      failure.status === 401 &&
+      config &&
+      !config.skipAuth &&
+      refreshToken &&
+      config._generation === sessionGeneration()
+    ) {
+      // The tokens were renewed after it went out (another request's refresh): send it again
+      // with the new access token instead of refreshing (rotating) them once more.
+      if (!config._resent && accessToken && config.headers.get('Authorization') !== `Bearer ${accessToken}`) {
+        config._resent = true;
         return http.request(config);
       }
+      if (!config._retry) {
+        config._retry = true;
+        const refreshed = await refreshOnce(failure);
+        if (refreshed.ok) return http.request(config); // with the new token (request interceptor)
+        // The refresh call failed (no network, server error) but the login is still good: say
+        // that rather than this 401's "Please sign in again".
+        if (!refreshed.expired && refreshed.error) throw toApiError(refreshed.error);
+      }
     }
-    throw toApiError(error);
+    throw failure;
   }
 );
 
 async function request<T>(config: AxiosRequestConfig): Promise<T> {
   try {
-    const response = await http.request<T>(config);
-    return response.data;
+    return jsonBody(await http.request<T>(config));
   } catch (error) {
     throw toApiError(error);
   }
@@ -330,7 +386,7 @@ export const bareClient = {
       const response = await bare.post<T>(withTrailingSlash(path), body, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      return response.data;
+      return jsonBody(response);
     } catch (error) {
       throw toApiError(error);
     }

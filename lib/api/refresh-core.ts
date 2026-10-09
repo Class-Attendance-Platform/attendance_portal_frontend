@@ -42,9 +42,11 @@ export type RefreshEnv = {
 /**
  * `ok`: this tab has a usable pair now. Otherwise `expired` is the refresh token the server
  * refused (that login is over), or null when the refresh failed for another reason (no network,
- * or the user signed out meanwhile) and the login stays as it is.
+ * or the user signed out meanwhile) and the login stays as it is. `error` is what the refresh call
+ * threw: the server's 401 when it refused (it may say why), else the network or server error, to
+ * show instead of the first 401's "sign in again" (the login is still good).
  */
-export type RefreshResult = { ok: true } | { ok: false; expired: string | null };
+export type RefreshResult = { ok: true } | { ok: false; expired: string | null; error?: unknown };
 
 /** A saved access token is taken over only if it is still good for this long. */
 const FRESH_FOR_MS = 60_000;
@@ -96,6 +98,21 @@ export function afterRefused(saved: SavedTokens | null, failed: string | null, o
   return 'adopt';
 }
 
+/** 401 codes that say why the server ended a login (its message says it in words). */
+const SIGN_OUT_CODES = ['password_changed', 'user_inactive', 'user_not_found'];
+
+/**
+ * Why a login ended, to tell the user when they are signed out: the first of `errors` (most
+ * telling first) that is a 401 whose code says why (password changed, account disabled or
+ * removed). Null when none does: the sign-in simply expired.
+ */
+export function signOutReason<E extends { status?: unknown; code?: unknown }>(...errors: (E | null | undefined)[]): E | null {
+  for (const error of errors) {
+    if (error?.status === 401 && typeof error.code === 'string' && SIGN_OUT_CODES.includes(error.code)) return error;
+  }
+  return null;
+}
+
 /**
  * Gets a new access token. On the web it runs while no other tab refreshes (Web Locks), takes
  * over a fresh pair another tab saved instead of calling the server, and otherwise refreshes with
@@ -127,17 +144,17 @@ async function attempt(env: RefreshEnv): Promise<RefreshResult> {
   try {
     data = await env.send(token);
   } catch (error) {
-    if (statusOf(error) !== 401) return { ok: false, expired: null };
+    if (statusOf(error) !== 401) return { ok: false, expired: null, error };
     // Without a lock another tab may have used the same token a moment earlier: wait for its
     // new pair and try once more with it.
     if (!env.lock) await env.waitForOtherTab();
     const latest = ownSaved(env.readSaved(), env.owner())?.refresh;
-    if (!latest || latest === token) return { ok: false, expired: token };
+    if (!latest || latest === token) return { ok: false, expired: token, error };
     token = latest;
     try {
       data = await env.send(token);
     } catch (retryError) {
-      return { ok: false, expired: statusOf(retryError) === 401 ? token : null };
+      return { ok: false, expired: statusOf(retryError) === 401 ? token : null, error: retryError };
     }
   }
 
