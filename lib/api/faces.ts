@@ -75,6 +75,28 @@ export interface AdminStudentFacesResponse extends FaceStatusResponse {
   crops: { pose: FacePose; image: string }[];
 }
 
+// Screens that show the student's own face status (home reminder, account card) stay mounted under
+// the face page, so they listen here instead of waiting for a reload.
+const faceListeners = new Set<() => void>();
+
+/** Runs `listener` after the signed-in student's face registration is saved or deleted. Returns the unsubscribe. */
+export function onFaceChange(listener: () => void): () => void {
+  faceListeners.add(listener);
+  return () => {
+    faceListeners.delete(listener);
+  };
+}
+
+function notifyFaceChange() {
+  for (const listener of Array.from(faceListeners)) {
+    try {
+      listener();
+    } catch {
+      // One screen's refresh must not stop the others.
+    }
+  }
+}
+
 export const facesApi = {
   // Student: own face registration
   /** GET /faces/me/ */
@@ -87,11 +109,17 @@ export const facesApi = {
     await appendPhoto(form, 'left', photos.left);
     await appendPhoto(form, 'right', photos.right);
     form.append('consent', 'true');
-    return api.post<FaceStatusResponse>('/api/faces/me/', form, { ...MULTIPART, timeout: 120000 });
+    const result = await api.post<FaceStatusResponse>('/api/faces/me/', form, { ...MULTIPART, timeout: 120000 });
+    notifyFaceChange();
+    return result;
   },
 
   /** DELETE /faces/me/ */
-  deleteMine: () => api.delete<OkMessage>('/api/faces/me/'),
+  deleteMine: async () => {
+    const result = await api.delete<OkMessage>('/api/faces/me/');
+    notifyFaceChange();
+    return result;
+  },
 
   // Teacher: class photos → suggested attendance → confirm
   /** POST /faces/recognize/ (multipart, 1–3 photos). Nothing is saved. */
