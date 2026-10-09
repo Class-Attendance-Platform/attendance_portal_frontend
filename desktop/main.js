@@ -98,9 +98,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    // Camera (face registration, class photos) and fullscreen only for our own site.
+    // Camera (face registration, class photos), fullscreen and keeping the screen on (while a
+    // live session's QR is shown) only for our own site.
     session.defaultSession.setPermissionRequestHandler((_contents, permission, callback, details) => {
-      callback(isOwnSite(details.requestingUrl) && ['media', 'fullscreen'].includes(permission));
+      callback(isOwnSite(details.requestingUrl) && ['media', 'fullscreen', 'screen-wake-lock'].includes(permission));
     });
     createWindow();
   });

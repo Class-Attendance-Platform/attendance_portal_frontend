@@ -26,6 +26,8 @@ export const SESSION_ERRORS = {
   sessionEnded: 'session_ended',
   /** 400 on start (and on face recognize/confirm): the course's semester is finished. */
   semesterFinished: 'semester_finished',
+  /** 400 on extend: the session would last more than 30 minutes. */
+  tooLong: 'too_long',
 } as const;
 
 export type SessionMinutes = 2 | 5 | 10 | 15;
@@ -163,7 +165,7 @@ export const sessionsApi = {
   /** GET /sessions/<id>/status/: live lists, or the saved result once it ended. */
   status: (sessionId: UUID) => api.get<SessionStatus>(`/api/sessions/${sessionId}/status/`),
 
-  /** POST /sessions/<id>/extend/ (max 30 minutes in total). */
+  /** POST /sessions/<id>/extend/ (max 30 minutes in total; beyond it 400 too_long). */
   extend: (sessionId: UUID, minutes = 2) => api.post<ExtendResponse>(`/api/sessions/${sessionId}/extend/`, { minutes }),
 
   /** POST /sessions/<id>/mark/: the teacher checks a student in while the session is live. */
