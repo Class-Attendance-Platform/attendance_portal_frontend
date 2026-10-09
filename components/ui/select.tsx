@@ -7,6 +7,7 @@ import { Button } from './button';
 import { Dialog } from './dialog';
 import { controlBoxClass, describedBy, FieldFrame } from './field';
 import { Icon } from './icon';
+import { radioKeys } from './keys';
 import { Text } from './text';
 
 export type SelectOption<T extends string | number> = {
@@ -30,7 +31,10 @@ export type SelectProps<T extends string | number> = {
   className?: string;
 };
 
-/** Looks like a text field; opens a dialog with the choices (works the same on web and phones). */
+/**
+ * Looks like a text field; opens a dialog with the choices (works the same on web and phones).
+ * Keyboard (web): the arrow keys move between the choices, Space or Enter chooses one.
+ */
 export function Select<T extends string | number>({
   label,
   hideLabel,
@@ -47,6 +51,11 @@ export function Select<T extends string | number>({
   const [open, setOpen] = React.useState(false);
   const messageId = React.useId();
   const selected = options.find((option) => option.value === value);
+  const optionRefs = React.useRef<(View | null)[]>([]);
+  const choose = (option: SelectOption<T>) => {
+    onChange(option.value);
+    setOpen(false);
+  };
 
   return (
     <FieldFrame
@@ -84,19 +93,26 @@ export function Select<T extends string | number>({
         actions={<Button label="Cancel" onPress={() => setOpen(false)} />}
       >
         <View role="radiogroup" accessibilityLabel={label} className="-mx-2">
-          {options.map((option) => {
+          {options.map((option, index) => {
             const isSelected = option.value === value;
             return (
               <Pressable
                 key={String(option.value)}
+                ref={(node) => {
+                  optionRefs.current[index] = node;
+                }}
                 role="radio"
                 accessibilityState={{ selected: isSelected, checked: isSelected }}
                 aria-checked={isSelected}
                 accessibilityLabel={option.description ? `${option.label}, ${option.description}` : option.label}
-                onPress={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
+                onPress={() => choose(option)}
+                // Choosing closes the list, so the arrow keys only move (every choice stays a Tab stop).
+                {...radioKeys({
+                  index,
+                  count: options.length,
+                  onPick: () => choose(option),
+                  onMove: (next) => optionRefs.current[next]?.focus(),
+                })}
                 className={cn(
                   'min-h-[48px] flex-row items-center gap-3 rounded-control px-3 py-2',
                   isSelected ? 'bg-primary-soft' : 'active:bg-bg web:hover:bg-bg',

@@ -1,5 +1,5 @@
 import { appendFile, type UploadFile } from '../upload';
-import { api, MULTIPART } from './client';
+import { api, MULTIPART, type ApiError } from './client';
 import type { Delivery, ISODate, ISODateTime, Level, Ok, OkMessage, PersonRef, Role, Term, UUID } from './types';
 
 // Sections 2–4 of the contract. Every endpoint needs role ADMIN.
@@ -8,7 +8,25 @@ import type { Delivery, ISODate, ISODateTime, Level, Ok, OkMessage, PersonRef, R
 /** Machine codes on errors (`ApiError.code`). */
 export const ADMIN_ERRORS = {
   levelHasActiveSemester: 'level_has_active_semester',
+  /** 409: a student is a current member of another active semester (nothing changed). */
+  alreadyInSemester: 'already_in_semester',
 } as const;
+
+/** One row of a 409 `already_in_semester` answer: the other active semester the student is in now. */
+export interface SemesterClash {
+  profile_id: UUID;
+  student_id: number;
+  name: string;
+  semester_id: UUID;
+  semester_label: string;
+}
+
+/** The students a 409 `already_in_semester` names (none for other errors). */
+export function semesterClashes(error: ApiError | null): SemesterClash[] {
+  if (error?.code !== ADMIN_ERRORS.alreadyInSemester) return [];
+  const students = error.body.students;
+  return Array.isArray(students) ? (students as SemesterClash[]) : [];
+}
 
 // ---- People: approvals ------------------------------------------------------------------------
 
@@ -296,7 +314,7 @@ export interface AdminCourseInfo {
   id: UUID;
   course: { code: string; title: string };
   teacher: TeacherRef | null;
-  semester: { id: UUID; label: string; is_active: boolean };
+  semester: { id: UUID; label: string; is_active: boolean; start_date: ISODate | null; end_date: ISODate | null };
   student_count: number;
   classes_held: number;
   average_percent: number | null;
@@ -378,7 +396,10 @@ export const adminApi = {
   /** POST /admin/semesters/<id>/finish/ */
   finishSemester: (semesterId: UUID) =>
     api.post<Ok & { message?: string; semester?: Semester }>(`/api/admin/semesters/${semesterId}/finish/`),
-  /** POST /admin/semesters/<id>/reopen/ */
+  /**
+   * POST /admin/semesters/<id>/reopen/. 400 level_has_active_semester; 409 already_in_semester when
+   * some of its members are in another active semester now.
+   */
   reopenSemester: (semesterId: UUID) =>
     api.post<Ok & { message?: string; semester?: Semester }>(`/api/admin/semesters/${semesterId}/reopen/`),
   /** POST /admin/semesters/<id>/restore/ */
@@ -390,7 +411,9 @@ export const adminApi = {
     api.get<RosterResponse>(`/api/admin/semesters/${semesterId}/students/`, { include_left: includeLeft ? 'true' : undefined }),
   /**
    * POST /admin/semesters/<id>/students/: adds them (joined today once the semester has held a
-   * class; before that, from the start). 400 for an unknown id or a deleted account.
+   * class; before that, from the start). 400 for an unknown id or a deleted account; 409
+   * already_in_semester (see semesterClashes) when one is a current member of another active
+   * semester. Nothing is added on an error.
    */
   addSemesterStudents: (semesterId: UUID, profileIds: UUID[]) =>
     api.post<AddRosterResponse>(`/api/admin/semesters/${semesterId}/students/`, { profile_ids: profileIds }),
@@ -409,7 +432,10 @@ export const adminApi = {
   /** DELETE /admin/course-info/<id>/: soft delete. */
   deleteCourseInfo: (courseInfoId: UUID) => api.delete<Ok & { message?: string }>(`/api/admin/course-info/${courseInfoId}/`),
 
-  /** POST /admin/semesters/<id>/promote/: moves students on and finishes this semester. */
+  /**
+   * POST /admin/semesters/<id>/promote/: moves students on and finishes this semester. 409
+   * already_in_semester when a moved student is also in a third active semester.
+   */
   promoteSemester: (semesterId: UUID, body: PromoteBody) =>
     api.post<PromoteResponse>(`/api/admin/semesters/${semesterId}/promote/`, body),
 

@@ -21,7 +21,7 @@ import {
   type Column,
 } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { adminApi, type AdminStudent, type ApiError, type RosterMember, type Semester, type UUID } from '@/lib/api';
+import { adminApi, semesterClashes, type AdminStudent, type ApiError, type RosterMember, type Semester, type UUID } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { formatDate, fullName, levelLabel, levelTermLabel, plural } from '@/lib/format';
 import { useAppConfig, useDebounced, useLoad } from './hooks';
@@ -103,7 +103,18 @@ function AddStudentsDialog({
       onAdded();
       onClose();
     } catch (caught) {
-      setError(toApiError(caught));
+      const problem = toApiError(caught);
+      // The message bar shows it at once (the notice under a long list can be out of view); the
+      // notice keeps it.
+      setError(problem);
+      message.error(problem.message);
+      // Added to another semester meanwhile (nothing was added): let go of them and show where
+      // they are now. The message names them.
+      const clashing = new Set(semesterClashes(problem).map((clash) => clash.profile_id));
+      if (clashing.size) {
+        setPicked((current) => new Map([...current].filter(([id]) => !clashing.has(id))));
+        void results.reload();
+      }
     } finally {
       setSaving(false);
     }
@@ -182,20 +193,39 @@ function AddStudentsDialog({
           <View role="list" accessibilityLabel="Students to add" className="rounded-control border border-border">
             {rows.map((student, index) => {
               const left = leftOn.get(student.id);
-              const where = left
-                ? `Left this semester ${formatDate(left)}`
-                : student.semester
-                  ? `In ${student.semester.label}`
-                  : 'Not in an active semester';
+              // A student is a current member of one active semester only: they leave the other one
+              // first (the server refuses otherwise).
+              const elsewhere = student.semester && student.semester.id !== semester.id ? student.semester : null;
+              const where = elsewhere
+                ? null // said in the note under the row
+                : left
+                  ? `Left this semester ${formatDate(left)}`
+                  : student.semester
+                    ? `In ${student.semester.label}`
+                    : 'Not in an active semester';
+              const description = [
+                levelTermLabel(student.current_level, student.current_semester),
+                where,
+                student.is_verified ? null : 'Waiting for approval',
+              ]
+                .filter(Boolean)
+                .join(' · ');
               return (
                 <View key={student.id} role="listitem" className={index > 0 ? 'border-t border-border px-3' : 'px-3'}>
                   <Checkbox
                     checked={picked.has(student.id)}
                     onChange={() => toggle(student)}
+                    disabled={!!elsewhere}
                     label={`${fullName(student)} · ${student.student_id}`}
-                    description={`${levelTermLabel(student.current_level, student.current_semester)} · ${where}${student.is_verified ? '' : ' · Waiting for approval'}`}
+                    description={description}
                     className="py-1.5"
                   />
+                  {elsewhere ? (
+                    // Full contrast (the row itself is dimmed), lined up with the name.
+                    <Text variant="small" tone="warn" className="pb-2.5 pl-[34px]">
+                      {`Already in ${elsewhere.label}. Remove them from that semester first.`}
+                    </Text>
+                  ) : null}
                 </View>
               );
             })}
