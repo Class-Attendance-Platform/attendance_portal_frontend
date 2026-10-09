@@ -65,6 +65,9 @@ function pathOf(link: string): string {
   return path || '/';
 }
 
+/** The path of a check-in link: `/check-in` (any host). */
+const CHECK_IN_PATH = /(^|\/)check-in$/i;
+
 export type ScannedLink =
   /** A check-in QR: `…/check-in?s=<session id>&c=<6 digits>`. */
   | { kind: 'check-in'; sessionId: string; code: string }
@@ -83,11 +86,39 @@ export function readCheckInLink(data: string | null | undefined): ScannedLink {
   if (!link) return { kind: 'other' };
   const path = pathOf(link).replace(/\/+$/, '');
   if (/\/attendance\/submit$/i.test(path)) return { kind: 'old' };
-  if (!/(^|\/)check-in$/i.test(path)) return { kind: 'other' };
+  if (!CHECK_IN_PATH.test(path)) return { kind: 'other' };
   const params = queryParams(link);
   const code = cleanCode(params.c);
   if (!isSessionId(params.s) || !isCode(code)) return { kind: 'other' };
   return { kind: 'check-in', sessionId: params.s, code };
+}
+
+export type CodeFieldInput =
+  /** Digits for the field (at most 6). */
+  | { kind: 'code'; code: string }
+  /** A whole check-in link: check in with it at once. */
+  | { kind: 'check-in'; sessionId: string; code: string }
+  /** Another link: the field stays empty and shows this note. */
+  | { kind: 'note'; note: string };
+
+/**
+ * What the code field does with typed or pasted text. Digits (also with spaces, dashes or Bengali
+ * digits) are the code; a pasted check-in link checks in. Any other link leaves the field empty with
+ * a note, so digits from an address (a session id, an IP address) never end up as the code.
+ */
+export function readCodeField(text: string | null | undefined): CodeFieldInput {
+  const value = (text ?? '').trim();
+  // A web address has a scheme, "www." or a path ("example.com/watch"); "Code: 482 913" has none.
+  if (!/:\/\/|www\.|\/[a-z]/i.test(value)) return { kind: 'code', code: cleanCode(value) };
+  const link = readCheckInLink(value);
+  if (link.kind === 'check-in') return link;
+  if (link.kind === 'old') {
+    return { kind: 'note', note: 'This link is from the old app and no longer works. Type the 6-digit code.' };
+  }
+  if (CHECK_IN_PATH.test(pathOf(value).replace(/\/+$/, ''))) {
+    return { kind: 'note', note: 'This check-in link is incomplete. Type the 6-digit code instead.' };
+  }
+  return { kind: 'note', note: "That isn't a check-in link. Type the 6-digit code." };
 }
 
 /**
@@ -180,6 +211,12 @@ export type CheckInProblem = {
   final?: boolean;
 };
 
+/** Text as a sentence: trimmed, ending with a full stop, so another sentence can follow. */
+function sentence(text: string): string {
+  const trimmed = text.trim();
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 /**
  * A readable result for a failed check-in. `via`: "link" for a QR link or a scanned QR,
  * "code" for a typed code.
@@ -200,7 +237,8 @@ export function describeCheckInError(
         : {
             tone: 'warn',
             title: "That code didn't work",
-            message: 'It is wrong or has expired. The code changes every 30 seconds: type the newest one.',
+            message:
+              'It is wrong, has expired, or is not for one of your classes. The code changes every 30 seconds: type the newest one.',
             retry: false,
           };
     case 'not_enrolled':
@@ -236,10 +274,28 @@ export function describeCheckInError(
         final: true,
       };
     case 'throttled':
+      // A QR link's code expires before the wait is over: sending it again cannot work.
+      return via === 'link'
+        ? {
+            tone: 'warn',
+            title: 'Too many tries',
+            message: error.message
+              ? `${sentence(error.message)} Then scan the QR again, or type the newest code.`
+              : 'Please wait a minute, then scan the QR again or type the newest code.',
+            retry: false,
+          }
+        : {
+            tone: 'warn',
+            title: 'Too many tries',
+            message: error.message || 'Please wait a minute and try again.',
+            retry: true,
+          };
+    case 'timeout':
+      // No answer within the time limit (lib/api/client.ts gives it status 0 too): not "No connection".
       return {
-        tone: 'warn',
-        title: 'Too many tries',
-        message: error.message || 'Please wait a minute and try again.',
+        tone: 'error',
+        title: 'The server is slow',
+        message: error.message || 'The server took too long to answer. Please try again.',
         retry: true,
       };
     default:
@@ -258,5 +314,61 @@ export function describeCheckInError(
     title: "Couldn't check you in",
     message: error.message || 'Something went wrong. Please try again.',
     retry: true,
+  };
+}
+
+/** The part of a GET /student/live/ row the check-in rules need. */
+export type LiveRow = { session_id: string; checked_in: boolean };
+
+/** Failed check-ins that the fresh "Live now" list explains better (see describeWithLiveList). */
+export function needsLiveList(error: { code?: string | null }, via: 'link' | 'code'): boolean {
+  return error.code === (via === 'link' ? 'session_ended' : 'code_invalid');
+}
+
+/**
+ * describeCheckInError, checked against the "Live now" list asked for right after the failure
+ * (`fresh`; null when it could not be loaded). The server cannot always say what happened: a typed
+ * code is only compared with the student's own live classes, and a QR names one session.
+ * - A closed QR while another class of theirs is open (attendance started again, the next class):
+ *   not final, they scan or type the newest code.
+ * - A typed code that matched nothing: wrong or expired while a class of theirs is open; "closed"
+ *   (final) when the class they came for is gone and nothing is open; "none of your classes" when
+ *   no class of theirs is taking attendance at all.
+ * `sessionId`: the class they came for (the QR's session; `?s=` for a typed code). `listed`: the
+ * list the page showed when they tried (null: not loaded yet).
+ */
+export function describeWithLiveList(
+  error: { code?: string | null; status?: number; message?: string },
+  via: 'link' | 'code',
+  { sessionId, listed = null, fresh }: { sessionId?: string | null; listed?: LiveRow[] | null; fresh: LiveRow[] | null }
+): CheckInProblem {
+  const problem = describeCheckInError(error, via);
+  if (!fresh || !needsLiveList(error, via)) return problem;
+  const open = fresh.filter((row) => !row.checked_in);
+  if (via === 'link') {
+    if (!open.some((row) => row.session_id !== sessionId)) return problem;
+    return {
+      tone: 'warn',
+      title: 'This QR code has closed',
+      message: 'A class of yours is taking attendance now. Scan the newest QR, or type the 6-digit code.',
+      retry: false,
+    };
+  }
+  if (open.length) return problem;
+  // The class they came for: ?s=, else the classes the page showed open (not those shown checked in).
+  const shown = listed ?? [];
+  const cameFor = (sessionId ? [sessionId] : shown.map((row) => row.session_id)).filter(
+    (id) => !shown.some((row) => row.session_id === id && row.checked_in)
+  );
+  if (cameFor.some((id) => !fresh.some((row) => row.session_id === id))) {
+    return describeCheckInError({ code: 'session_ended' }, via);
+  }
+  if (fresh.length) return problem;
+  return {
+    tone: 'warn',
+    title: "That code didn't work",
+    message:
+      "None of your classes is taking attendance right now, so this code can't check you in. If your class is taking attendance, you may not be on its class list: ask your teacher.",
+    retry: false,
   };
 }
