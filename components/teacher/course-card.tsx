@@ -16,7 +16,8 @@ import { courseHref, liveHref } from './labels';
 
 function Figure({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    <View className="min-w-[96px] flex-1 gap-0.5">
+    // justify-between: when a label wraps ("Faces registered"), its value stays level with the others.
+    <View className="min-w-[96px] flex-1 justify-between gap-0.5">
       <Text variant="small" tone={warn ? 'warnInk' : 'muted'}>
         {label}
       </Text>
@@ -33,12 +34,31 @@ export function CourseCard({ course, minPercent }: { course: TeacherCourse; minP
   const live = !!course.live_session_id;
   const finished = !course.semester.is_active;
   const below = course.below_min_count;
+  // On Android the label replaces what the card shows, so it says all of it.
+  const label = [
+    `${course.code}, ${course.title}`,
+    live ? 'Live now' : null,
+    finished ? 'Finished' : null,
+    course.semester.label,
+    [
+      plural(course.student_count, 'student'),
+      `${plural(course.classes_held, 'class', 'classes')} held`,
+      course.average_percent === null ? null : `average attendance ${formatPercent(course.average_percent)}`,
+      `${below} below ${minPercent}%`,
+      `${course.face_registered_count} of ${course.student_count} faces registered`,
+    ]
+      .filter(Boolean)
+      .join(', '),
+    'Open the course.',
+  ]
+    .filter(Boolean)
+    .join('. ');
   return (
     <View className={cn('border border-border bg-surface', isDesktop ? 'rounded-card' : 'rounded-card-phone')}>
       <Link href={courseHref(course.course_info_id)} asChild>
         <Pressable
           role="link"
-          accessibilityLabel={`${course.code}, ${course.title}. ${course.semester.label}. ${plural(course.student_count, 'student')}. Open the course.`}
+          accessibilityLabel={label}
           className={cn('gap-4 p-4 web:hover:bg-bg active:bg-bg', isDesktop ? 'rounded-card p-5' : 'rounded-card-phone', FOCUS_RING)}
         >
           <View className="flex-row items-start gap-3">

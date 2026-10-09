@@ -14,6 +14,8 @@ export const TEACHER_ERRORS = {
   sessionRunning: 'session_running',
   /** Roll call: the date changed since the list was loaded (`version` no longer matches). */
   dateChanged: 'date_changed',
+  /** Roll call: before the semester's start date, or after a finished semester's end date (400). */
+  outsideSemester: 'outside_semester',
 } as const;
 
 export interface TeacherCourse {
@@ -125,14 +127,23 @@ export interface RollCallList extends Ok {
 export interface RollCallBody {
   date: ISODate;
   present_profile_ids: UUID[];
+  /**
+   * Students to mark absent. When sent, students in neither list are left as they are (no mark is
+   * made for them); without it every other student becomes absent. The app always sends it.
+   */
+  absent_profile_ids?: UUID[];
   /** The `version` of the list the page showed. */
   version?: string;
 }
 
 export interface RollCallResponse extends Ok {
   date: ISODate;
+  /** The day status of the students enrolled that date afterwards: present + absent + unmarked = all. */
   present: number;
   absent: number;
+  /** Students with no mark that day. */
+  unmarked: number;
+  /** Students whose saved status changed. */
   changed: number;
 }
 
@@ -158,13 +169,16 @@ export const teacherApi = {
   setAttendance: (courseInfoId: UUID, body: SetAttendanceBody) =>
     api.put<SetAttendanceResponse>(`/api/teacher/course-info/${courseInfoId}/attendance/`, body),
 
-  /** GET /teacher/course-info/<id>/roll-call/?date=: who a roll call for the date covers, with status. */
+  /**
+   * GET /teacher/course-info/<id>/roll-call/?date=: who a roll call for the date covers, with status.
+   * 400 future_date or outside_semester (the message names the semester's dates).
+   */
   rollCallList: (courseInfoId: UUID, date: ISODate) =>
     api.get<RollCallList>(`/api/teacher/course-info/${courseInfoId}/roll-call/`, { date }),
 
   /**
-   * POST /teacher/course-info/<id>/roll-call/: creates or corrects a date's class. 400 future_date;
-   * 409 session_running (a live session that day) or date_changed (stale `version`).
+   * POST /teacher/course-info/<id>/roll-call/: creates or corrects a date's class. 400 future_date or
+   * outside_semester; 409 session_running (a live session that day) or date_changed (stale `version`).
    */
   rollCall: (courseInfoId: UUID, body: RollCallBody) =>
     api.post<RollCallResponse>(`/api/teacher/course-info/${courseInfoId}/roll-call/`, body),

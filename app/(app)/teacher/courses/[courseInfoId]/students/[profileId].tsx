@@ -12,10 +12,12 @@ import { PageHeader } from '@/components/ui/page-header';
 import { StatusPill } from '@/components/ui/pill';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { StatTile } from '@/components/ui/stat-tile';
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
+import { EmptyState, LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
 import { FlipButton, useCorrection } from '@/components/teacher/correction';
 import { courseHref, methodLabel, param } from '@/components/teacher/labels';
+import { CourseLoadError } from '@/components/teacher/load-error';
+import { shownLeftAt } from '@/components/teacher/rules';
 import { membershipNote } from '@/components/teacher/students-tab';
 import { useLoad, useMinPercent } from '@/components/teacher/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
@@ -29,24 +31,27 @@ function changedText(day: StudentDay): string {
   return `${day.changed_by ?? 'Someone'}${day.changed_at ? `, ${formatDateTime(day.changed_at)}` : ''}`;
 }
 
-/** /teacher/courses/[courseInfoId]/students/[profileId]: one student's days in the course, with corrections. */
-/** Which classes count for a student who joined late and/or left (left_at = first day not counted). */
-function countedText(student: { joined_at: string | null; left_at: string | null }): string {
-  if (student.joined_at && student.left_at) {
-    return `Only classes from ${formatDate(student.joined_at)} to ${formatDate(addDays(student.left_at, -1))} count for this student.`;
+/** Which classes count for a student who joined late and/or left (`leftAt` = first day not counted). */
+function countedText(joinedAt: string | null, leftAt: string | null): string {
+  if (joinedAt && leftAt) {
+    return `Only classes from ${formatDate(joinedAt)} to ${formatDate(addDays(leftAt, -1))} count for this student.`;
   }
-  if (student.joined_at) return `Only classes from ${formatDate(student.joined_at)} on count for this student.`;
-  return `Classes from ${formatDate(student.left_at)} on do not count for this student.`;
+  if (joinedAt) return `Only classes from ${formatDate(joinedAt)} on count for this student.`;
+  return `Classes from ${formatDate(leftAt)} on do not count for this student.`;
 }
 
+/** /teacher/courses/[courseInfoId]/students/[profileId]: one student's days in the course, with corrections. */
 export default function TeacherCourseStudent() {
   const params = useLocalSearchParams<{ courseInfoId: string; profileId: string }>();
   const courseInfoId = param(params.courseInfoId) ?? '';
   const profileId = param(params.profileId) ?? '';
-  const { isDesktop } = useBreakpoint();
+  const { width, isDesktop } = useBreakpoint();
+  // A table only when its columns fit next to the sidebar (as in History); rows below that.
+  const wide = width >= 1024;
   const minPercent = useMinPercent();
 
-  const detail = useLoad(() => teacherApi.student(courseInfoId, profileId), [courseInfoId, profileId]);
+  // refreshOnFocus: Back to this page after a change elsewhere (History, a roll call) shows it.
+  const detail = useLoad(() => teacherApi.student(courseInfoId, profileId), [courseInfoId, profileId], { refreshOnFocus: true });
   // The course's code and title for the breadcrumb (not needed for the page to work).
   const course = useLoad(() => teacherApi.course(courseInfoId).then((result) => result.course), [courseInfoId]);
 
@@ -61,8 +66,8 @@ export default function TeacherCourseStudent() {
             }
           : current
       );
-      // The numbers (attended, percent) change too.
-      if (result.changed) void reloadDetail({ quiet: true });
+      // The numbers (attended, percent) change too. Also when nothing changed: the page was out of date.
+      void reloadDetail({ quiet: true });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [reloadDetail]
@@ -77,23 +82,47 @@ export default function TeacherCourseStudent() {
   ];
 
   if (!detail.data) {
+    // A 404 is about the student unless the course itself is gone: the course's answer tells.
+    const waiting = !detail.error || detail.loading || (detail.error.status === 404 && course.loading);
     return (
       <Page>
-        <PageHeader title={detail.loading ? 'Student' : "Couldn't open this student"} breadcrumb={breadcrumb} />
-        <Card>
-          {detail.loading ? (
+        <PageHeader title="Student" breadcrumb={breadcrumb} />
+        {waiting ? (
+          <Card>
             <LoadingState label="Loading the student…" />
-          ) : (
-            <ErrorState message={detail.error?.message ?? 'Not found.'} onRetry={() => detail.reload()} />
-          )}
-        </Card>
+          </Card>
+        ) : (
+          <CourseLoadError
+            error={detail.error!}
+            title="Couldn't open this student"
+            onRetry={() => {
+              void detail.reload();
+              void course.reload();
+            }}
+            missing={
+              course.error?.status === 404
+                ? undefined
+                : {
+                    title: 'Student not found',
+                    message: 'This student is not in this course.',
+                    backLabel: 'Back to the students',
+                    backHref: courseHref(courseInfoId, 'students'),
+                  }
+            }
+          />
+        )}
       </Page>
     );
   }
 
   const { student, days } = detail.data;
   const low = student.percent !== null && student.percent < minPercent;
-  const note = membershipNote(student);
+  // In a finished semester "Left" only when a class was held from that day on (`days` has every
+  // class date, newest first); until the course has loaded, the semester counts as finished.
+  const newestClass = days[0]?.date;
+  const semesterActive = !!course.data?.semester.is_active;
+  const note = membershipNote(student, newestClass, semesterActive);
+  const left = shownLeftAt(student.left_at, newestClass, semesterActive);
   const name = student.name;
   const tile = isDesktop ? undefined : 'min-w-[90px] p-3';
 
@@ -156,7 +185,7 @@ export default function TeacherCourseStudent() {
           <StatTile label="Absent" value={String(Math.max(0, student.held - student.attended))} className={tile} />
         </View>
         {low ? <Notice tone="warn" message={`Below the ${minPercent}% minimum.`} /> : null}
-        {note ? <Notice tone="info" message={`${note}. ${countedText(student)}`} /> : null}
+        {note ? <Notice tone="info" message={`${note}. ${countedText(student.joined_at, left)}`} /> : null}
       </Card>
 
       <Card title="Class days" titleNote={`(${days.length})`} padded={false} className="pb-2">
@@ -166,11 +195,11 @@ export default function TeacherCourseStudent() {
         <View className="mt-3">
           {days.length === 0 ? (
             <EmptyState icon={CalendarX2} title="No classes yet" message="Days show here once the course has a class." />
-          ) : isDesktop ? (
+          ) : wide ? (
             <DataTable label={`${name}'s class days`} columns={columns} rows={days} rowKey={(day) => day.date} />
           ) : (
             days.map((day, index) => (
-              <View key={day.date} className={cn('gap-2 px-4 py-3', index > 0 && 'border-t border-border')}>
+              <View key={day.date} className={cn('gap-2 py-3', isDesktop ? 'px-5' : 'px-4', index > 0 && 'border-t border-border')}>
                 <View className="flex-row items-start justify-between gap-3">
                   <View className="flex-1 gap-0.5">
                     <Text weight="semibold">{formatDateWithWeekday(day.date)}</Text>
