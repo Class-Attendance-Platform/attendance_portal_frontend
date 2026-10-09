@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { Maximize, Plus } from 'lucide-react-native';
+import { Maximize, Plus, WifiOff } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -7,6 +7,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { Icon } from '@/components/ui/icon';
 import { useMessage } from '@/components/ui/message-bar';
 import { Notice } from '@/components/ui/notice';
 import { Pill } from '@/components/ui/pill';
@@ -15,18 +16,24 @@ import { LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { isApiError } from '@/lib/api/client';
-import type { LiveSession } from '@/lib/api/sessions';
+import { SESSION_ERRORS, type LiveSession } from '@/lib/api/sessions';
 import type { Delivery, UUID } from '@/lib/api/types';
 import { formatCode, formatCountdown, formatTime } from '@/lib/format';
 import { colors } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { deliveryLabel, liveHref, methodLabel } from './labels';
+import { enterFullScreen } from './live-screen';
 import type { LiveSessionState } from './use-live-session';
 
 /** Lists longer than this show a "Show all" button. */
 const SHORT_LIST = 8;
 
 const errorText = (caught: unknown, fallback: string) => (isApiError(caught) ? caught.message : fallback);
+
+const isTooLong = (caught: unknown) => isApiError(caught) && caught.code === SESSION_ERRORS.tooLong;
+
+/** Shown when the code is too old for the server to accept (no connection for a while). */
+export const CODE_EXPIRED_TEXT = "The code has expired, so students can't check in right now. Trying again…";
 
 export type LivePanelProps = {
   session: Pick<LiveSession, 'id' | 'delivery'> & { course_info_id?: UUID };
@@ -40,11 +47,14 @@ export function LivePanel({ session, courseInfoId, live }: LivePanelProps) {
   const message = useMessage();
   const { isDesktop } = useBreakpoint();
   const [busy, setBusy] = React.useState<'extend' | 'stop' | 'cancel' | null>(null);
+  // The session reached 30 minutes: no more time can be added.
+  const [maxed, setMaxed] = React.useState(false);
 
   const delivery: Delivery = live.lists?.delivery ?? session.delivery;
   const total = live.lists?.total ?? 0;
   const checkedIn = live.lists?.checked_in.length ?? 0;
   const ended = !!live.end;
+  const code = live.code && !live.codeExpired ? live.code : null;
 
   async function extend() {
     setBusy('extend');
@@ -52,7 +62,23 @@ export function LivePanel({ session, courseInfoId, live }: LivePanelProps) {
       await live.extend(2);
       message.success('Added 2 minutes.');
     } catch (caught) {
-      message.error(errorText(caught, 'Could not add time.'));
+      if (!isTooLong(caught)) {
+        message.error(errorText(caught, 'Could not add time.'));
+        return;
+      }
+      // Less than 2 minutes are left before the 30-minute limit: add the last minute instead.
+      try {
+        await live.extend(1);
+        setMaxed(true);
+        message.success('Added 1 minute. The session is now 30 minutes long.');
+      } catch (again) {
+        if (isTooLong(again)) {
+          setMaxed(true);
+          message.info('The session is already 30 minutes long, the most it can be.');
+        } else {
+          message.error(errorText(again, 'Could not add time.'));
+        }
+      }
     } finally {
       setBusy(null);
     }
@@ -122,11 +148,18 @@ export function LivePanel({ session, courseInfoId, live }: LivePanelProps) {
           className="items-center justify-center rounded-control border border-border bg-surface p-2.5"
           style={{ width: qrSize + 22, height: qrSize + 22 }}
           accessible
-          accessibilityLabel="QR code for check-in"
+          accessibilityLabel={live.codeExpired ? 'The check-in code has expired' : 'QR code for check-in'}
           role="img"
         >
-          {live.code ? (
-            <QRCode value={live.code.check_in_url} size={qrSize} color={colors.text} backgroundColor={colors.surface} ecl="M" />
+          {code ? (
+            <QRCode value={code.check_in_url} size={qrSize} color={colors.text} backgroundColor={colors.surface} ecl="M" />
+          ) : live.codeExpired ? (
+            <View className="items-center gap-2 px-2">
+              <Icon as={WifiOff} size={32} color="warn" />
+              <Text weight="semibold" tone="warnInk" align="center">
+                Code expired
+              </Text>
+            </View>
           ) : (
             <LoadingState label="Loading the code…" className="py-0" />
           )}
@@ -135,8 +168,12 @@ export function LivePanel({ session, courseInfoId, live }: LivePanelProps) {
           <Text variant="small" tone="muted">
             {delivery === 'ONLINE' ? 'Students type this code (or scan the QR on your shared screen)' : 'Students scan the QR, or type this code'}
           </Text>
-          <Text variant="code" tabular accessibilityLabel={live.code ? `Code ${live.code.code.split('').join(' ')}` : 'Code loading'}>
-            {live.code ? formatCode(live.code.code) : '––– –––'}
+          <Text
+            variant="code"
+            tabular
+            accessibilityLabel={code ? `Code ${code.code.split('').join(' ')}` : live.codeExpired ? 'Code expired' : 'Code loading'}
+          >
+            {code ? formatCode(code.code) : '––– –––'}
           </Text>
           <Text variant="small" tone="muted">
             The code changes every 30 seconds
@@ -153,15 +190,24 @@ export function LivePanel({ session, courseInfoId, live }: LivePanelProps) {
         </View>
       </View>
 
-      {live.connectionProblem ? (
+      {live.codeExpired ? (
+        <Notice tone="warn" title="Connection problem" message={CODE_EXPIRED_TEXT} />
+      ) : live.connectionProblem ? (
         <Notice tone="warn" message="Connection problem: the numbers may be a few seconds old. Trying again…" />
       ) : null}
 
       <View className="flex-row flex-wrap items-center justify-between gap-3">
         <View className="flex-row flex-wrap gap-2">
-          <Button label="+2 min" icon={Plus} onPress={extend} loading={busy === 'extend'} disabled={ended || !!busy} />
+          <Button
+            label={maxed ? '30 minutes reached' : '+2 min'}
+            icon={maxed ? undefined : Plus}
+            onPress={extend}
+            loading={busy === 'extend'}
+            disabled={ended || !!busy || maxed}
+          />
+          {/* On the web the press also turns on the browser's full screen (it must come from a press). */}
           <Link href={liveHref(session.id, courseInfoId)} asChild>
-            <Button label="Full screen" icon={Maximize} disabled={ended} />
+            <Button label="Full screen" icon={Maximize} disabled={ended} onPress={enterFullScreen} />
           </Link>
         </View>
         <View className="flex-row flex-wrap gap-2">

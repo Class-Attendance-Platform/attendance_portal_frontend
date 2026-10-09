@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useIsFocused } from 'expo-router';
 import { ClipboardList, History } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -17,6 +17,7 @@ import { formatPercent, plural } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { courseHref, isFinished, rollCallHref } from './labels';
 import { CheckedInList, LivePanel, WaitingList } from './live-panel';
+import { useKeepScreenOn } from './live-screen';
 import { StartSessionCard } from './start-session-card';
 import { useLoad } from './use-load';
 import { endSummary, useLiveSession } from './use-live-session';
@@ -49,7 +50,11 @@ function LiveArea({
   course: TeacherCourse;
   onEnded: (sessionId: UUID, summary: string, saved: boolean) => void;
 }) {
-  const live = useLiveSession(session.id);
+  // A course page stays open under the full-screen page: only the page in view asks the server
+  // (and shows the end), and keeps the screen on.
+  const focused = useIsFocused();
+  const live = useLiveSession(session.id, { paused: !focused });
+  useKeepScreenOn(focused && !!live.lists && !live.end);
   const { width, isDesktop } = useBreakpoint();
   const twoColumns = isDesktop && width >= 1100;
   const ended = React.useRef(false);
@@ -60,10 +65,15 @@ function LiveArea({
     onEnded(session.id, endSummary(live.end), live.end.saved);
   }, [live.end, onEnded, session.id]);
 
-  if (!live.lists && live.error) {
+  // 403 (no longer this teacher's course) is final: no "Try again".
+  if (live.error && (live.error.status === 403 || !live.lists)) {
     return (
       <Card>
-        <ErrorState title="Couldn't load the live session" message={live.error.message} onRetry={live.retry} />
+        <ErrorState
+          title="Couldn't load the live session"
+          message={live.error.message}
+          onRetry={live.error.status === 403 ? undefined : live.retry}
+        />
       </Card>
     );
   }

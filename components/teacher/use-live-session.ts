@@ -3,6 +3,7 @@ import * as React from 'react';
 import { ApiError, toApiError } from '@/lib/api/client';
 import { sessionsApi, type CheckedInStudent, type LiveStatus, type SessionCode } from '@/lib/api/sessions';
 import type { UUID } from '@/lib/api/types';
+import { codeValidUntil } from './live-rules';
 import { CODE_MAX_WAIT_MS, codeRefetchDelay } from './rules';
 
 // One live session, polled: the code (refetched when it changes, at least every 5 s), the
@@ -24,11 +25,19 @@ export type SessionEnd = {
 
 export type LiveSessionState = {
   code: SessionCode | null;
+  /**
+   * No new code came for so long that the server no longer accepts the one on screen (no
+   * connection for 30-60 s): hide it, students can't use it.
+   */
+  codeExpired: boolean;
   lists: LiveLists | null;
   /** Seconds left, counted down locally from the server's time_left. */
   timeLeft: number | null;
   end: SessionEnd | null;
-  /** The first status load failed (nothing to show yet). */
+  /**
+   * The first status load failed (nothing to show yet). A 403 (not this teacher's course) is
+   * final: asking again can't help, so the polling stops.
+   */
   error: ApiError | null;
   /** A later poll failed: the numbers on screen may be old. */
   connectionProblem: boolean;
@@ -40,8 +49,21 @@ export type LiveSessionState = {
   cancel: () => Promise<void>;
 };
 
-export function useLiveSession(sessionId: UUID | null | undefined): LiveSessionState {
+export type LiveSessionOptions = {
+  /**
+   * Stop asking the server, e.g. while the screen is hidden under the full-screen page. The lists
+   * are kept (the code is dropped: it is not refreshed meanwhile); it asks again at once when
+   * unpaused.
+   */
+  paused?: boolean;
+};
+
+export function useLiveSession(
+  sessionId: UUID | null | undefined,
+  { paused = false }: LiveSessionOptions = {}
+): LiveSessionState {
   const [code, setCode] = React.useState<SessionCode | null>(null);
+  const [codeExpired, setCodeExpired] = React.useState(false);
   const [lists, setLists] = React.useState<LiveLists | null>(null);
   const [timeLeft, setTimeLeft] = React.useState<number | null>(null);
   const [end, setEnd] = React.useState<SessionEnd | null>(null);
@@ -49,10 +71,17 @@ export function useLiveSession(sessionId: UUID | null | undefined): LiveSessionS
   const [connectionProblem, setConnectionProblem] = React.useState(false);
   const [attempt, setAttempt] = React.useState(0);
 
+  // The session being polled: null while paused. Answers that come back for anything else
+  // (paused meanwhile, another session) are dropped.
+  const polling = sessionId && !paused ? sessionId : null;
+  const pollingRef = React.useRef<UUID | null>(null);
   // Local clock time when the session ends (from the server's time_left: no clock skew).
   const endsAt = React.useRef<number | null>(null);
+  // Local clock time until which the server still accepts the code on screen.
+  const codeUntil = React.useRef<number | null>(null);
   const endRef = React.useRef<SessionEnd | null>(null);
   const totalRef = React.useRef<number | null>(null);
+  const forbidden = React.useRef(false);
   const statusBusy = React.useRef(false);
   const lastStatusAt = React.useRef(0);
 
@@ -68,13 +97,22 @@ export function useLiveSession(sessionId: UUID | null | undefined): LiveSessionS
     setTimeLeft(Math.max(0, Math.round(seconds)));
   };
 
+  // 403: not this teacher's session (or no longer). Asking again can't help, so polling stops.
+  const stopForbidden = React.useCallback((apiError: ApiError) => {
+    forbidden.current = true;
+    setError(apiError);
+    setConnectionProblem(false);
+  }, []);
+
   const fetchStatus = React.useCallback(async () => {
-    if (!sessionId || endRef.current || statusBusy.current) return;
+    if (!sessionId || pollingRef.current !== sessionId || endRef.current || forbidden.current || statusBusy.current) {
+      return;
+    }
     statusBusy.current = true;
     lastStatusAt.current = Date.now();
     try {
       const status = await sessionsApi.status(sessionId);
-      if (endRef.current) return;
+      if (endRef.current || pollingRef.current !== sessionId) return;
       if (status.active) {
         totalRef.current = status.session.total;
         setLists(status.session);
@@ -85,11 +123,14 @@ export function useLiveSession(sessionId: UUID | null | undefined): LiveSessionS
       setError(null);
       setConnectionProblem(false);
     } catch (caught) {
+      if (endRef.current || pollingRef.current !== sessionId) return;
       const apiError = toApiError(caught);
       if (apiError.status === 404) {
         finish({ how: 'gone', saved: false, totalPresent: null, total: totalRef.current });
       } else if (apiError.status === 410) {
         finish({ how: 'ended', saved: true, totalPresent: null, total: totalRef.current });
+      } else if (apiError.status === 403) {
+        stopForbidden(apiError);
       } else {
         setError((current) => current ?? apiError);
         setConnectionProblem(true);
@@ -97,14 +138,22 @@ export function useLiveSession(sessionId: UUID | null | undefined): LiveSessionS
     } finally {
       statusBusy.current = false;
     }
-  }, [sessionId, finish]);
+  }, [sessionId, finish, stopForbidden]);
+
+  // Before the effects below: they read it.
+  React.useEffect(() => {
+    pollingRef.current = polling;
+  }, [polling]);
 
   // Reset when the session changes.
   React.useEffect(() => {
     endRef.current = null;
     endsAt.current = null;
+    codeUntil.current = null;
     totalRef.current = null;
+    forbidden.current = false;
     setCode(null);
+    setCodeExpired(false);
     setLists(null);
     setTimeLeft(null);
     setEnd(null);
@@ -112,34 +161,50 @@ export function useLiveSession(sessionId: UUID | null | undefined): LiveSessionS
     setConnectionProblem(false);
   }, [sessionId]);
 
+  // Paused: the code is not refreshed meanwhile, so drop it (an old code never shows on return).
+  React.useEffect(() => {
+    if (!paused) return;
+    codeUntil.current = null;
+    setCode(null);
+    setCodeExpired(false);
+  }, [paused]);
+
   // Status: now, then every 5 s.
   React.useEffect(() => {
-    if (!sessionId) return;
+    if (!polling) return;
     void fetchStatus();
     const id = setInterval(() => void fetchStatus(), STATUS_EVERY_MS);
     return () => clearInterval(id);
-  }, [sessionId, fetchStatus, attempt]);
+  }, [polling, fetchStatus, attempt]);
 
   // The code: refetch when it changes, and at least every 5 s.
   React.useEffect(() => {
-    if (!sessionId) return;
+    if (!polling) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const load = async () => {
-      if (!alive || endRef.current) return;
+      if (!alive || endRef.current || forbidden.current) return;
       let wait = CODE_MAX_WAIT_MS;
+      const askedAt = Date.now();
       try {
-        const next = await sessionsApi.code(sessionId);
+        const next = await sessionsApi.code(polling);
         if (!alive) return;
+        codeUntil.current = codeValidUntil(askedAt, next.expires_in, next.period);
         setCode(next);
+        setCodeExpired(false);
         wait = codeRefetchDelay(next.expires_in);
       } catch (caught) {
+        if (!alive) return;
         const apiError = toApiError(caught);
         if (apiError.status === 410 || apiError.status === 404) {
           void fetchStatus();
           return;
         }
-        if (alive) setConnectionProblem(true);
+        if (apiError.status === 403) {
+          stopForbidden(apiError);
+          return;
+        }
+        setConnectionProblem(true);
       }
       if (alive && !endRef.current) timer = setTimeout(load, wait);
     };
@@ -148,19 +213,22 @@ export function useLiveSession(sessionId: UUID | null | undefined): LiveSessionS
       alive = false;
       if (timer) clearTimeout(timer);
     };
-  }, [sessionId, fetchStatus, attempt]);
+  }, [polling, fetchStatus, stopForbidden, attempt]);
 
-  // Time left: every second; at zero ask the server (it saves the session).
+  // Every second: the time left (at zero ask the server: it saves the session), and whether the
+  // code on screen is still accepted.
   React.useEffect(() => {
-    if (!sessionId) return;
+    if (!polling) return;
     const id = setInterval(() => {
-      if (endRef.current || endsAt.current === null) return;
+      if (endRef.current) return;
+      if (codeUntil.current !== null) setCodeExpired(Date.now() > codeUntil.current);
+      if (endsAt.current === null) return;
       const seconds = Math.max(0, Math.round((endsAt.current - Date.now()) / 1000));
       setTimeLeft(seconds);
       if (seconds === 0 && Date.now() - lastStatusAt.current > 1500) void fetchStatus();
     }, 1000);
     return () => clearInterval(id);
-  }, [sessionId, fetchStatus]);
+  }, [polling, fetchStatus]);
 
   const extend = React.useCallback(
     async (minutes = 2) => {
@@ -210,12 +278,13 @@ export function useLiveSession(sessionId: UUID | null | undefined): LiveSessionS
   }, [sessionId, finish]);
 
   const retry = React.useCallback(() => {
+    forbidden.current = false;
     setError(null);
     setConnectionProblem(false);
     setAttempt((value) => value + 1);
   }, []);
 
-  return { code, lists, timeLeft, end, error, connectionProblem, retry, extend, mark, stop, cancel };
+  return { code, codeExpired, lists, timeLeft, end, error, connectionProblem, retry, extend, mark, stop, cancel };
 }
 
 /** "Saved: 10 of 12 present." for a finished session. */
