@@ -13,6 +13,7 @@ import type { TeacherCourse } from '@/lib/api/teacher';
 import { formatPercent, plural } from '@/lib/format';
 import { cn, FOCUS_RING } from '@/lib/utils';
 import { courseHref, liveHref } from './labels';
+import { enterFullScreen } from './live-screen';
 
 function Figure({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
@@ -104,7 +105,7 @@ export function CourseCard({ course, minPercent }: { course: TeacherCourse; minP
             A session is taking attendance now.
           </Text>
           <Link href={liveHref(course.live_session_id!, course.course_info_id)} asChild>
-            <TextLink label="Open full screen" small />
+            <TextLink label="Open full screen" small onPress={enterFullScreen} />
           </Link>
         </View>
       ) : null}

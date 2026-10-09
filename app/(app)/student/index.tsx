@@ -241,7 +241,7 @@ export default function StudentHome() {
 
   return (
     <Page onRefresh={pullBoth}>
-      <PageHeader title={`Hi, ${firstName(user)}`} meta={meta || undefined} />
+      <PageHeader title={`Hi, ${firstName(user)}`} documentTitle="Home" meta={meta || undefined} />
       {liveBanners}
       {body}
     </Page>

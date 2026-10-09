@@ -33,25 +33,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isDesktop } = useBreakpoint();
 
-  if (!user || BARE_ROUTES.some((pattern) => pattern.test(pathname))) {
-    return <View className="flex-1 bg-bg">{children}</View>;
-  }
-
-  const items = NAV[user.role];
-  return isDesktop ? (
-    <View className="flex-1 flex-row bg-bg">
-      <Sidebar user={user} items={items} pathname={pathname} />
-      <View className="flex-1" role="main">
+  // One tree for every case: the screens inside (the Stack) keep their place, so they are not
+  // re-created when the full-screen page opens or closes, or the window crosses 768 px.
+  const shellUser = user && !BARE_ROUTES.some((pattern) => pattern.test(pathname)) ? user : null;
+  const items = shellUser ? NAV[shellUser.role] : [];
+  return (
+    <View className={cn('flex-1 bg-bg', shellUser && isDesktop && 'flex-row')}>
+      {shellUser && isDesktop ? <Sidebar user={shellUser} items={items} pathname={pathname} /> : null}
+      {shellUser && !isDesktop ? <TopBar user={shellUser} /> : null}
+      <View className="flex-1" role={shellUser ? 'main' : undefined}>
         {children}
       </View>
-    </View>
-  ) : (
-    <View className="flex-1 bg-bg">
-      <TopBar user={user} />
-      <View className="flex-1" role="main">
-        {children}
-      </View>
-      <TabBar items={items} pathname={pathname} />
+      {shellUser && !isDesktop ? <TabBar items={items} pathname={pathname} /> : null}
     </View>
   );
 }

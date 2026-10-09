@@ -56,14 +56,20 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
 - Each area keeps its pieces in `components/<area>/` (screens import them; other areas may too):
   - `student/`: `CheckInFlow` (code entry + results; used by both check-in routes), `QrScanner`
     (Android only), `LiveBanner` + `use-live-sessions` (GET /student/live/ every 25 s while shown),
-    `CourseRow`, `FaceCapture` (3 poses, countdown, consent), `FaceReminder`, `use-load`; `logic.ts`
-    (pure, no imports: link parsing, code cleaning, catch-up text; `tests/student-logic.test.mjs`).
+    `CourseRow`, `FaceCapture` (3 poses, countdown, consent), `FaceReminder`, `use-load` (also reloads
+    quietly when the student comes back to the app or tab; `pull` for pull to refresh on phones),
+    `use-camera-permission` (read again on app or screen return); `logic.ts` (pure, no imports: link
+    parsing, code cleaning, check-in errors, catch-up text; `tests/student-logic.test.mjs`,
+    `tests/checkin-logic.test.mjs`), `camera-errors.ts` (pure: camera error words).
   - `teacher/`: the course tabs (`attendance-tab`, `students-tab`, `history-tab`, `export-form`),
     `start-session-card`, `live-panel` + `use-live-session` (code refetched as it changes, lists every
     5 s; a running session reopens after reload), `correction`, `choice-group` (`ChoiceGroup`,
     `AttendanceToggle`), `month-calendar`, `face-photos`, `course-card`, `labels.ts` (hrefs, words),
-    `use-load`; `rules.ts` (pure; `tests/teacher-rules.test.mjs`). `export-form`'s `ExportDialog` is
-    also the admin attendance page's export.
+    `use-load`, `load-error` (403/404 states without a useless Try again); `rules.ts` (pure, roll call
+    marks; `tests/teacher-rules.test.mjs`, `tests/teacher-roll-call.test.mjs`), `live-rules.ts` (pure:
+    how long a code is accepted, projector sizes), `live-screen.ts` (keeps the screen on with
+    expo-keep-awake, browser full screen), `face-review.ts` (pure: the class-photo review, earlier
+    corrections kept). `export-form`'s `ExportDialog` is also the admin attendance page's export.
   - `admin/`: `hooks` (`useLoad`, `useDebounced`), `parts` (`LoadBlock`, `ResponsiveList`, `ChoiceCard`,
     …), student/teacher/semester dialogs, `semester-roster` / `-courses` / `-promote`, `password`
     (temporary passwords and admin reset), `files` (CSV in the browser), `options`. Android has no
@@ -75,9 +81,11 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   Button/IconButton, TextField, PasswordField, SearchField, Select, Checkbox, DateField, Dialog,
   ConfirmDialog (`useConfirm`; mounts only while asking, so it shows on top of an open Dialog),
   MessageBar (`useMessage`), Notice, Card, StatTile, Pill/StatusPill, ProgressBar, Tabs (`?tab=`;
-  `dense` for four tabs on a phone), DataTable, ListRow, Empty/Error/LoadingState, PageHeader, Avatar,
-  TextLink.
-- `components/layout/`: `AppShell` (sidebar ≥ 768 px; phones: top bar + tab bar + "More"), `nav.ts`
+  `dense` for four tabs on a phone), DataTable, ListRow, Empty/Error/LoadingState, PageHeader (crumbs
+  go back with `dismissTo`; `documentTitle`), Avatar, TextLink, `DocumentTitle` (the browser tab's
+  title; PageHeader and PublicPage set it), `keys.ts` (Space/arrow keys for checkboxes and radios).
+- `components/layout/`: `AppShell` (sidebar ≥ 768 px; phones: top bar + tab bar + "More"; one tree
+  for every case so the screens are never re-created when the live page or the width changes), `nav.ts`
   (role nav), `RequireAuth` (guards), `Page`, `PublicPage`; `PlaceholderPage` / `PublicPlaceholder`
   (unused now, kept for future screens).
 - `lib/api/`: `client.ts` (axios, Bearer token, refresh with **rotation**, session-expiry handler,
@@ -102,14 +110,15 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   others; signing in there with another account signs this tab out too.
   `hooks/useBreakpoint.ts` (768 px). `hooks/useAppConfig.ts` GET /config/app/ once per app start
   (minimum %, levels, terms, app name; defaults until it answers). `hooks/useLeaveGuard.ts` asks
-  before unsaved work is dropped (back: `useConfirm`; web reload/close: the browser asks; the desktop
-  app asks in `main.js`): roll call, import passwords. `hooks/useKeyboardOverlap.ts`: Android draws
-  edge to edge, so the window no longer shrinks for the keyboard; `Page`, `PublicPage` and `Dialog`
+  before unsaved work is dropped (back: `useConfirm`; browser Back/Forward on the web: the page stays
+  and asks, `hooks/leaveGuardHistory.ts`; web reload/close: the browser asks; the desktop app asks
+  in `main.js`): roll call, class-photo review, import passwords. `hooks/useKeyboardOverlap.ts`:
+  Android draws edge to edge, so the window no longer shrinks for the keyboard; `Page`, `PublicPage` and `Dialog`
   pad by the covered height (not testable on the web: check on a phone).
 - `desktop/` own npm project (Electron 42 + electron-builder): `main.js` opens the live web app in a
-  locked-down window (no Node, other sites open in the browser, camera allowed for the portal only,
-  `offline.html` when unreachable; keeps the old "Class Attendance Portal" data folder so people stay
-  signed in). Web updates reach it without a new installer.
+  locked-down window (no Node, other sites open in the browser, camera and screen wake lock allowed
+  for the portal only, `offline.html` when unreachable; keeps the old "Class Attendance Portal" data
+  folder so people stay signed in). Web updates reach it without a new installer.
 - `android/` committed prebuild (**never run `expo prebuild`**); `MainActivity.kt` / `MainApplication.kt`
   live in `app/src/main/java/com/grinch/classattendanceportal/` (the package must match the
   namespace); `app/build.gradle` takes the version

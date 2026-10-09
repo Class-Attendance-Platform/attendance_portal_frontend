@@ -1,5 +1,4 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
-import Head from 'expo-router/head';
 import { CircleCheck, LogOut, WifiOff } from 'lucide-react-native';
 import * as React from 'react';
 import { ScrollView, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
@@ -8,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { DocumentTitle } from '@/components/ui/document-title';
 import { Icon } from '@/components/ui/icon';
 import { Pill } from '@/components/ui/pill';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -191,9 +191,7 @@ export default function TeacherLiveScreen() {
       className="flex-1 bg-surface"
       style={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16, paddingLeft: insets.left + 20, paddingRight: insets.right + 20 }}
     >
-      <Head>
-        <title>{`${course ? `${course.code} live session` : 'Live session'} · HSTU Attendance Portal`}</title>
-      </Head>
+      <DocumentTitle page={course ? `${course.code} live session` : 'Live session'} />
       <View className="flex-row flex-wrap items-center justify-between gap-3">
         <View className="flex-shrink gap-1">
           <View className="flex-row flex-wrap items-center gap-2">

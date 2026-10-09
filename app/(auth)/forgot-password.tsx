@@ -72,7 +72,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <GuestOnly>
-      <PublicPage footerLinks={[{ label: 'About this app', href: '/about' }]}>
+      <PublicPage title="Forgot password" footerLinks={[{ label: 'About this app', href: '/about' }]}>
         <Card className="gap-5">
           {sent ? (
             <>

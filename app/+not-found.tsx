@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/states';
 
 export default function NotFoundScreen() {
   return (
-    <PublicPage footerLinks={[{ label: 'About this app', href: '/about' }]}>
+    <PublicPage title="Page not found" footerLinks={[{ label: 'About this app', href: '/about' }]}>
       <Card>
         <EmptyState
           icon={MapPinOff}
