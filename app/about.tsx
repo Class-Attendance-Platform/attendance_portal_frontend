@@ -46,6 +46,7 @@ export default function AboutScreen() {
 
   return (
     <PublicPage
+      title="About this app"
       width="wide"
       footerLinks={user ? [{ label: 'Back to the portal', href: homeFor(user.role) }] : [{ label: 'Sign in', href: '/login' }]}
     >

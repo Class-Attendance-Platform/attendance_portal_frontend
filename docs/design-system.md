@@ -51,8 +51,8 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | `TextField` | Text input with `label`, `hint`, `error`. Errors are announced. |
 | `PasswordField` | Password with show/hide; `autoComplete="new-password"` when choosing one. |
 | `SearchField` | Search box with clear button (label hidden but read). |
-| `Select` | Pick one from a list (opens a dialog; same on web and phones). |
-| `Checkbox` | On/off with its label; the whole row is the target. |
+| `Select` | Pick one from a list (opens a dialog; same on web and phones; arrow keys move, Space/Enter choose). |
+| `Checkbox` | On/off with its label; the whole row is the target; Space ticks it on the web. |
 | `DateField` | A date as "05 Oct 2026", calendar grid; `noFuture` for attendance dates (Dhaka time). |
 | `Dialog` | A centred dialog; closes on the X, backdrop, Android back and Escape (unless `dismissable={false}`). |
 | `useConfirm()` | Yes/no questions: `if (await confirm({ title, message, destructive: true }))`. Never `Alert.alert`. Works from inside an open dialog too (the question mounts on top). |
@@ -66,7 +66,7 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | `DataTable` | Tables at ≥ 768 px (in a `Card padded={false}`). |
 | `ListRow` | The same rows on phones, or short lists anywhere. |
 | `EmptyState` / `ErrorState` / `LoadingState` | Nothing yet (say why, offer the action) / failed with Retry / plain spinner with "Loading…". |
-| `PageHeader` | Top of every page: breadcrumb, title, meta line, actions. |
+| `PageHeader` | Top of every page: breadcrumb (crumbs go back with `dismissTo`), title, meta line, actions; sets the browser tab title (`documentTitle` when the title is a greeting). |
 | `Avatar` | Initials in a circle (no photos). |
 | `TextLink` | Green link text; wrap in `<Link href asChild>` to navigate. Its touch box is 44 px tall but takes only the text's line in the layout, so keep 13 px (small) / 11 px (body) free above and below it, or the box covers its neighbours. |
 

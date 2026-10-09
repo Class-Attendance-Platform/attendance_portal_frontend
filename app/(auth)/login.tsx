@@ -82,7 +82,7 @@ export default function LoginScreen() {
   const checkingIn = redirect?.startsWith('/check-in') || redirect?.startsWith('/student/check-in');
 
   return (
-    <PublicPage footerLinks={[{ label: 'About this app', href: '/about' }]}>
+    <PublicPage title="Sign in" footerLinks={[{ label: 'About this app', href: '/about' }]}>
       <Card className="gap-5">
         <FormHeading title="Sign in" lead="Use the email address of your portal account." />
 
