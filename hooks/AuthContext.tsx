@@ -98,16 +98,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return signedIn;
   }, []);
 
-  const refreshUser = useCallback(async () => {
+  // One profile request at a time per sign-in: the start-up refresh and the account page's own
+  // share it.
+  const userRequest = useRef<{ generation: number; promise: Promise<User | null> } | null>(null);
+
+  const refreshUser = useCallback(() => {
     const generation = sessionGeneration();
-    const response = await authApi.me();
-    if (generation !== sessionGeneration()) return null; // signed out meanwhile
-    const fresh = normaliseUser(response.user);
-    if (!fresh) return null;
-    setUserState(fresh);
-    // Save only the profile: the tokens may have been refreshed (rotated) meanwhile.
-    await updateSession({ user: fresh }, { onlyIfSaved: true, userId: fresh.id });
-    return fresh;
+    if (userRequest.current?.generation === generation) return userRequest.current.promise;
+    const promise = (async () => {
+      const response = await authApi.me();
+      if (generation !== sessionGeneration()) return null; // signed out meanwhile
+      const fresh = normaliseUser(response.user);
+      if (!fresh) return null;
+      setUserState(fresh);
+      // Save only the profile: the tokens may have been refreshed (rotated) meanwhile.
+      await updateSession({ user: fresh }, { onlyIfSaved: true, userId: fresh.id });
+      return fresh;
+    })();
+    const entry = { generation, promise };
+    userRequest.current = entry;
+    const done = () => {
+      if (userRequest.current === entry) userRequest.current = null;
+    };
+    promise.then(done, done);
+    return promise;
   }, []);
 
   // Restore the saved login at start-up, then refresh the profile in the background.
@@ -135,9 +149,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [refreshUser]);
 
-  // The server no longer accepts this login (e.g. not used for a long time): sign out here.
+  // The server no longer accepts this login (e.g. not used for a long time, password changed,
+  // account disabled): sign out here.
   useEffect(() => {
-    setSessionExpiredHandler((refused) => {
+    setSessionExpiredHandler((refused, reason) => {
       const current = userRef.current;
       if (!current) return;
       const saved = readWebTokens();
@@ -152,7 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         case 'clear':
           forget();
-          message.info('Your sign-in has expired. Please sign in again.');
+          // The server's words when it said why ("Your password was changed. …", "This account
+          // has been disabled. …").
+          message.info(reason?.message || 'Your sign-in has expired. Please sign in again.');
       }
     });
     return () => setSessionExpiredHandler(null);

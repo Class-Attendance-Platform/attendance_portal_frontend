@@ -54,7 +54,25 @@ export async function loadSession(): Promise<StoredSession | null> {
     return user ? { user: JSON.parse(user), accessToken, refreshToken } : null;
   } catch (e) {
     console.error('Failed to load the saved login.', e);
+    // Web: a damaged entry is no login; drop it so the next sign-in starts clean.
+    if (isWeb) {
+      try {
+        localStorage.removeItem(WEB_SESSION_KEY);
+      } catch {
+        // storage not available
+      }
+    }
     return null;
+  }
+}
+
+/** Web: the saved entry as an object; {} when there is none or it is damaged (it is replaced). */
+function readWebEntry(): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WEB_SESSION_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
   }
 }
 
@@ -111,8 +129,7 @@ export function updateSession(
       if (userId && saved?.id != null && String(saved.id) !== userId) return;
     }
     if (isWeb) {
-      const current = JSON.parse(localStorage.getItem(WEB_SESSION_KEY) || '{}');
-      localStorage.setItem(WEB_SESSION_KEY, JSON.stringify({ ...current, ...changes }));
+      localStorage.setItem(WEB_SESSION_KEY, JSON.stringify({ ...readWebEntry(), ...changes }));
       return;
     }
     await Promise.all(
