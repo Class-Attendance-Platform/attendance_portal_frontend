@@ -4,6 +4,7 @@ import { View } from 'react-native';
 
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { cn } from '@/lib/utils';
+import { DocumentTitle } from './document-title';
 import { Text } from './text';
 import { TextLink } from './text-link';
 
@@ -11,6 +12,8 @@ export type Crumb = { label: string; href?: Href };
 
 export type PageHeaderProps = {
   title: string;
+  /** The browser tab's name for the page when the title is not one (e.g. "Home" for "Hi, Ayesha"). */
+  documentTitle?: string;
   /** Where this page sits, e.g. [{label: 'My courses', href: '/teacher'}, {label: 'CSE 301'}]. */
   breadcrumb?: Crumb[];
   /** One muted line under the title: "CSE 301 · Level 3 · Term I · 42 students". */
@@ -19,11 +22,15 @@ export type PageHeaderProps = {
   actions?: React.ReactNode;
 };
 
-/** The top of every page: breadcrumb, title (26 px desktop, 20 px phone), meta line, actions. */
-export function PageHeader({ title, breadcrumb, meta, actions }: PageHeaderProps) {
+/**
+ * The top of every page: breadcrumb, title (26 px desktop, 20 px phone), meta line, actions. It
+ * also names the page in the browser tab ("CSE 301 · HSTU Attendance Portal").
+ */
+export function PageHeader({ title, documentTitle, breadcrumb, meta, actions }: PageHeaderProps) {
   const { isDesktop } = useBreakpoint();
   return (
     <View className="flex-row flex-wrap items-end justify-between gap-4">
+      <DocumentTitle page={documentTitle ?? title} />
       <View className="min-w-[220px] flex-1 gap-1">
         {breadcrumb?.length ? (
           // The links' 44 px touch areas reach 13 px above and below the text: on top of the title
@@ -42,7 +49,9 @@ export function PageHeader({ title, breadcrumb, meta, actions }: PageHeaderProps
                   </Text>
                 ) : null}
                 {crumb.href ? (
-                  <Link href={crumb.href} asChild>
+                  // dismissTo: back to that page when it is under this one (else it replaces this
+                  // one), so going up never piles up screens, and a page with unsaved work asks.
+                  <Link href={crumb.href} dismissTo asChild>
                     <TextLink label={crumb.label} small />
                   </Link>
                 ) : (

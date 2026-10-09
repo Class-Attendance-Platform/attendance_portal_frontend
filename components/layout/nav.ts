@@ -23,6 +23,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Active only on this exact path (role homes); otherwise also on sub-pages. */
   exact?: boolean;
+  /** Other pages that belong to this item (exact paths), e.g. the QR link page for "Check in". */
+  also?: string[];
   /** In the phone tab bar. Other items go under "More", unless `phoneHidden`. */
   tab?: boolean;
   /** Not in the phone navigation at all (the page links to it elsewhere). */
@@ -35,7 +37,8 @@ const ACCOUNT: NavItem = { label: 'Account', href: '/account', icon: CircleUserR
 export const NAV: Record<Role, NavItem[]> = {
   STUDENT: [
     { label: 'Home', href: '/student', icon: House, exact: true, tab: true },
-    { label: 'Check in', href: '/student/check-in', icon: ScanLine, tab: true },
+    // /check-in is where a teacher's QR code leads (the phone camera opens it).
+    { label: 'Check in', href: '/student/check-in', icon: ScanLine, tab: true, also: ['/check-in'] },
     { label: 'Courses', href: '/student/courses', icon: BookOpen, tab: true },
     // On phones the home page and the account page link to face registration.
     { label: 'Face registration', shortLabel: 'Face', href: '/student/face', icon: ScanFace, phoneHidden: true },
@@ -55,6 +58,7 @@ export const NAV: Record<Role, NavItem[]> = {
 };
 
 export function isActive(item: NavItem, pathname: string): boolean {
+  if (item.also?.some((path) => pathname === path || pathname === `${path}/`)) return true;
   if (item.exact) return pathname === item.href || pathname === `${item.href}/`;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }

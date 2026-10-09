@@ -3,6 +3,7 @@ import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
+import { radioKeys } from '@/components/ui/keys';
 import { Text } from '@/components/ui/text';
 import type { AttendanceStatus } from '@/lib/api/types';
 import { colors, type ColorToken } from '@/lib/theme';
@@ -37,7 +38,9 @@ const CHOSEN: Record<'primary' | 'absent', { box: string; ink: ColorToken }> = {
 
 /**
  * A row of options where one is chosen (radio buttons that look like a segmented control).
- * Each option is at least 44 px tall. No animation.
+ * Each option is at least 44 px tall. No animation. Keyboard (web): the group is one Tab stop (the
+ * chosen option, else the first); the arrow keys move to the next or previous option and choose
+ * it; Space or Enter chooses the focused one.
  */
 export function ChoiceGroup<T extends string | number>({
   label,
@@ -49,23 +52,40 @@ export function ChoiceGroup<T extends string | number>({
   fill,
   className,
 }: ChoiceGroupProps<T>) {
+  const optionRefs = React.useRef<(View | null)[]>([]);
+  const chosenIndex = choices.findIndex((choice) => choice.value === value);
+  const choose = (choice: Choice<T>) => {
+    if (choice.value !== value) onChange(choice.value);
+  };
   return (
     <View role="radiogroup" accessibilityLabel={label} className={cn('flex-row flex-wrap gap-2', fill && 'flex-nowrap', className)}>
-      {choices.map((choice) => {
-        const chosen = choice.value === value;
+      {choices.map((choice, index) => {
+        const chosen = index === chosenIndex;
         const style = CHOSEN[choice.tone ?? 'primary'];
         const ink: ColorToken = chosen ? style.ink : 'muted';
         return (
           <Pressable
             key={String(choice.value)}
+            ref={(node) => {
+              optionRefs.current[index] = node;
+            }}
             role="radio"
             aria-checked={chosen}
             accessibilityState={{ checked: chosen, selected: chosen, disabled: !!disabled }}
             accessibilityLabel={choice.label}
             disabled={disabled}
-            onPress={() => {
-              if (!chosen) onChange(choice.value);
-            }}
+            onPress={() => choose(choice)}
+            {...radioKeys({
+              index,
+              count: choices.length,
+              tabStop: index === Math.max(chosenIndex, 0),
+              disabled,
+              onPick: () => choose(choice),
+              onMove: (next) => {
+                optionRefs.current[next]?.focus();
+                choose(choices[next]);
+              },
+            })}
             className={cn(
               'min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-control border px-3.5',
               chosen ? style.box : 'border-border bg-surface web:hover:bg-bg active:bg-bg',

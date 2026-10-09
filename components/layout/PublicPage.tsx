@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Image, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DocumentTitle } from '@/components/ui/document-title';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
@@ -13,6 +14,8 @@ const LOGO = require('@/assets/images/hstu.png');
 
 export type PublicPageProps = {
   children: React.ReactNode;
+  /** The page's name in the browser tab, e.g. "Sign in" ("Sign in · HSTU Attendance Portal"). */
+  title?: string;
   /** Content width: narrow 420 (forms, default) or wide 720 (reading). */
   width?: 'narrow' | 'wide';
   /** Links under the content, e.g. [{label: 'About', href: '/about'}]. */
@@ -20,7 +23,7 @@ export type PublicPageProps = {
 };
 
 /** Pages without the signed-in shell (sign-in, about): logo and name on top, a centred column. */
-export function PublicPage({ children, width = 'narrow', footerLinks }: PublicPageProps) {
+export function PublicPage({ children, title, width = 'narrow', footerLinks }: PublicPageProps) {
   const insets = useSafeAreaInsets();
   const { isDesktop } = useBreakpoint();
   // Phones: room for the on-screen keyboard (see useKeyboardOverlap).
@@ -28,6 +31,8 @@ export function PublicPage({ children, width = 'narrow', footerLinks }: PublicPa
   const keyboard = useKeyboardOverlap(frame);
   return (
     <View ref={frame} className="flex-1 bg-bg" style={keyboard ? { paddingBottom: keyboard } : undefined}>
+      {/* Always set, so a signed-in page's title never stays on after signing out. */}
+      <DocumentTitle page={title} />
       <ScrollView
         className="flex-1"
         overScrollMode="never"

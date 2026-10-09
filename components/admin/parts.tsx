@@ -12,6 +12,7 @@ import {
   LoadingState,
   Notice,
   Pill,
+  spaceKey,
   Text,
   type Column,
 } from '@/components/ui';
@@ -240,6 +241,7 @@ export function ChoiceCard({
       accessibilityState={{ checked: selected, selected }}
       accessibilityLabel={description ? `${label}, ${description}` : label}
       onPress={onPress}
+      {...spaceKey(onPress)}
       className={cn(
         'min-h-[44px] min-w-[220px] flex-1 flex-row items-start gap-3 rounded-control border p-3',
         selected ? 'border-primary bg-primary-soft' : 'border-border bg-surface active:bg-bg web:hover:bg-bg',

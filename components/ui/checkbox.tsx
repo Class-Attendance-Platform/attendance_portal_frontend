@@ -3,7 +3,9 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { cn, FOCUS_RING } from '@/lib/utils';
+import { describedBy } from './field';
 import { Icon } from './icon';
+import { spaceKey } from './keys';
 import { Text } from './text';
 
 export type CheckboxProps = {
@@ -18,17 +20,22 @@ export type CheckboxProps = {
   className?: string;
 };
 
-/** A 22 px box with its label; the whole row (at least 44 px tall) is the target. */
+/** A 22 px box with its label; the whole row (at least 44 px tall) is the target. Space ticks it too. */
 export function Checkbox({ checked, onChange, label, description, hideLabel, disabled, className }: CheckboxProps) {
+  const descriptionId = React.useId();
+  const showDescription = !!description && !hideLabel;
   return (
     <Pressable
       role="checkbox"
       accessibilityLabel={label}
       accessibilityHint={description}
+      // Web: screen readers read the label only (the hint is for phones), so point at the second line.
+      {...describedBy(descriptionId, showDescription)}
       accessibilityState={{ checked, disabled: !!disabled }}
       aria-checked={checked}
       disabled={disabled}
       onPress={() => onChange(!checked)}
+      {...spaceKey(() => onChange(!checked), disabled)}
       className={cn(
         'min-h-[44px] flex-row items-center gap-3 rounded-control',
         hideLabel ? 'min-w-[44px] justify-center' : 'self-start pr-2',
@@ -49,7 +56,7 @@ export function Checkbox({ checked, onChange, label, description, hideLabel, dis
         <View className="flex-shrink gap-0.5">
           <Text>{label}</Text>
           {description ? (
-            <Text variant="small" tone="muted">
+            <Text variant="small" tone="muted" nativeID={descriptionId}>
               {description}
             </Text>
           ) : null}

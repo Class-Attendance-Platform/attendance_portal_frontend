@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View } from 'react-native';
 
+import { formatPercent } from '@/lib/percent';
 import { colors } from '@/lib/theme';
 
 export type ProgressBarProps = {
@@ -26,9 +27,10 @@ export function ProgressBar({ value, label, min, thin }: ProgressBarProps) {
       accessibilityLabel={label}
       aria-valuemin={0}
       aria-valuemax={100}
-      // No value (e.g. no classes held yet, shown as "—"): no number, not "0 percent".
-      aria-valuenow={known ? Math.round(clamped) : undefined}
-      aria-valuetext={known ? undefined : 'No classes yet'}
+      // Rounded down like every percent on screen (74.5 is read as 74, never 75). No value (e.g.
+      // no classes held yet, shown as "—"): no number, not "0 percent".
+      aria-valuenow={known ? Math.floor(clamped + 1e-9) : undefined}
+      aria-valuetext={known ? formatPercent(clamped) : 'No classes yet'}
       style={{ height, borderRadius: height / 2, backgroundColor: colors.track, overflow: 'hidden' }}
     >
       <View style={{ width: `${clamped}%`, height: '100%', backgroundColor: low ? colors.warn : colors.primary }} />

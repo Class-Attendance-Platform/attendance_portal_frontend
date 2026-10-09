@@ -19,7 +19,12 @@ import { MessageProvider } from '@/components/ui/message-bar';
 import { ErrorState } from '@/components/ui/states';
 import { FontsReadyProvider } from '@/components/ui/text';
 import { AuthProvider } from '@/hooks/AuthContext';
+import { watchBrowserHistory } from '@/hooks/useLeaveGuard';
 import { colors, NAV_THEME } from '@/lib/theme';
+
+// Web: the browser's Back button asks before unsaved work is dropped (useLeaveGuard). Set up as
+// the app loads, before expo-router starts listening to the browser history.
+watchBrowserHistory();
 
 /** Shown instead of a screen that crashed. */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
