@@ -18,10 +18,17 @@ export type MonthCalendarProps = {
   classes: Map<string, ClassDate>;
   selected: string | null;
   onSelect: (date: string) => void;
+  /** `YYYY-MM-DD`: days without a class before it are off (before the semester started). */
+  minDate?: string | null;
+  /** `YYYY-MM-DD`: days without a class after it are off (after a finished semester ended). */
+  maxDate?: string | null;
 };
 
-/** A month grid (Sunday first) that marks the class dates. No animation. Future days are off. */
-export function MonthCalendar({ year, month, onMonthChange, classes, selected, onSelect }: MonthCalendarProps) {
+/**
+ * A month grid (Sunday first) that marks the class dates. No animation. Future days are off, and
+ * so are days without a class outside `minDate`–`maxDate` (a class there still opens).
+ */
+export function MonthCalendar({ year, month, onMonthChange, classes, selected, onSelect, minDate, maxDate }: MonthCalendarProps) {
   const today = todayISO();
   const weeks = monthGrid(year, month);
   return (
@@ -58,20 +65,20 @@ export function MonthCalendar({ year, month, onMonthChange, classes, selected, o
             {week.map((day, column) => {
               if (!day) return <View key={column} className="h-11 flex-1" />;
               const info = classes.get(day);
-              const future = isFutureDate(day);
+              const off = isFutureDate(day) || (!info && ((!!minDate && day < minDate) || (!!maxDate && day > maxDate)));
               const isSelected = day === selected;
               const isToday = day === today;
               const label = `${formatDateWithWeekday(day)}${isToday ? ', today' : ''}${
                 info ? `, class: ${info.present} of ${info.total} present` : ', no class'
-              }${future ? ', not available' : ''}`;
+              }${off ? ', not available' : ''}`;
               return (
                 <View key={column} className="flex-1 items-center">
                   <Pressable
                     role="button"
                     accessibilityLabel={label}
-                    accessibilityState={{ selected: isSelected, disabled: future }}
+                    accessibilityState={{ selected: isSelected, disabled: off }}
                     aria-pressed={isSelected}
-                    disabled={future}
+                    disabled={off}
                     onPress={() => onSelect(day)}
                     className={cn(
                       'h-11 w-11 items-center justify-center rounded-control',
@@ -79,7 +86,7 @@ export function MonthCalendar({ year, month, onMonthChange, classes, selected, o
                         ? 'bg-primary'
                         : info
                           ? 'bg-primary-soft web:hover:bg-primary-soft'
-                          : future
+                          : off
                             ? ''
                             : 'web:hover:bg-bg active:bg-bg',
                       isToday && !isSelected ? 'border border-primary' : '',
@@ -89,8 +96,8 @@ export function MonthCalendar({ year, month, onMonthChange, classes, selected, o
                     <Text
                       tabular
                       weight={info || isSelected || isToday ? 'semibold' : 'regular'}
-                      tone={isSelected ? 'inverse' : info ? 'primary' : future ? 'muted' : 'default'}
-                      style={future ? { opacity: 0.55 } : undefined}
+                      tone={isSelected ? 'inverse' : info ? 'primary' : off ? 'muted' : 'default'}
+                      style={off ? { opacity: 0.55 } : undefined}
                     >
                       {Number(day.slice(8, 10))}
                     </Text>

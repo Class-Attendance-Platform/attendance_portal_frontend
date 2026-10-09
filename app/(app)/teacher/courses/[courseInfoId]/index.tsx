@@ -1,4 +1,4 @@
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ClipboardList, Download } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Notice } from '@/components/ui/notice';
 import { PageHeader } from '@/components/ui/page-header';
-import { ErrorState, LoadingState } from '@/components/ui/states';
+import { LoadingState } from '@/components/ui/states';
 import { Tabs, useTab, type TabItem } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { AttendanceTab } from '@/components/teacher/attendance-tab';
 import { ExportDialog, ExportForm } from '@/components/teacher/export-form';
 import { HistoryTab } from '@/components/teacher/history-tab';
 import { courseHref, courseMeta, isFinished, param, rollCallHref } from '@/components/teacher/labels';
+import { CourseLoadError } from '@/components/teacher/load-error';
+import { LIVE_CHECK_MS, liveCheckDelay, rollCallRange } from '@/components/teacher/rules';
 import { StudentsTab } from '@/components/teacher/students-tab';
 import { useLoad, useMinPercent } from '@/components/teacher/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
@@ -42,20 +44,52 @@ export default function TeacherCourse() {
   const course = detail.data?.course;
   const breadcrumb = [{ label: 'My courses', href: '/teacher' as const }, { label: course?.code ?? 'Course' }];
 
+  // While another tab says "Taking attendance now", ask now and then whether the session still
+  // runs (the server saves one whose time is up when asked); once it ended, reload, so the notice
+  // goes and History shows the new date.
+  const liveId = course?.live_session_id ?? null;
+  const watchLive = !!liveId && tab !== 'attendance';
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!watchLive) return undefined;
+      let stopped = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const check = (delay: number) => {
+        timer = setTimeout(async () => {
+          try {
+            const { session } = await teacherApi.liveSession(courseInfoId);
+            if (stopped) return;
+            if (session?.id === liveId) {
+              check(liveCheckDelay(session.time_left));
+            } else {
+              // The reload ends these checks (no live session any more); if it fails, check again.
+              reloadQuietly();
+              check(LIVE_CHECK_MS);
+            }
+          } catch {
+            if (!stopped) check(LIVE_CHECK_MS);
+          }
+        }, delay);
+      };
+      check(0);
+      return () => {
+        stopped = true;
+        clearTimeout(timer);
+      };
+    }, [watchLive, liveId, courseInfoId, reloadQuietly])
+  );
+
   if (!course) {
     return (
       <Page>
-        <PageHeader title={detail.loading ? 'Course' : "Couldn't open this course"} breadcrumb={breadcrumb} />
-        <Card>
-          {detail.loading ? (
+        <PageHeader title="Course" breadcrumb={breadcrumb} />
+        {detail.error && !detail.loading ? (
+          <CourseLoadError error={detail.error} title="Couldn't open this course" onRetry={() => void detail.reload()} />
+        ) : (
+          <Card>
             <LoadingState label="Loading the course…" />
-          ) : (
-            <ErrorState
-              message={detail.error?.message ?? 'Not found. It may have been removed.'}
-              onRetry={() => detail.reload()}
-            />
-          )}
-        </Card>
+          </Card>
+        )}
       </Page>
     );
   }
@@ -95,9 +129,15 @@ export default function TeacherCourse() {
       {tab === 'attendance' ? (
         <AttendanceTab course={course} minPercent={minPercent} onChanged={reloadQuietly} />
       ) : tab === 'students' ? (
-        <StudentsTab courseInfoId={courseInfoId} students={data.students} minPercent={minPercent} />
+        <StudentsTab
+          courseInfoId={courseInfoId}
+          students={data.students}
+          minPercent={minPercent}
+          newestClass={data.dates[0]?.date}
+          semesterActive={course.semester.is_active}
+        />
       ) : tab === 'history' ? (
-        <HistoryTab courseInfoId={courseInfoId} dates={data.dates} onChanged={reloadQuietly} />
+        <HistoryTab courseInfoId={courseInfoId} dates={data.dates} range={rollCallRange(course.semester)} onChanged={reloadQuietly} />
       ) : (
         <Card title="Export attendance" className="gap-4">
           <Text tone="muted">

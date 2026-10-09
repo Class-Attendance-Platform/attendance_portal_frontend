@@ -62,6 +62,10 @@ export interface SemesterRef {
   id: UUID;
   label: string;
   is_active: boolean;
+  /** Null when not set. A roll call cannot use an earlier date. */
+  start_date: ISODate | null;
+  /** Null when not set. Once the semester is finished, a roll call cannot use a later date. */
+  end_date: ISODate | null;
 }
 
 export interface CourseRef {

@@ -15,15 +15,37 @@ import { Text } from '@/components/ui/text';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import type { CourseStudent } from '@/lib/api/teacher';
 import type { UUID } from '@/lib/api/types';
-import { formatDate, formatPercent } from '@/lib/format';
+import { formatDate, formatPercent, plural } from '@/lib/format';
 import { studentHref } from './labels';
+import { shownLeftAt } from './rules';
 
-/** "Joined 18 Sep 2026" / "Left 01 Oct 2026" for students who were not there all semester. */
-export function membershipNote(student: { joined_at: string | null; left_at: string | null }): string | null {
+/**
+ * "Joined 18 Sep 2026" / "Left 01 Oct 2026" for students who were not there all semester. In a
+ * finished semester "Left" only when a class was held from that day on (`newestClass`, the
+ * course's newest class date): a promotion after the semester's last class is not leaving.
+ */
+export function membershipNote(
+  student: { joined_at: string | null; left_at: string | null },
+  newestClass: string | null | undefined,
+  semesterActive: boolean
+): string | null {
   const parts = [];
   if (student.joined_at) parts.push(`Joined ${formatDate(student.joined_at)}`);
-  if (student.left_at) parts.push(`Left ${formatDate(student.left_at)}`);
+  const left = shownLeftAt(student.left_at, newestClass, semesterActive);
+  if (left) parts.push(`Left ${formatDate(left)}`);
   return parts.length ? parts.join(' · ') : null;
+}
+
+/** What a screen reader says for a row that opens the student (it does not read the row's own text). */
+function rowLabel(student: CourseStudent, minPercent: number, note: string | null): string {
+  const low = student.percent !== null && student.percent < minPercent;
+  const numbers =
+    student.percent === null
+      ? 'no classes yet'
+      : `${student.attended} of ${plural(student.held, 'class', 'classes')}, ${formatPercent(student.percent)}${low ? `, below ${minPercent}%` : ''}`;
+  return `${student.name}, ${student.student_id}, ${numbers}${note ? `, ${note}` : ''}, ${
+    student.face_registered ? 'face registered' : 'no face yet'
+  }. Open the student.`;
 }
 
 function FaceStatus({ registered }: { registered: boolean }) {
@@ -50,11 +72,16 @@ export type StudentsTabProps = {
   courseInfoId: UUID;
   students: CourseStudent[];
   minPercent: number;
+  /** The course's newest class date and whether its semester runs (for the "Left" notes). */
+  newestClass: string | null | undefined;
+  semesterActive: boolean;
 };
 
 /** ?tab=students: the class list with each student's numbers; a row opens the student. */
-export function StudentsTab({ courseInfoId, students, minPercent }: StudentsTabProps) {
-  const { isDesktop } = useBreakpoint();
+export function StudentsTab({ courseInfoId, students, minPercent, newestClass, semesterActive }: StudentsTabProps) {
+  const { width } = useBreakpoint();
+  // A table only when its columns fit next to the sidebar (as in History); rows below that.
+  const wide = width >= 1024;
   const [search, setSearch] = React.useState('');
   const [belowOnly, setBelowOnly] = React.useState(false);
 
@@ -67,6 +94,7 @@ export function StudentsTab({ courseInfoId, students, minPercent }: StudentsTabP
   const belowCount = students.filter((student) => student.percent !== null && student.percent < minPercent).length;
 
   const open = (student: CourseStudent) => router.push(studentHref(courseInfoId, student.profile_id));
+  const noteOf = (student: CourseStudent) => membershipNote(student, newestClass, semesterActive);
 
   if (!students.length) {
     return (
@@ -87,7 +115,7 @@ export function StudentsTab({ courseInfoId, students, minPercent }: StudentsTabP
       title: 'Name',
       flex: 2,
       render: (row) => {
-        const note = membershipNote(row);
+        const note = noteOf(row);
         return (
           <View className="gap-0.5">
             <Text weight="semibold">{row.name}</Text>
@@ -123,32 +151,32 @@ export function StudentsTab({ courseInfoId, students, minPercent }: StudentsTabP
       </View>
 
       <Text variant="small" tone="muted" accessibilityLiveRegion="polite">
-        {rows.length === students.length ? `${students.length} students` : `Showing ${rows.length} of ${students.length} students`}
+        {rows.length === students.length ? plural(students.length, 'student') : `Showing ${rows.length} of ${plural(students.length, 'student')}`}
       </Text>
 
       <Card padded={false}>
-        {isDesktop ? (
+        {wide ? (
           <DataTable
             label="Students"
             columns={columns}
             rows={rows}
             rowKey={(row) => row.profile_id}
             onRowPress={open}
-            rowLabel={(row) => `Open ${row.name}`}
+            rowLabel={(row) => rowLabel(row, minPercent, noteOf(row))}
             empty={empty}
           />
         ) : rows.length === 0 ? (
           empty
         ) : (
           rows.map((student, index) => {
-            const note = membershipNote(student);
+            const note = noteOf(student);
             return (
               <ListRow
                 key={student.profile_id}
                 divider={index > 0}
                 title={student.name}
-                subtitle={`${student.student_id} · ${student.attended} of ${student.held} classes${note ? ` · ${note}` : ''}`}
-                accessibilityLabel={`Open ${student.name}`}
+                subtitle={`${student.student_id} · ${student.attended} of ${plural(student.held, 'class', 'classes')}${note ? ` · ${note}` : ''}`}
+                accessibilityLabel={rowLabel(student, minPercent, note)}
                 onPress={() => open(student)}
                 right={
                   <View className="items-end gap-1">

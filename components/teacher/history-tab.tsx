@@ -22,6 +22,7 @@ import { cn, FOCUS_RING } from '@/lib/utils';
 import { FlipButton, useCorrection } from './correction';
 import { deliveryLabel, methodLabel, param, rollCallHref } from './labels';
 import { MonthCalendar } from './month-calendar';
+import { inRange, isDateParam, type SemesterRange } from './rules';
 import { useLoad } from './use-load';
 
 function changedText(log: { changed_by: string | null; changed_at: string | null }): string | null {
@@ -29,23 +30,36 @@ function changedText(log: { changed_by: string | null; changed_at: string | null
   return `Changed by ${log.changed_by ?? 'someone'}${log.changed_at ? `, ${formatDateTime(log.changed_at)}` : ''}`;
 }
 
+function sessionKind(session: HistoryDay['sessions'][number]): string {
+  if (session.mode === 'FACE') return 'Class photo';
+  // Old fingerprint-device classes: their rows say "Device" too (lib/methods.ts).
+  if (session.mode === 'FINGERPRINT') return 'Device';
+  return `Live session (${deliveryLabel(session.delivery).toLowerCase()})`;
+}
+
 function daySessionsText(day: HistoryDay): string {
   if (!day.sessions.length) return 'Roll call';
-  const kinds = day.sessions.map((session) =>
-    session.mode === 'FACE' ? 'Class photo' : `Live session (${deliveryLabel(session.delivery).toLowerCase()})`
-  );
-  return Array.from(new Set(kinds)).join(' + ');
+  return Array.from(new Set(day.sessions.map(sessionKind))).join(' + ');
+}
+
+/** "28 Aug 2026 to 15 Dec 2026", "from 28 Aug 2026" or "until 15 Dec 2026" (as the server says it). */
+function rangeText({ start, end }: SemesterRange): string {
+  if (start && end) return `${formatDate(start)} to ${formatDate(end)}`;
+  return start ? `from ${formatDate(start)}` : `until ${formatDate(end)}`;
 }
 
 type DayRecordsProps = {
   courseInfoId: UUID;
   date: string;
+  /** The course's class dates include this date. */
+  hasClass: boolean;
+  range?: SemesterRange;
   onChanged: () => void;
   onDeleted: () => void;
 };
 
 /** One date's records with a Present/Absent switch per student and "Delete this date". */
-function DayRecords({ courseInfoId, date, onChanged, onDeleted }: DayRecordsProps) {
+function DayRecords({ courseInfoId, date, hasClass, range, onChanged, onDeleted }: DayRecordsProps) {
   const { width, isDesktop } = useBreakpoint();
   // A table when there is room for the name next to the four other columns.
   const wide = width >= 1024;
@@ -56,6 +70,15 @@ function DayRecords({ courseInfoId, date, onChanged, onDeleted }: DayRecordsProp
   const day = useLoad(async () => (await sessionsApi.history(courseInfoId, { date })).history[0] ?? null, [courseInfoId, date], {
     refreshOnFocus: true,
   });
+
+  // The course's dates gained or lost this date meanwhile (e.g. a live session was saved): load it again.
+  const reloadDay = day.reload;
+  const knownClass = React.useRef(hasClass);
+  React.useEffect(() => {
+    if (knownClass.current === hasClass) return;
+    knownClass.current = hasClass;
+    void reloadDay({ quiet: true });
+  }, [hasClass, reloadDay]);
 
   const onSaved = React.useCallback(
     (result: SetAttendanceResponse, profileId: UUID) => {
@@ -117,13 +140,25 @@ function DayRecords({ courseInfoId, date, onChanged, onDeleted }: DayRecordsProp
   }
   if (!day.data) {
     const future = isFutureDate(date);
+    // A class cannot be added outside the course's semester (the roll call refuses it).
+    const outside = !future && !!range && !inRange(date, range);
     return (
       <Card title={title}>
         <EmptyState
           icon={CalendarX2}
           title="No class on this date"
-          message={future ? 'This date is in the future.' : 'Add a class for this date with a roll call.'}
-          action={future ? undefined : { label: 'Add a class for this date', icon: CalendarPlus, onPress: () => router.push(rollCallHref(courseInfoId, date)) }}
+          message={
+            future
+              ? 'This date is in the future.'
+              : outside && range
+                ? `This date is outside the course's semester (${rangeText(range)}).`
+                : 'Add a class for this date with a roll call.'
+          }
+          action={
+            future || outside
+              ? undefined
+              : { label: 'Add a class for this date', icon: CalendarPlus, onPress: () => router.push(rollCallHref(courseInfoId, date)) }
+          }
         />
       </Card>
     );
@@ -274,17 +309,19 @@ export type HistoryTabProps = {
   courseInfoId: UUID;
   /** The course's class dates, newest first. */
   dates: ClassDate[];
+  /** The dates a class can be added on (the semester's dates); no limit when left out. */
+  range?: SemesterRange;
   /** Reload the course (numbers and dates). */
   onChanged: () => void;
 };
 
 /** ?tab=history&date=: calendar and list of class dates; one date's records with corrections. */
-export function HistoryTab({ courseInfoId, dates, onChanged }: HistoryTabProps) {
+export function HistoryTab({ courseInfoId, dates, range, onChanged }: HistoryTabProps) {
   const { width, isDesktop } = useBreakpoint();
   const twoColumns = isDesktop && width >= 1100;
   const params = useLocalSearchParams<{ date?: string }>();
   const fromUrl = param(params.date);
-  const urlDate = fromUrl && parseISODate(fromUrl) ? fromUrl : null;
+  const urlDate = isDateParam(fromUrl) ? fromUrl : null;
   const selected = urlDate ?? dates[0]?.date ?? null;
 
   const classes = React.useMemo(() => new Map(dates.map((item) => [item.date, item])), [dates]);
@@ -306,6 +343,8 @@ export function HistoryTab({ courseInfoId, dates, onChanged }: HistoryTabProps) 
         classes={classes}
         selected={selected}
         onSelect={select}
+        minDate={range?.start}
+        maxDate={range?.end}
       />
     </Card>
   );
@@ -315,6 +354,8 @@ export function HistoryTab({ courseInfoId, dates, onChanged }: HistoryTabProps) 
       key={selected}
       courseInfoId={courseInfoId}
       date={selected}
+      hasClass={classes.has(selected)}
+      range={range}
       onChanged={onChanged}
       onDeleted={() => {
         router.setParams({ date: undefined });
@@ -338,7 +379,10 @@ export function HistoryTab({ courseInfoId, dates, onChanged }: HistoryTabProps) 
         <Text tone="muted" className="flex-1" style={{ minWidth: 220 }}>
           Pick a date to see who was present and to correct it. One date counts as one class.
         </Text>
-        <Link href={rollCallHref(courseInfoId, selected && !classes.has(selected) ? selected : null)} asChild>
+        <Link
+          href={rollCallHref(courseInfoId, selected && !classes.has(selected) && (!range || inRange(selected, range)) ? selected : null)}
+          asChild
+        >
           <Button label="Add a class for a date" icon={CalendarPlus} />
         </Link>
       </View>
