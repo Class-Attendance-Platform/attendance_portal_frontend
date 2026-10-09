@@ -16,8 +16,8 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | border | #DCE3DD | `border-border` | 1 px borders, dividers |
 | text | #17201A | (Text default) | main text |
 | muted | #525E55 | `tone="muted"` | secondary text |
-| primary / hover / soft | #0A6B3B / #08552F / #E4F1E8 | `bg-primary`, `bg-primary-hover`, `bg-primary-soft` | buttons, links, active nav |
-| present | #15803D | `tone="present"` | Present (text on white, bars) |
+| primary / hover / soft | #0A6B3B / #08552F / #E4F1E8 | `bg-primary`, `bg-primary-hover`, `bg-primary-soft` | buttons, links, active nav, attendance bars |
+| present | #15803D | `tone="present"` | Present (text on white) |
 | absent / soft | #B42318 / #FDECEA | `bg-absent`, `bg-absent-soft` | Absent, destructive, error panels |
 | warn / ink / soft / border | #9A4A06 / #7A3B05 / #FDF1E1 / #F2D3AE | `bg-warn-soft`, `border-warn-border` | below the minimum |
 | info / soft | #0369A1 / #E0F2FE | `bg-info-soft` | neutral information |
@@ -61,7 +61,7 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | `Card` | White box with border; optional `title`, `titleNote`, `actions`; `padded={false}` for lists. |
 | `StatTile` | One number with a label; `tone="warn"` when it needs attention. |
 | `Pill` / `StatusPill` | Small labels (`Live`, `Finished`); `StatusPill` for Present / Absent / Not enrolled. |
-| `ProgressBar` | Attendance bars; `min={75}` turns it orange below the minimum. Pair with the number. |
+| `ProgressBar` | Attendance bars in primary green; `min={75}` turns it orange (warn) below the minimum. Pair with the number. |
 | `Tabs` + `useTab()` | Tabs inside a page; links that set `?tab=` so reload and back work. `dense` packs four tabs into a 390 px phone. |
 | `DataTable` | Tables at ≥ 768 px (in a `Card padded={false}`). |
 | `ListRow` | The same rows on phones, or short lists anywhere. |
@@ -79,6 +79,8 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
   `app/(app)/{student,teacher,admin}/_layout.tsx` per role). Signed out → `/login?redirect=…`; wrong
   role → own home.
 - `Page`: the scrolling content column (max 1200 px; padding 24/32 desktop, 8/20 phone; 20 px gaps).
+  `onRefresh`: pull down to load again in the Android app (the platform's own RefreshControl
+  spinner, allowed by the owner; nothing on the web). The student pages use it.
 - `PublicPage`: pages without the shell (sign-in, about): logo and name, a centred column, footer links.
 - `PlaceholderPage` / `PublicPlaceholder`: for a route whose screen is not built yet (no route uses them now).
 

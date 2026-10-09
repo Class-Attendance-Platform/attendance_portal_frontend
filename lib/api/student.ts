@@ -53,12 +53,21 @@ export interface StudentSemestersResponse extends Ok {
   semesters: StudentSemester[];
 }
 
+/**
+ * Why a day is absent, from the log that decides it. changed: a teacher corrected it to absent;
+ * roll_call: marked absent in a roll call; class_photo: absent in a class photo (face) session;
+ * not_checked_in: absent in a live session (QR, typed code, old device).
+ */
+export type AbsentReason = 'changed' | 'roll_call' | 'class_photo' | 'not_checked_in';
+
 export interface StudentCourseDay {
   date: ISODate;
   status: AttendanceStatus | null;
   method: LogMethod | null;
   /** A teacher changed this day after it was saved. */
   changed: boolean;
+  /** Null unless status is ABSENT. */
+  absent_reason: AbsentReason | null;
 }
 
 export interface StudentCourseDetail extends Ok {
@@ -68,7 +77,7 @@ export interface StudentCourseDetail extends Ok {
     title: string;
     credits: string;
     teacher_name: string | null;
-    semester: { label: string; is_active: boolean };
+    semester: { label: string; is_active: boolean; start_date: ISODate | null; end_date: ISODate | null };
   };
   /** The student's membership: null = from the start. */
   joined_at: ISODate | null;
