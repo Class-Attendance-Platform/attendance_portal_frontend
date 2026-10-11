@@ -68,8 +68,9 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
     `use-load`, `load-error` (403/404 states without a useless Try again); `rules.ts` (pure, roll call
     marks; `tests/teacher-rules.test.mjs`, `tests/teacher-roll-call.test.mjs`), `live-rules.ts` (pure:
     how long a code is accepted, projector sizes), `live-screen.ts` (keeps the screen on with
-    expo-keep-awake, browser full screen), `face-review.ts` (pure: the class-photo review, earlier
-    corrections kept). `export-form`'s `ExportDialog` is also the admin attendance page's export.
+    expo-keep-awake, browser full screen), `face-review.ts` (pure: the class-photo review, the day's
+    earlier corrections and hand marks (method TEACHER) kept). `export-form`'s `ExportDialog` is also
+    the admin attendance page's export.
   - `admin/`: `hooks` (`useLoad`, `useDebounced`), `parts` (`LoadBlock`, `ResponsiveList`, `ChoiceCard`,
     …), student/teacher/semester dialogs, `semester-roster` / `-courses` / `-promote`, `password`
     (temporary passwords and admin reset), `files` (CSV in the browser), `options`. Android has no

@@ -75,15 +75,17 @@ export function suggestedPresent(student: Suggestion): boolean {
 }
 
 /**
- * Today's hand corrections from the course history: a correction or a roll call change sets
- * changed_by / changed_at on the log that decides the day.
+ * Today's hand marks from the course history (shown as "Corrected earlier"), from the log that
+ * decides the day: a correction or a roll call change sets changed_by / changed_at; a teacher's
+ * own mark has method TEACHER (a roll call, Mark present in a live session, or a student switched
+ * to Present in an earlier class photo review).
  */
 export function correctedMarks(
-  logs: { profile_id: string; status: string; changed_by: string | null; changed_at: string | null }[]
+  logs: { profile_id: string; status: string; method?: string | null; changed_by: string | null; changed_at: string | null }[]
 ): Marks {
   const marks: Marks = {};
   for (const log of logs) {
-    if (log.changed_by || log.changed_at) marks[log.profile_id] = log.status === 'PRESENT';
+    if (log.changed_by || log.changed_at || log.method === 'TEACHER') marks[log.profile_id] = log.status === 'PRESENT';
   }
   return marks;
 }

@@ -97,6 +97,21 @@ test("today's corrections are the logs a teacher changed", () => {
   assert.deepEqual(correctedMarks([{ ...log('e', 'PRESENT', true), changed_by: null }]), { e: true });
 });
 
+test("a teacher's own marks today count too (method TEACHER), but not check-ins or photo results", () => {
+  assert.deepEqual(
+    correctedMarks([
+      // switched to Present in an earlier class photo review, or Mark present in a live session
+      { ...log('hand', 'PRESENT'), method: 'TEACHER' },
+      // marked absent in a roll call
+      { ...log('roll', 'ABSENT'), method: 'TEACHER' },
+      { ...log('qr', 'PRESENT'), method: 'QR' },
+      { ...log('photo', 'PRESENT'), method: 'FACE' },
+      { ...log('missed', 'ABSENT'), method: null },
+    ]),
+    { hand: true, roll: false }
+  );
+});
+
 const students = [
   { id: 'match', status: 'present', reason: 'match' },
   { id: 'weak', status: 'unsure', reason: 'low_match' },
@@ -118,6 +133,17 @@ test("corrections loaded later keep the teacher's own switches", () => {
   const current = { match: true, weak: false, noface: false, missing: true };
   const marks = withCorrections(students, { missing: false, weak: true, noface: true }, current);
   assert.deepEqual(marks, { match: true, weak: false, noface: true, missing: true });
+});
+
+test('an earlier hand mark starts the next review as Present and is saved as marked by the teacher again', () => {
+  // 'noface' was switched to Present in this morning's review; the new photos still can't find them
+  const earlier = correctedMarks([{ ...log('noface', 'PRESENT'), method: 'TEACHER' }]);
+  const marks = withCorrections(students, earlier);
+  assert.equal(marks.noface, true);
+  assert.deepEqual(presentIds(students, marks), ['match', 'weak', 'noface']);
+  assert.deepEqual(teacherMarkedIds(students, marks), ['noface']);
+  // the teacher can still turn them absent
+  assert.deepEqual(teacherMarkedIds(students, { ...marks, noface: false }), []);
 });
 
 test('present students the photos did not find are marked by the teacher', () => {
