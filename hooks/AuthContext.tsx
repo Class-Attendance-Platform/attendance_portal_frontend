@@ -22,6 +22,7 @@ import {
   updateSession,
   WEB_SESSION_KEY,
 } from '@/lib/session';
+import { sharedRequest } from '@/lib/shared-request';
 
 export type { Role as UserRole, User } from '@/lib/api/types';
 
@@ -47,6 +48,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ROLES: Role[] = ['STUDENT', 'TEACHER', 'ADMIN'];
+
+/** A profile loaded this recently is used again instead of a new GET /auth/me/. */
+const PROFILE_REUSE_MS = 5000;
 
 /** Accepts users saved by older builds too (role case, missing fields). */
 function normaliseUser(raw: any): User | null {
@@ -98,14 +102,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return signedIn;
   }, []);
 
-  // One profile request at a time per sign-in: the start-up refresh and the account page's own
-  // share it.
-  const userRequest = useRef<{ generation: number; promise: Promise<User | null> } | null>(null);
+  // One profile request at a time per sign-in, and its answer is used again for a few seconds:
+  // the start-up refresh and the account page's own (opened at start-up) share one request.
+  const [askProfile] = useState(() => sharedRequest<User | null>(PROFILE_REUSE_MS));
 
   const refreshUser = useCallback(() => {
     const generation = sessionGeneration();
-    if (userRequest.current?.generation === generation) return userRequest.current.promise;
-    const promise = (async () => {
+    return askProfile(generation, async () => {
       const response = await authApi.me();
       if (generation !== sessionGeneration()) return null; // signed out meanwhile
       const fresh = normaliseUser(response.user);
@@ -114,15 +117,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Save only the profile: the tokens may have been refreshed (rotated) meanwhile.
       await updateSession({ user: fresh }, { onlyIfSaved: true, userId: fresh.id });
       return fresh;
-    })();
-    const entry = { generation, promise };
-    userRequest.current = entry;
-    const done = () => {
-      if (userRequest.current === entry) userRequest.current = null;
-    };
-    promise.then(done, done);
-    return promise;
-  }, []);
+    });
+  }, [askProfile]);
 
   // Restore the saved login at start-up, then refresh the profile in the background.
   useEffect(() => {

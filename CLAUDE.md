@@ -108,8 +108,9 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   the same words in every area (pure; `tests/methods.test.mjs`).
 - `hooks/AuthContext.tsx` `user` (API v2 shape), `login` (rejects with ApiError codes
   `pending_approval` / `account_disabled` / `invalid_credentials`), `logout` (blacklists the newest
-  refresh token via `/auth/logout/`), `refreshUser`, `setUser`. Signing out in one web tab signs out the
-  others; signing in there with another account signs this tab out too.
+  refresh token via `/auth/logout/`), `refreshUser` (one GET /auth/me/ shared, and reused for 5 s:
+  `lib/shared-request.ts`, `tests/auth-shared-request.test.mjs`), `setUser`. Signing out in one web
+  tab signs out the others; signing in there with another account signs this tab out too.
   `hooks/useBreakpoint.ts` (768 px). `hooks/useAppConfig.ts` GET /config/app/ once per app start
   (minimum %, levels, terms, app name; defaults until it answers). `hooks/useLeaveGuard.ts` asks
   before unsaved work is dropped (back: `useConfirm`; browser Back/Forward on the web: the page stays

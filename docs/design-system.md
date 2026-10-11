@@ -61,10 +61,10 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | `Card` | White box with border; optional `title`, `titleNote`, `actions`; `padded={false}` for lists. |
 | `StatTile` | One number with a label; `tone="warn"` when it needs attention. |
 | `Pill` / `StatusPill` | Small labels (`Live`, `Finished`); `StatusPill` for Present / Absent / Not enrolled. |
-| `ProgressBar` | Attendance bars in primary green; `min={75}` turns it orange (warn) below the minimum. Pair with the number. |
+| `ProgressBar` | Attendance bars in primary green; `min={75}` turns it orange (warn) below the minimum. Pair with the number. Without a value screen readers hear `emptyText` (default "No classes yet"). |
 | `Tabs` + `useTab()` | Tabs inside a page; links that set `?tab=` so reload and back work. `dense` packs four tabs into a 390 px phone. |
 | `DataTable` | Tables at ≥ 768 px (in a `Card padded={false}`). |
-| `ListRow` | The same rows on phones, or short lists anywhere. |
+| `ListRow` | The same rows on phones, or short lists anywhere. `titleLines` caps the title (e.g. 2). |
 | `EmptyState` / `ErrorState` / `LoadingState` | Nothing yet (say why, offer the action) / failed with Retry / plain spinner with "Loading…". |
 | `PageHeader` | Top of every page: breadcrumb (crumbs go back with `dismissTo`), title, meta line, actions; sets the browser tab title (`documentTitle` when the title is a greeting). |
 | `Avatar` | Initials in a circle (no photos). |

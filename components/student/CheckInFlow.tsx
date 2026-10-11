@@ -121,41 +121,45 @@ function ResultCard({
 }
 
 /** The student's live classes, so they know what they are checking in to. */
-function LiveNow({ sessions }: { sessions: StudentLiveSession[] | null }) {
+function LiveNow({ sessions, failed }: { sessions: StudentLiveSession[] | null; failed: boolean }) {
   const { isDesktop } = useBreakpoint();
   // The rows line up with the card title (20 px in on desktop; ListRow has 16).
   const rowClass = isDesktop ? 'px-5' : undefined;
-  if (sessions?.length === 0) {
-    return (
-      <Notice message="No class of yours is taking attendance right now. If your teacher has just started, type the code below." />
-    );
-  }
+  // Every state is as tall as one class's row (on phones its title takes up to two lines next to
+  // the pill), so the code field below does not move when the list answers.
+  const rowHeight = isDesktop ? 'min-h-[66px]' : 'min-h-[88px]';
+  const line = (text: string) => (
+    <View className={cn('justify-center px-4 py-3', rowHeight, rowClass)}>
+      <Text variant="small" tone="muted">
+        {text}
+      </Text>
+    </View>
+  );
   return (
     <Card title="Live now" padded={false}>
       <View className="mt-2 pb-1">
-        {sessions === null ? (
-          // Holds the list's place while it loads, so the code field below does not jump.
-          <View className={cn('min-h-[56px] justify-center px-4 py-3', rowClass)}>
-            <Text tone="muted">Checking for live classes…</Text>
-          </View>
-        ) : (
-          sessions.map((session, index) => (
-            <ListRow
-              key={session.session_id}
-              title={`${session.course.code} · ${session.course.title}`}
-              subtitle={`${session.delivery === 'ONLINE' ? 'Online class' : 'In class'} · until ${formatTime(session.ends_at)}`}
-              right={
-                session.checked_in ? (
-                  <Pill label="Checked in" tone="present" icon={Check} />
-                ) : (
-                  <Pill label="Not checked in" tone="warn" />
-                )
-              }
-              divider={index > 0}
-              className={rowClass}
-            />
-          ))
-        )}
+        {sessions === null
+          ? line(failed ? "Couldn't check for live classes. You can still type the code below." : 'Checking for live classes…')
+          : sessions.length === 0
+            ? line('No class of yours is taking attendance right now. If your teacher has just started, type the code below.')
+            : sessions.map((session, index) => (
+                <ListRow
+                  key={session.session_id}
+                  title={`${session.course.code} · ${session.course.title}`}
+                  titleLines={2}
+                  // "Online" (not "Online class"): one line next to the pill on a 360 px phone.
+                  subtitle={`${session.delivery === 'ONLINE' ? 'Online' : 'In class'} · until ${formatTime(session.ends_at)}`}
+                  right={
+                    session.checked_in ? (
+                      <Pill label="Checked in" tone="present" icon={Check} />
+                    ) : (
+                      <Pill label="Not checked in" tone="warn" />
+                    )
+                  }
+                  divider={index > 0}
+                  className={cn(rowHeight, rowClass)}
+                />
+              ))}
       </View>
     </Card>
   );
@@ -413,7 +417,7 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
         <Notice tone="warn" title="This check-in link is incomplete" message="Type the 6-digit code your teacher shows instead." />
       ) : null}
 
-      <LiveNow sessions={live.sessions} />
+      <LiveNow sessions={live.sessions} failed={live.failed} />
 
       {onlineOnly ? null : scannerCard}
 

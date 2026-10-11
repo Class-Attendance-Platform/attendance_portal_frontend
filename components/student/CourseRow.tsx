@@ -87,7 +87,15 @@ export function CourseRow({
       {percentText}
     </Text>
   );
-  const bar = <ProgressBar value={noClasses ? null : percent} min={min} thin={!isDesktop} label={`${code} attendance`} />;
+  const bar = (
+    <ProgressBar
+      value={noClasses ? null : percent}
+      emptyText={noClassesText(catchUp)}
+      min={min}
+      thin={!isDesktop}
+      label={`${code} attendance`}
+    />
+  );
 
   return (
     <Link href={`/student/courses/${courseInfoId}` as Href} asChild>
