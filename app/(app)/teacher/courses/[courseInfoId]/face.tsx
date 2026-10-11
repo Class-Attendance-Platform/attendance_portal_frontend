@@ -72,7 +72,7 @@ export default function TeacherFaceAttendance() {
 
   const course = useLoad(() => teacherApi.course(courseInfoId).then((result) => result.course), [courseInfoId]);
   // Today's class so far (null = none yet): whether a class photo was already saved today, and
-  // whom a teacher corrected today (a new review starts with those corrections).
+  // whom a teacher corrected or marked by hand today (a new review starts with those marks).
   const loadToday = async () => (await sessionsApi.history(courseInfoId, { date: today })).history[0] ?? null;
   const todayHistory = useLoad(loadToday, [courseInfoId, today]);
   const savedToday = !!todayHistory.data?.sessions.some((session) => session.mode === 'FACE');
@@ -81,7 +81,7 @@ export default function TeacherFaceAttendance() {
   const [phase, setPhase] = React.useState<'pick' | 'checking' | 'review' | 'saving'>('pick');
   const [result, setResult] = React.useState<RecognizeResult | null>(null);
   const [present, setPresent] = React.useState<Marks>({});
-  // Today's corrections the review started with, shown as "Corrected earlier".
+  // Today's corrections and hand marks the review started with, shown as "Corrected earlier".
   const [corrected, setCorrected] = React.useState<Marks>({});
   // Today's history could not be loaded for the review, so its corrections are not in the list.
   const [earlierFailed, setEarlierFailed] = React.useState(false);
@@ -178,7 +178,7 @@ export default function TeacherFaceAttendance() {
         setPhase('pick');
         return;
       }
-      // Students a teacher corrected today start with that correction.
+      // Students a teacher corrected or marked by hand today start with that mark.
       const earlier = day ? correctedMarks(day.logs) : {};
       setResult(found);
       setCorrected(earlier);
@@ -379,7 +379,7 @@ export default function TeacherFaceAttendance() {
             {savedToday ? (
               <Notice
                 tone="info"
-                message="You already saved a class photo today. Saving again changes only the students whose mark is different. Corrections made today are kept unless you change them."
+                message="You already saved a class photo today. Saving again changes only the students whose mark is different. Corrections and hand marks made today are kept unless you change them."
               />
             ) : todayHistory.error ? (
               <Notice
@@ -545,7 +545,7 @@ export default function TeacherFaceAttendance() {
                   ? 'Saving again changes only the students whose mark is different, and keeps the history of earlier changes.'
                   : null,
                 correctedCount > 0
-                  ? 'Students marked "Corrected earlier" start as they were corrected today; you can still change them.'
+                  ? 'Students marked "Corrected earlier" start as they were corrected or marked by hand today; you can still change them.'
                   : null,
               ]
                 .filter(Boolean)
