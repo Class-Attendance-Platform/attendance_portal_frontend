@@ -36,6 +36,13 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // The web takes the photo at the size of the video.
 const PICTURE_SIZE = Platform.OS === 'android' ? '1280x960' : undefined;
 
+/**
+ * From this window width the camera (440 px) and the steps (240 px at least, 20 px apart) fit
+ * side by side next to the 248 px sidebar and the page's 32 px padding. Below it they are stacked
+ * and the camera is as wide as the cards under it.
+ */
+const SIDE_BY_SIDE_MIN = 248 + 32 * 2 + 440 + 20 + 240;
+
 function StepRow({ index, label, state }: { index: number; label: string; state: 'done' | 'now' | 'waiting' }) {
   return (
     <View
@@ -85,7 +92,8 @@ export type FaceCaptureProps = {
  * (straight, left, right) each after a plain 3-2-1 countdown, consent, then the upload.
  */
 export function FaceCapture({ onRegistered, cancel }: FaceCaptureProps) {
-  const { isDesktop } = useBreakpoint();
+  const { isDesktop, width } = useBreakpoint();
+  const sideBySide = isDesktop && width >= SIDE_BY_SIDE_MIN;
   const message = useMessage();
   const [permission, requestPermission, getPermission] = useCameraPermission();
   const cameraRef = React.useRef<CameraView>(null);
@@ -312,13 +320,13 @@ export function FaceCapture({ onRegistered, cancel }: FaceCaptureProps) {
     );
   }
 
-  // Side by side from 768 px; where the two do not fit (tablets, narrow windows) the steps go under the camera.
+  // Side by side where both fit; on tablets and narrow windows the steps go under the camera.
   return (
-    <View className={isDesktop ? 'flex-row flex-wrap items-start gap-5' : 'gap-4'}>
-      <Card padded={false} className={isDesktop ? 'w-[440px] max-w-full' : undefined}>
+    <View className={sideBySide ? 'flex-row items-start gap-5' : isDesktop ? 'gap-5' : 'gap-4'}>
+      <Card padded={false} className={sideBySide ? 'w-[440px]' : undefined}>
         {camera}
       </Card>
-      <View className={cn('gap-4', isDesktop && 'min-w-[240px] flex-1')}>
+      <View className={cn('gap-4', sideBySide && 'min-w-[240px] flex-1')}>
         {/* First, so on phones they show right under the camera without scrolling. */}
         {cameraProblem && granted ? (
           <Notice tone="warn" message={cameraProblem} live>

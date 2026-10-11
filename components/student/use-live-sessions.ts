@@ -11,6 +11,8 @@ export const LIVE_POLL_MS = 25000;
 export type LiveSessions = {
   /** Live sessions in the student's current courses; null until the first answer. */
   sessions: StudentLiveSession[] | null;
+  /** The last request failed (the list, if any, is from an earlier answer). */
+  failed: boolean;
   /** Asks again now (e.g. after checking in). */
   refresh: () => void;
 };
@@ -22,20 +24,24 @@ const pageHidden = () => (onWeb ? document.visibilityState === 'hidden' : AppSta
 /**
  * GET /student/live/ while the screen is focused: at once, then every 25 s (skipped while the
  * browser tab is hidden or the app is in the background, asked again when it shows). Failures
- * keep the last list. The server decides what is live (the phone's clock may be wrong), so
- * nothing is filtered here.
+ * keep the last list (and set `failed`). The server decides what is live (the phone's clock may
+ * be wrong), so nothing is filtered here.
  */
 export function useLiveSessions(): LiveSessions {
   const [sessions, setSessions] = React.useState<StudentLiveSession[] | null>(null);
+  const [failed, setFailed] = React.useState(false);
   const latest = React.useRef(0);
 
   const check = React.useCallback(async () => {
     const id = ++latest.current;
     try {
       const response = await studentApi.live();
-      if (id === latest.current) setSessions(response.sessions ?? []);
+      if (id !== latest.current) return;
+      setSessions(response.sessions ?? []);
+      setFailed(false);
     } catch {
       // Keep the last list; the next check tries again.
+      if (id === latest.current) setFailed(true);
     }
   }, []);
 
@@ -64,7 +70,7 @@ export function useLiveSessions(): LiveSessions {
     }, [check])
   );
 
-  return { sessions, refresh: check };
+  return { sessions, failed, refresh: check };
 }
 
 /**
