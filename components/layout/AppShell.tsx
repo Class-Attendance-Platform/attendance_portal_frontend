@@ -34,14 +34,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { isDesktop } = useBreakpoint();
 
   // One tree for every case: the screens inside (the Stack) keep their place, so they are not
-  // re-created when the full-screen page opens or closes, or the window crosses 768 px.
+  // re-created when the full-screen page opens or closes, or the window crosses 768 px. The main
+  // area's role never changes either: on the web it decides the element (<main> or <div>), and a
+  // new element would re-create every screen.
   const shellUser = user && !BARE_ROUTES.some((pattern) => pattern.test(pathname)) ? user : null;
   const items = shellUser ? NAV[shellUser.role] : [];
   return (
     <View className={cn('flex-1 bg-bg', shellUser && isDesktop && 'flex-row')}>
       {shellUser && isDesktop ? <Sidebar user={shellUser} items={items} pathname={pathname} /> : null}
-      {shellUser && !isDesktop ? <TopBar user={shellUser} /> : null}
-      <View className="flex-1" role={shellUser ? 'main' : undefined}>
+      {shellUser && !isDesktop ? <TopBar user={shellUser} items={items} pathname={pathname} /> : null}
+      <View className="flex-1" role="main">
         {children}
       </View>
       {shellUser && !isDesktop ? <TabBar items={items} pathname={pathname} /> : null}
@@ -53,9 +55,10 @@ function userLine(user: User) {
   return `${roleLabel(user.role)} · CSE`;
 }
 
-function Brand({ size, home }: { size: number; home: Href }) {
+/** The logo goes home; like the nav, back to it (dismissTo) when home is the section you are in. */
+function Brand({ size, home, back }: { size: number; home: Href; back: boolean }) {
   return (
-    <Link href={home} asChild>
+    <Link href={home} dismissTo={back} asChild>
       <Pressable
         role="link"
         accessibilityLabel="HSTU Attendance Portal, home"
@@ -76,6 +79,7 @@ function Brand({ size, home }: { size: number; home: Href }) {
 function Sidebar({ user, items, pathname }: { user: User; items: NavItem[]; pathname: string }) {
   const insets = useSafeAreaInsets();
   const current = activeItem(items, pathname);
+  const home = homeFor(user.role);
   return (
     <View
       role="navigation"
@@ -84,13 +88,15 @@ function Sidebar({ user, items, pathname }: { user: User; items: NavItem[]; path
       style={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 16, paddingLeft: insets.left + 14, paddingRight: 14 }}
     >
       <View className="px-2">
-        <Brand size={36} home={homeFor(user.role)} />
+        <Brand size={36} home={home} back={current?.href === home} />
       </View>
       <View className="mt-5 flex-1 gap-1">
         {items.map((item) => {
           const active = item === current;
           return (
-            <Link key={item.href} href={item.href as Href} asChild>
+            // The section you are in goes back to its page (dismissTo), so pages with unsaved
+            // work ask first and none stays hidden under it. Other sections open on top.
+            <Link key={item.href} href={item.href as Href} dismissTo={active} asChild>
               <Pressable
                 role="link"
                 aria-current={active ? 'page' : undefined}
@@ -133,14 +139,15 @@ function Sidebar({ user, items, pathname }: { user: User; items: NavItem[]; path
   );
 }
 
-function TopBar({ user }: { user: User }) {
+function TopBar({ user, items, pathname }: { user: User; items: NavItem[]; pathname: string }) {
   const insets = useSafeAreaInsets();
+  const home = homeFor(user.role);
   return (
     <View
       className="flex-row items-center justify-between gap-3 bg-bg"
       style={{ paddingTop: insets.top + 8, paddingBottom: 4, paddingLeft: insets.left + 20, paddingRight: insets.right + 16 }}
     >
-      <Link href={homeFor(user.role)} asChild>
+      <Link href={home} dismissTo={activeItem(items, pathname)?.href === home} asChild>
         <Pressable
           role="link"
           accessibilityLabel="HSTU Attendance Portal, home"
@@ -184,7 +191,8 @@ function TabBar({ items, pathname }: { items: NavItem[]; pathname: string }) {
       {tabs.map((item) => {
         const active = item === current;
         return (
-          <Link key={item.href} href={item.href as Href} asChild>
+          // As in the sidebar: the section you are in goes back to its page.
+          <Link key={item.href} href={item.href as Href} dismissTo={active} asChild>
             <Pressable
               role="link"
               aria-current={active ? 'page' : undefined}
@@ -223,7 +231,8 @@ function TabBar({ items, pathname }: { items: NavItem[]; pathname: string }) {
                   divider={index > 0}
                   onPress={() => {
                     setMoreOpen(false);
-                    router.navigate(item.href as Href);
+                    if (isActive(item, pathname)) router.dismissTo(item.href as Href);
+                    else router.navigate(item.href as Href);
                   }}
                   right={isActive(item, pathname) ? <Pill label="Current page" tone="primary" /> : undefined}
                 />

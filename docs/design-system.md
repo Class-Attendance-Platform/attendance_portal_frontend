@@ -75,6 +75,8 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 - `AppShell`: signed-in frame. ≥ 768 px: sidebar (logo, role nav from `nav.ts`, the user at the
   bottom → Account). Phones: top bar (logo and name, account button) and a bottom tab bar (items with
   `tab`; the rest under "More"). Safe-area insets on every edge. `/teacher/live/*` has no shell.
+  The nav item of the section you are in goes back to its page (`dismissTo`), so a page with unsaved
+  work asks first; other items open on top.
 - `RequireAuth`: guard used by the route-group layouts (`app/(app)/_layout.tsx` for everyone signed in,
   `app/(app)/{student,teacher,admin}/_layout.tsx` per role). Signed out → `/login?redirect=…`; wrong
   role → own home.
