@@ -1,4 +1,4 @@
-import { Link, router, useLocalSearchParams, type Href } from 'expo-router';
+import { Link, router, useLocalSearchParams, useNavigation, type Href } from 'expo-router';
 import { CalendarX2, CheckCheck, Radio, Save, Users } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -49,6 +49,7 @@ export default function TeacherRollCall() {
   const { isDesktop } = useBreakpoint();
   const message = useMessage();
   const confirm = useConfirm();
+  const navigation = useNavigation();
 
   const course = useLoad(() => teacherApi.course(courseInfoId), [courseInfoId], { refreshOnFocus: true });
   // The semester's dates: the date field offers only those (the server refuses others).
@@ -142,6 +143,9 @@ export default function TeacherRollCall() {
       const summary = `Saved ${formatDate(result.date)}: ${result.present} present, ${result.absent} absent${
         result.changed ? ` (${result.changed} changed)` : ''
       }.${result.unmarked ? ` ${plural(result.unmarked, 'student has', 'students have')} no mark yet.` : ''}`;
+      // What was sent is saved now (the switches are off while saving), even if the reload
+      // below fails: nothing is left to save and leaving does not ask.
+      setInitial(marks);
       message.success(summary);
       setSaved({ text: summary, date: result.date });
       await Promise.all([list.reload({ quiet: true }), course.reload({ quiet: true })]);
@@ -158,6 +162,16 @@ export default function TeacherRollCall() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // Back to the course page underneath as it was left (its tab and date), asking first when
+  // there are changes. Opened another way (a link, another page): to the course page.
+  function backToCourse() {
+    const state = navigation.getState();
+    const below = state && state.index > 0 ? state.routes[state.index - 1] : undefined;
+    const params = below?.params as { courseInfoId?: string } | undefined;
+    if (below?.name === 'courses/[courseInfoId]/index' && params?.courseInfoId === courseInfoId) router.back();
+    else router.dismissTo(courseHref(courseInfoId));
   }
 
   const info = course.data?.course;
@@ -335,10 +349,7 @@ export default function TeacherRollCall() {
             {hasClass ? `${changes} ${changes === 1 ? 'change' : 'changes'} to save` : `${presentCount} present, ${absentCount} absent`}
           </Text>
           <View className="flex-row flex-wrap gap-3">
-            {/* dismissTo: back to the course page underneath (or in place of this one), so leaving asks first. */}
-            <Link href={courseHref(courseInfoId)} dismissTo asChild>
-              <Button label="Back to the course" />
-            </Link>
+            <Button label="Back to the course" onPress={backToCourse} />
             <Button
               label={hasClass ? 'Save changes' : 'Save roll call'}
               variant="primary"

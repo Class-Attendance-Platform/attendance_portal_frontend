@@ -85,9 +85,10 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   go back with `dismissTo`; `documentTitle`), Avatar, TextLink, `DocumentTitle` (the browser tab's
   title; PageHeader and PublicPage set it), `keys.ts` (Space/arrow keys for checkboxes and radios).
 - `components/layout/`: `AppShell` (sidebar ≥ 768 px; phones: top bar + tab bar + "More"; one tree
-  for every case so the screens are never re-created when the live page or the width changes), `nav.ts`
-  (role nav), `RequireAuth` (guards), `Page`, `PublicPage`; `PlaceholderPage` / `PublicPlaceholder`
-  (unused now, kept for future screens).
+  for every case, and the main area always `role="main"`, so the screens are never re-created when
+  the live page or the width changes; the nav item of the section you are in goes back to it with
+  `dismissTo`, so a leave guard asks), `nav.ts` (role nav), `RequireAuth` (guards), `Page`,
+  `PublicPage`; `PlaceholderPage` / `PublicPlaceholder` (unused now, kept for future screens).
 - `lib/api/`: `client.ts` (axios, Bearer token, refresh with **rotation**, session-expiry handler,
   every error → `ApiError {message, code, fieldErrors, status, body}`), then one typed module per area
   of the contract: `auth`, `config`, `student`, `teacher`, `sessions`, `admin`, `faces`, `reports`

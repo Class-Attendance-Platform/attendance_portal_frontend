@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { DocumentTitle } from '@/components/ui/document-title';
 import { Icon } from '@/components/ui/icon';
+import { useMessage } from '@/components/ui/message-bar';
 import { Pill } from '@/components/ui/pill';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ErrorState, LoadingState } from '@/components/ui/states';
@@ -40,6 +41,11 @@ export default function TeacherLiveScreen() {
   useKeepScreenOn(!!live.lists && !live.end);
   // However the page is left (Exit, a link, the browser's back), the browser's full screen ends too.
   React.useEffect(() => leaveFullScreen, []);
+  // The class sees this page: a message from the course page (e.g. a student's name) closes.
+  const { hide: hideMessage } = useMessage();
+  React.useEffect(() => {
+    hideMessage();
+  }, [hideMessage]);
 
   React.useEffect(() => {
     if (!courseInfoId) return;
