@@ -5,6 +5,7 @@ import { Platform, ScrollView, View } from 'react-native';
 import { canSaveFiles, saveTextFile, toCsv } from '@/components/admin/files';
 import { useLoad } from '@/components/admin/hooks';
 import { FormError } from '@/components/admin/parts';
+import { keepChoice } from '@/components/admin/rules';
 import { Page } from '@/components/layout/Page';
 import {
   Button,
@@ -91,11 +92,17 @@ export default function AdminStudentImport() {
   const { isDesktop } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
-  const semesters = useLoad(() => adminApi.semesters('active').then((r) => r.semesters), []);
+  const semesters = useLoad(() => adminApi.semesters('active').then((r) => r.semesters), [], { refreshOnFocus: true });
   const [file, setFile] = React.useState<ChosenFile | null>(null);
   const [semesterId, setSemesterId] = React.useState('');
   const [preview, setPreview] = React.useState<ImportResult | null>(null);
   const [applied, setApplied] = React.useState<ImportResult | null>(null);
+
+  // A semester finished or deleted elsewhere leaves the list: before the import, drop it as the choice too.
+  React.useEffect(() => {
+    const offered = semesters.data?.map((row) => row.id);
+    if (offered && !applied) setSemesterId((current) => keepChoice(current, offered, ''));
+  }, [semesters.data, applied]);
   const [checking, setChecking] = React.useState(false);
   const [applying, setApplying] = React.useState(false);
   const [error, setError] = React.useState<ApiError | null>(null);

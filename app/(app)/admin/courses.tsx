@@ -182,7 +182,7 @@ export default function AdminCourses() {
   const message = useMessage();
   const [status, setStatus] = React.useState<PersonStatus>('active');
   const [search, setSearch] = React.useState('');
-  const list = useLoad(() => adminApi.courses(status).then((r) => r.courses), [status]);
+  const list = useLoad(() => adminApi.courses(status).then((r) => r.courses), [status], { refreshOnFocus: true });
   const [dialog, setDialog] = React.useState<{ open: boolean; course: Course | null }>({ open: false, course: null });
   const [restoring, setRestoring] = React.useState<string | null>(null);
 

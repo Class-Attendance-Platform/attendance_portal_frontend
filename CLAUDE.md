@@ -74,11 +74,13 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
     the admin attendance page's export.
   - `admin/`: `hooks` (`useLoad`, `useDebounced`), `parts` (`LoadBlock`, `ResponsiveList`, `ChoiceCard`,
     …), student/teacher/semester dialogs, `semester-roster` / `-courses` / `-promote`, `password`
-    (temporary passwords and admin reset), `files` (CSV in the browser), `options`. Android has no
-    file picker for the import (the page says to use the web or desktop app).
+    (temporary passwords and admin reset), `files` (CSV in the browser), `options`; `rules.ts` (pure:
+    refresh on return, Promote ticks, choices that left a reloaded list; `tests/admin-rules.test.mjs`).
+    Android has no file picker for the import (the page says to use the web or desktop app).
   - `auth/`: see `(auth)/` above; `version.ts` is pure (`tests/version.test.mjs`).
   - The three `use-load` hooks differ on purpose (student: retry and quiet refresh; teacher:
-    `refreshOnFocus`; admin: keeps old data while reloading); pick the area's own.
+    `refreshOnFocus`; admin: keeps old data while reloading, and `refreshOnFocus` (on for every page
+    list, not dialog lists) never undoes a `setData` made while it runs); pick the area's own.
 - `components/ui/` building blocks (`index.ts` exports all; see `docs/design-system.md`): Text, Icon,
   Button/IconButton, TextField, PasswordField, SearchField, Select, Checkbox, DateField, Dialog,
   ConfirmDialog (`useConfirm`; mounts only while asking, so it shows on top of an open Dialog),

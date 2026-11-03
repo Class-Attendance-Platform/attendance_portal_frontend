@@ -12,6 +12,7 @@ import { levelTermLabel, plural } from '@/lib/format';
 import { useAppConfig, useLoad } from './hooks';
 import { cleanSession, levelOptions, nextLevelTerm, termOptions } from './options';
 import { ChoiceCard, fieldError, FormError, LoadBlock } from './parts';
+import { chosenAfterLoad, keepChoice } from './rules';
 import { LevelTakenNotice, OptionalDateField } from './semester-dialogs';
 import { FieldCell, FieldRow } from './student-dialogs';
 
@@ -25,13 +26,17 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
   const message = useMessage();
   const { isDesktop } = useBreakpoint();
 
-  const data = useLoad(async () => {
-    const [roster, semesters] = await Promise.all([adminApi.semesterStudents(semester.id), adminApi.semesters('all')]);
-    return {
-      members: roster.students.filter((member) => !member.left_at),
-      others: semesters.semesters.filter((other) => other.id !== semester.id),
-    };
-  }, [semester.id]);
+  const data = useLoad(
+    async () => {
+      const [roster, semesters] = await Promise.all([adminApi.semesterStudents(semester.id), adminApi.semesters('all')]);
+      return {
+        members: roster.students.filter((member) => !member.left_at),
+        others: semesters.semesters.filter((other) => other.id !== semester.id),
+      };
+    },
+    [semester.id],
+    { refreshOnFocus: true }
+  );
 
   const next = nextLevelTerm(config, semester.level, semester.semester, semester.session);
   const [target, setTarget] = React.useState<Target>('new');
@@ -54,10 +59,21 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
     setSession(value?.session ?? semester.session);
   }, [config, semester.level, semester.semester, semester.session]);
 
-  // Everyone is chosen by default.
+  // Everyone is chosen until the admin changes the ticks; a refresh then keeps their ticks (minus
+  // students who left). `ticksFor`: the semester whose ticks the admin changed.
+  const ticksFor = React.useRef<UUID | null>(null);
+  const changeTicks = (change: React.SetStateAction<Set<UUID> | null>) => {
+    ticksFor.current = semester.id;
+    setChosen(change);
+  };
   React.useEffect(() => {
-    if (data.data) setChosen(new Set(data.data.members.map((member) => member.profile_id)));
-  }, [data.data]);
+    if (!data.data) return;
+    const ids = data.data.members.map((member) => member.profile_id);
+    setChosen((current) => chosenAfterLoad(ids, current, ticksFor.current === semester.id));
+    // A target finished or deleted elsewhere can no longer be chosen.
+    const offered = data.data.others.filter((other) => other.is_active).map((other) => other.id);
+    setExistingId((current) => keepChoice(current, offered, null));
+  }, [data.data, semester.id]);
 
   if (semester.deleted) {
     return (
@@ -89,7 +105,7 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
             : `${levelTermLabel(level, term)}${session.trim() ? ` · ${cleanSession(session)}` : ''}`;
 
         const toggle = (id: UUID) =>
-          setChosen((current) => {
+          changeTicks((current) => {
             const nextSet = new Set(current ?? []);
             if (nextSet.has(id)) nextSet.delete(id);
             else nextSet.add(id);
@@ -243,9 +259,13 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
                     label="Select all"
                     variant="quiet"
                     compact
-                    onPress={() => setChosen(new Set(members.map((member) => member.profile_id)))}
+                    onPress={() => {
+                      // Everyone again, as at the start: students who join later are ticked too.
+                      ticksFor.current = null;
+                      setChosen(new Set(members.map((member) => member.profile_id)));
+                    }}
                   />
-                  <Button label="Select none" variant="quiet" compact onPress={() => setChosen(new Set())} />
+                  <Button label="Select none" variant="quiet" compact onPress={() => changeTicks(new Set())} />
                 </>
               }
               className="gap-3"

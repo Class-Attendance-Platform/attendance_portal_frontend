@@ -24,7 +24,9 @@ export default function AdminTeachers() {
   const [search, setSearch] = React.useState('');
   const [status, setStatus] = React.useState<PersonStatus>('active');
   const query = useDebounced(search.trim(), 300);
-  const list = useLoad(() => adminApi.teachers({ search: query, status }).then((r) => r.teachers), [query, status]);
+  const list = useLoad(() => adminApi.teachers({ search: query, status }).then((r) => r.teachers), [query, status], {
+    refreshOnFocus: true,
+  });
 
   const [selected, setSelected] = React.useState<AdminTeacher | null>(null);
   const [form, setForm] = React.useState<{ open: boolean; teacher: AdminTeacher | null }>({ open: false, teacher: null });

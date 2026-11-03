@@ -180,7 +180,9 @@ export function SemesterCourses({ semester, onChanged }: { semester: Semester; o
   const { isDesktop } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
-  const courses = useLoad(() => adminApi.semesterCourses(semester.id).then((r) => r.courses), [semester.id]);
+  const courses = useLoad(() => adminApi.semesterCourses(semester.id).then((r) => r.courses), [semester.id], {
+    refreshOnFocus: true,
+  });
   const [dialog, setDialog] = React.useState<{ open: boolean; editing: SemesterCourse | null }>({ open: false, editing: null });
   const [removing, setRemoving] = React.useState<UUID | null>(null);
   const readOnly = semester.deleted;

@@ -26,7 +26,7 @@ export default function AdminSemesters() {
   const { isDesktop } = useBreakpoint();
   const [show, setShow] = React.useState<Show>('all');
   const [creating, setCreating] = React.useState(false);
-  const list = useLoad(() => adminApi.semesters(show).then((r) => r.semesters), [show]);
+  const list = useLoad(() => adminApi.semesters(show).then((r) => r.semesters), [show], { refreshOnFocus: true });
   const actions = useSemesterActions();
 
   const update = (changed: Semester | null) => {

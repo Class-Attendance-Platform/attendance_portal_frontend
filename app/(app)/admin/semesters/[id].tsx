@@ -25,7 +25,7 @@ export default function AdminSemester() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const tab = useTab(TABS);
-  const semester = useLoad(() => adminApi.semester(id).then((r) => r.semester), [id]);
+  const semester = useLoad(() => adminApi.semester(id).then((r) => r.semester), [id], { refreshOnFocus: true });
   const actions = useSemesterActions();
   const [editing, setEditing] = React.useState(false);
 

@@ -248,7 +248,8 @@ export function SemesterRoster({ semester, onChanged }: { semester: Semester; on
   const [removing, setRemoving] = React.useState<UUID | null>(null);
   const roster = useLoad(
     () => adminApi.semesterStudents(semester.id, { includeLeft }).then((r) => r.students),
-    [semester.id, includeLeft]
+    [semester.id, includeLeft],
+    { refreshOnFocus: true }
   );
   const readOnly = semester.deleted;
   const members = roster.data ?? [];

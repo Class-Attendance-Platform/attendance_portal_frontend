@@ -22,7 +22,7 @@ export default function AdminOverview() {
   const router = useRouter();
   const config = useAppConfig();
   const min = config.attendance_min_percent;
-  const overview = useLoad(() => adminApi.overview(), []);
+  const overview = useLoad(() => adminApi.overview(), [], { refreshOnFocus: true });
 
   const semesterColumns: Column<SemesterRow>[] = [
     { key: 'label', title: 'Semester', flex: 2.2, render: (row) => <Text weight="semibold">{row.label}</Text> },

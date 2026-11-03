@@ -83,6 +83,8 @@ export function SemesterFormDialog({
   const [error, setError] = React.useState<ApiError | null>(null);
   const [saving, setSaving] = React.useState(false);
 
+  // Filled in when the dialog opens. Not again while it is open: the page reloading the semester
+  // (a refresh on return) would replace what the admin is typing.
   React.useEffect(() => {
     if (!open) return;
     setForm(
@@ -92,7 +94,8 @@ export function SemesterFormDialog({
     );
     setMissing({});
     setError(null);
-  }, [open, semester]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, semester?.id]);
 
   const set = <K extends keyof Form>(key: K) => (value: Form[K]) => setForm((current) => ({ ...current, [key]: value }));
 
