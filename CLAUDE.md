@@ -12,8 +12,9 @@ CLAUDE.md for the API, safety rules and demo logins, and its `deploy/README.md` 
 - Never force-push, never hard-delete files, never change global git config. Keep line endings (LF here).
 
 ## Careful
-- The tracked `.env` holds **backend secrets** (owner chose to keep it tracked). Never print, copy or
-  commit secrets. Put frontend settings in `.env.local` (gitignored).
+- `.env` and `credentials.txt` hold **secrets** and are gitignored (they were public in history until
+  2026-11; the owner rotates them). Never print, copy or commit secrets. Put frontend settings in
+  `.env.local` (gitignored).
 - `dist/` is old committed build output (unused now): don't hand-edit it. The real build goes to
   `web-build/` (gitignored).
 - `.env.production` (tracked, public URLs only) sets the live API and web addresses for production builds.
