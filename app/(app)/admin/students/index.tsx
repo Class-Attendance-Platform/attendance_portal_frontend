@@ -44,7 +44,8 @@ export default function AdminStudents() {
 
   const list = useLoad(
     () => adminApi.students({ search: query, level: level || undefined, semester: term || undefined, status }).then((r) => r.students),
-    [query, level, term, status]
+    [query, level, term, status],
+    { refreshOnFocus: true }
   );
 
   const [selected, setSelected] = React.useState<AdminStudent | null>(null);

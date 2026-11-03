@@ -5,6 +5,7 @@ import { View } from 'react-native';
 
 import { useAppConfig, useLoad } from '@/components/admin/hooks';
 import { FilterBar, FilterItem, LoadBlock, ResponsiveList, TwoLines } from '@/components/admin/parts';
+import { keepChoice } from '@/components/admin/rules';
 import { Page } from '@/components/layout/Page';
 import { Card, EmptyState, PageHeader, Pill, ProgressBar, Select, Text, type Column, type SelectOption } from '@/components/ui';
 import { adminApi, type AdminCourseInfo } from '@/lib/api';
@@ -16,11 +17,18 @@ export default function AdminAttendance() {
   const config = useAppConfig();
   const min = config.attendance_min_percent;
   const [semesterId, setSemesterId] = React.useState('');
-  const semesters = useLoad(() => adminApi.semesters('all').then((r) => r.semesters), []);
+  const semesters = useLoad(() => adminApi.semesters('all').then((r) => r.semesters), [], { refreshOnFocus: true });
   const list = useLoad(
     () => adminApi.courseInfos({ semesterId: semesterId || undefined }).then((r) => r.course_infos),
-    [semesterId]
+    [semesterId],
+    { refreshOnFocus: true }
   );
+
+  // A semester deleted elsewhere leaves the list: show all semesters again.
+  React.useEffect(() => {
+    const offered = semesters.data?.map((row) => row.id);
+    if (offered) setSemesterId((current) => keepChoice(current, offered, ''));
+  }, [semesters.data]);
 
   const semesterOptions: SelectOption<string>[] = [
     { label: 'All semesters', value: '' },

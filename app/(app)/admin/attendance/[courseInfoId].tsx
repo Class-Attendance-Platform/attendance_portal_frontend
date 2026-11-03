@@ -129,15 +129,24 @@ export default function AdminCourseAttendance() {
   const [exporting, setExporting] = React.useState(false);
   const [student, setStudent] = React.useState<CourseStudent | null>(null);
 
-  const detail = useLoad(async (): Promise<TeacherCourseDetail & { teacherName: string | null }> => {
-    const course = await teacherApi.course(courseInfoId);
-    // The teacher's name is only in the admin list (this semester's courses only); the page works without it.
-    const infos = await adminApi.courseInfos({ semesterId: course.course.semester.id }).catch(() => null);
-    const info = infos?.course_infos.find((row) => row.id === courseInfoId);
-    const teacher = info?.teacher;
-    const teacherName = !info ? null : !teacher ? 'No teacher yet' : teacher.deleted ? `${teacher.name} (deleted)` : teacher.name;
-    return { ...course, teacherName };
-  }, [courseInfoId]);
+  // The teacher name last shown, kept when a later lookup fails (a refresh on return).
+  const shownTeacher = React.useRef<{ courseInfoId: string; name: string | null } | null>(null);
+  const detail = useLoad(
+    async (): Promise<TeacherCourseDetail & { teacherName: string | null }> => {
+      const course = await teacherApi.course(courseInfoId);
+      // The teacher's name is only in the admin list (this semester's courses only); the page works without it.
+      const infos = await adminApi.courseInfos({ semesterId: course.course.semester.id }).catch(() => null);
+      const shown = shownTeacher.current;
+      if (!infos && shown && shown.courseInfoId === courseInfoId) return { ...course, teacherName: shown.name };
+      const info = infos?.course_infos.find((row) => row.id === courseInfoId);
+      const teacher = info?.teacher;
+      const teacherName = !info ? null : !teacher ? 'No teacher yet' : teacher.deleted ? `${teacher.name} (deleted)` : teacher.name;
+      shownTeacher.current = { courseInfoId, name: teacherName };
+      return { ...course, teacherName };
+    },
+    [courseInfoId],
+    { refreshOnFocus: true }
+  );
 
   const data = detail.data;
   const course = data?.course;

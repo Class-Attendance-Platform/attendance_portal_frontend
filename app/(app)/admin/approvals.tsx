@@ -42,9 +42,10 @@ export default function AdminApprovals() {
   const { isDesktop } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
-  const list = useLoad(() => adminApi.pendingUsers().then((r) => r.users), []);
-  // Active semesters, to point at the one matching an approved student's level and term.
-  const semesters = useLoad(() => adminApi.semesters('active').then((r) => r.semesters).catch(() => []), []);
+  const list = useLoad(() => adminApi.pendingUsers().then((r) => r.users), [], { refreshOnFocus: true });
+  // Active semesters, to point at the one matching an approved student's level and term (none
+  // while they cannot load: the notice then links to Semesters).
+  const semesters = useLoad(() => adminApi.semesters('active').then((r) => r.semesters), [], { refreshOnFocus: true });
   const [busy, setBusy] = React.useState<{ id: string; action: 'approve' | 'reject' } | null>(null);
   const [approved, setApproved] = React.useState<Approved[]>([]);
 
