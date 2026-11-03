@@ -15,6 +15,8 @@ export type SelectOption<T extends string | number> = {
   value: T;
   /** A second line in the list. */
   description?: string;
+  /** Shown greyed out and cannot be chosen (say why in `description`). */
+  disabled?: boolean;
 };
 
 export type SelectProps<T extends string | number> = {
@@ -95,6 +97,7 @@ export function Select<T extends string | number>({
         <View role="radiogroup" accessibilityLabel={label} className="-mx-2">
           {options.map((option, index) => {
             const isSelected = option.value === value;
+            const off = !!option.disabled;
             return (
               <Pressable
                 key={String(option.value)}
@@ -102,25 +105,27 @@ export function Select<T extends string | number>({
                   optionRefs.current[index] = node;
                 }}
                 role="radio"
-                accessibilityState={{ selected: isSelected, checked: isSelected }}
+                accessibilityState={{ selected: isSelected, checked: isSelected, disabled: off }}
                 aria-checked={isSelected}
+                aria-disabled={off}
                 accessibilityLabel={option.description ? `${option.label}, ${option.description}` : option.label}
-                onPress={() => choose(option)}
+                // A greyed-out choice stays reachable (it says why it cannot be chosen) but does nothing.
+                onPress={() => !off && choose(option)}
                 // Choosing closes the list, so the arrow keys only move (every choice stays a Tab stop).
                 {...radioKeys({
                   index,
                   count: options.length,
-                  onPick: () => choose(option),
+                  onPick: () => !off && choose(option),
                   onMove: (next) => optionRefs.current[next]?.focus(),
                 })}
                 className={cn(
                   'min-h-[48px] flex-row items-center gap-3 rounded-control px-3 py-2',
-                  isSelected ? 'bg-primary-soft' : 'active:bg-bg web:hover:bg-bg',
+                  isSelected ? 'bg-primary-soft' : off ? '' : 'active:bg-bg web:hover:bg-bg',
                   FOCUS_RING
                 )}
               >
                 <View className="flex-1 gap-0.5">
-                  <Text weight={isSelected ? 'semibold' : 'regular'} tone={isSelected ? 'primary' : 'default'}>
+                  <Text weight={isSelected ? 'semibold' : 'regular'} tone={isSelected ? 'primary' : off ? 'muted' : 'default'}>
                     {option.label}
                   </Text>
                   {option.description ? (
