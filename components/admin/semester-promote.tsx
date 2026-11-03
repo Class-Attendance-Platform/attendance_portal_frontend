@@ -144,8 +144,13 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
         const existingOptions = others.map((other) => ({
           label: other.label,
           value: other.id,
-          description: `${other.is_active ? 'Active' : 'Finished'} · ${plural(other.student_count, 'student')}`,
+          // Students moved into a finished semester would have no active one (the API refuses it).
+          description: other.is_active
+            ? `Active · ${plural(other.student_count, 'student')}`
+            : `Finished · reopen it first · ${plural(other.student_count, 'student')}`,
+          disabled: !other.is_active,
         }));
+        const anyFinished = others.some((other) => !other.is_active);
 
         return (
           <>
@@ -221,6 +226,7 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
                   value={existingId}
                   options={existingOptions}
                   onChange={setExistingId}
+                  hint={anyFinished ? 'Finished semesters cannot be chosen. Reopen one on its page first.' : null}
                   error={err('target_semester_id')}
                 />
               ) : (

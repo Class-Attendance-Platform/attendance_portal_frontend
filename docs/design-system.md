@@ -51,7 +51,7 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 | `TextField` | Text input with `label`, `hint`, `error`. Errors are announced. |
 | `PasswordField` | Password with show/hide; `autoComplete="new-password"` when choosing one. |
 | `SearchField` | Search box with clear button (label hidden but read). |
-| `Select` | Pick one from a list (opens a dialog; same on web and phones; arrow keys move, Space/Enter choose). |
+| `Select` | Pick one from a list (opens a dialog; same on web and phones; arrow keys move, Space/Enter choose; an option with `disabled` is greyed out and says why in its `description`). |
 | `Checkbox` | On/off with its label; the whole row is the target; Space ticks it on the web. |
 | `DateField` | A date as "05 Oct 2026", calendar grid; `noFuture` for attendance dates (Dhaka time). |
 | `Dialog` | A centred dialog; closes on the X, backdrop, Android back and Escape (unless `dismissable={false}`). |
