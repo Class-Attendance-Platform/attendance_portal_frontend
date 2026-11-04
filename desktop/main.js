@@ -1,7 +1,11 @@
 // Desktop app (Windows / Linux): a window around the live web app, so it is
 // always up to date. Build installers with `npm run dist` in this folder.
-const { app, BrowserWindow, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, session, shell } = require('electron');
 const path = require('path');
+
+// The app was renamed (Class Attendance Portal → HSTU Attendance Portal). Keep the first
+// releases' data folder, so people stay signed in after the update.
+app.setPath('userData', path.join(app.getPath('appData'), 'Class Attendance Portal'));
 
 // ATTENDANCE_APP_URL lets you point a local test at another address.
 const APP_URL = process.env.ATTENDANCE_APP_URL || 'https://attendanceportal.sakibkx.tech';
@@ -33,7 +37,7 @@ function createWindow() {
     height: 820,
     minWidth: 380,
     minHeight: 600,
-    title: 'Class Attendance Portal',
+    title: 'HSTU Attendance Portal',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     show: false,
@@ -51,17 +55,35 @@ function createWindow() {
     if (!isOwnSite(url)) openInBrowser(url);
     return { action: 'deny' };
   });
-  mainWindow.webContents.on('will-navigate', (event, url) => {
+  // The URL is on the event (Electron 25+); the second argument is the deprecated old one.
+  mainWindow.webContents.on('will-navigate', (event, legacyUrl) => {
+    const url = event.url || legacyUrl;
     if (!isOwnSite(url)) {
       event.preventDefault();
       openInBrowser(url);
     }
   });
 
+  // A page with unsaved changes (e.g. a roll call) asks before it closes or reloads. Electron would
+  // otherwise refuse to close the window without a word.
+  mainWindow.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: 'question',
+      buttons: ['Leave', 'Stay'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Leave this page?',
+      message: 'You have changes that are not saved.',
+      detail: 'If you leave now, they are lost.',
+    });
+    if (choice === 0) event.preventDefault(); // leave anyway
+  });
+
   // No internet or server down: show a small page with a Retry button.
-  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _description, _url, isMainFrame) => {
+  // "Try again" there returns to the page that failed (the portal's own pages only).
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _description, failedUrl, isMainFrame) => {
     if (isMainFrame && errorCode !== -3 /* aborted, e.g. a redirect */) {
-      mainWindow.loadFile(path.join(__dirname, 'offline.html'), { query: { url: APP_URL } });
+      mainWindow.loadFile(path.join(__dirname, 'offline.html'), { query: { url: isOwnSite(failedUrl) ? failedUrl : APP_URL } });
     }
   });
 
@@ -79,9 +101,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    // Camera (face registration, class photos) and fullscreen only for our own site.
+    // Camera (face registration, class photos), fullscreen and keeping the screen on (while a
+    // live session's QR is shown) only for our own site.
     session.defaultSession.setPermissionRequestHandler((_contents, permission, callback, details) => {
-      callback(isOwnSite(details.requestingUrl) && ['media', 'fullscreen'].includes(permission));
+      callback(isOwnSite(details.requestingUrl) && ['media', 'fullscreen', 'screen-wake-lock'].includes(permission));
     });
     createWindow();
   });

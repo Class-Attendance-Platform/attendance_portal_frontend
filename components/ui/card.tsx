@@ -1,55 +1,49 @@
-import { Text, TextClassContext } from '@/components/ui/text';
+import * as React from 'react';
+import { View, type ViewProps } from 'react-native';
+
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { cn } from '@/lib/utils';
-import { View } from 'react-native';
+import { Text } from './text';
 
-function Card({ className, ...props }: React.ComponentProps<typeof View> & React.RefAttributes<View>) {
+export type CardProps = ViewProps & {
+  /** A section heading inside the card. */
+  title?: string;
+  /** Small text next to the title, e.g. "(11)". */
+  titleNote?: string;
+  /** Buttons or links on the right of the title. */
+  actions?: React.ReactNode;
+  /** false: no inner padding (for lists that run edge to edge). */
+  padded?: boolean;
+  className?: string;
+};
+
+/** White box with a 1 px border: radius 10 (12 on phones), padding 20 (16 on phones). No shadow. */
+export function Card({ title, titleNote, actions, padded = true, className, children, ...props }: CardProps) {
+  const { isDesktop } = useBreakpoint();
   return (
-    <TextClassContext.Provider value="text-card-foreground">
-      <View
-        className={cn(
-          'bg-card border-border flex flex-col gap-6 rounded-xl border py-6 shadow-sm shadow-black/5',
-          className
-        )}
-        {...props}
-      />
-    </TextClassContext.Provider>
-  );
-}
-
-function CardHeader({ className, ...props }: React.ComponentProps<typeof View> & React.RefAttributes<View>) {
-  return <View className={cn('flex flex-col gap-1.5 px-6', className)} {...props} />;
-}
-
-function CardTitle({
-  className,
-  ref,
-  ...props
-}: React.ComponentProps<typeof Text> & React.RefAttributes<typeof Text>) {
-
-  return (
-    <Text
-      ref={ref}
-      role="heading"
-      aria-level={3}
-      className={cn('font-semibold leading-none', className)}
+    <View
+      className={cn(
+        'border border-border bg-surface',
+        isDesktop ? 'rounded-card' : 'rounded-card-phone',
+        padded && (isDesktop ? 'p-5' : 'p-4'),
+        className
+      )}
       {...props}
-    />
+    >
+      {title || actions ? (
+        <View className={cn('flex-row flex-wrap items-center justify-between gap-3', !padded && (isDesktop ? 'px-5 pt-5' : 'px-4 pt-4'))}>
+          {title ? (
+            <View className="flex-shrink flex-row flex-wrap items-baseline gap-1.5">
+              <Text variant="section">{title}</Text>
+              {titleNote ? <Text tone="muted">{titleNote}</Text> : null}
+            </View>
+          ) : (
+            <View />
+          )}
+          {actions ? <View className="flex-row flex-wrap items-center gap-2">{actions}</View> : null}
+        </View>
+      ) : null}
+      {children}
+    </View>
   );
 }
-
-function CardDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof Text> & React.RefAttributes<typeof Text>) {
-  return <Text className={cn('text-muted-foreground text-sm', className)} {...props} />;
-}
-
-function CardContent({ className, ...props }: React.ComponentProps<typeof View> & React.RefAttributes<View>) {
-  return <View className={cn('px-6', className)} {...props} />;
-}
-
-function CardFooter({ className, ...props }: React.ComponentProps<typeof View> & React.RefAttributes<View>) {
-  return <View className={cn('flex flex-row items-center px-6', className)} {...props} />;
-}
-
-export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle };
