@@ -21,7 +21,7 @@ import {
   type Column,
 } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { adminApi, type PendingUser } from '@/lib/api';
+import { ADMIN_ERRORS, adminApi, type PendingUser } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { EMPTY, formatDate, fullName, levelTermLabel, plural, roleLabel } from '@/lib/format';
 
@@ -39,7 +39,8 @@ type Approved = { id: string; name: string; semester: { id: string; label: strin
 
 /** /admin/approvals: sign-ups waiting for approval, approve or reject each. */
 export default function AdminApprovals() {
-  const { isDesktop } = useBreakpoint();
+  // Tables from 1100 px; below, the phone rows (next to the sidebar the columns would squeeze names away).
+  const { isWide } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
   const list = useLoad(() => adminApi.pendingUsers().then((r) => r.users), [], { refreshOnFocus: true });
@@ -65,7 +66,14 @@ export default function AdminApprovals() {
         setApproved((current) => [entry, ...current.filter((row) => row.id !== user.id)].slice(0, 5));
       }
     } catch (caught) {
-      message.error(toApiError(caught).message);
+      const problem = toApiError(caught);
+      if (problem.status === 404) {
+        // Rejected or removed meanwhile (another admin or tab): it is not waiting any more.
+        drop(user);
+        message.error(`${fullName(user)}'s sign-up is no longer waiting: it was rejected or removed meanwhile.`);
+      } else {
+        message.error(problem.message);
+      }
     } finally {
       setBusy(null);
     }
@@ -86,7 +94,12 @@ export default function AdminApprovals() {
       drop(user);
       message.success(`${name}'s sign-up was rejected.`);
     } catch (caught) {
-      message.error(toApiError(caught).message);
+      const problem = toApiError(caught);
+      // Approved, rejected or removed meanwhile (another admin or tab): it is not waiting any more.
+      if (problem.code === ADMIN_ERRORS.alreadyApproved || problem.status === 404) drop(user);
+      message.error(
+        problem.status === 404 ? `${name}'s sign-up is no longer waiting: it was rejected or removed meanwhile.` : problem.message
+      );
     } finally {
       setBusy(null);
     }
@@ -177,7 +190,7 @@ export default function AdminApprovals() {
                 title="No sign-ups waiting"
                 message="When students or teachers sign up, they show here. They can sign in once you approve them."
               />
-            ) : isDesktop ? (
+            ) : isWide ? (
               <DataTable label="Sign-ups waiting for approval" columns={columns} rows={users} rowKey={(row) => row.id} />
             ) : (
               <View role="list" accessibilityLabel="Sign-ups waiting for approval">

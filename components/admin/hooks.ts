@@ -21,7 +21,8 @@ export type LoadState<T> = {
 export type LoadOptions = {
   /**
    * Loads again quietly when the page comes back into view (Back, a crumb or its nav item going
-   * back to it): the data stays on screen, no spinner, and a failure keeps the old data.
+   * back to it): the data stays on screen, no spinner, and a failure keeps the old data (except a
+   * 403 or 404: the item is gone, so that error shows).
    */
   refreshOnFocus?: boolean;
 };
@@ -66,7 +67,14 @@ export function useLoad<T>(
       setLoaded(result);
       setError(null);
     } catch (caught) {
-      if (!quiet && id === latest.current) setError(toApiError(caught));
+      if (id !== latest.current) return;
+      const problem = toApiError(caught);
+      if (!quiet) setError(problem);
+      else if (problem.status === 403 || problem.status === 404) {
+        // Not a network blip: the item is gone (deleted elsewhere) or closed to this admin now.
+        setLoaded(null);
+        setError(problem);
+      }
     } finally {
       if (id === latest.current) {
         running.current = false;
@@ -84,6 +92,7 @@ export function useLoad<T>(
   const setData = React.useCallback<React.Dispatch<React.SetStateAction<T | null>>>((value) => {
     edits.current += 1;
     setLoaded(value);
+    if (value === null) setError(null); // a new view starts clean: its spinner, not the old view's error
   }, []);
 
   React.useEffect(() => {

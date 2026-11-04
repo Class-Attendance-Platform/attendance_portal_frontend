@@ -192,7 +192,7 @@ export default function AdminCourses() {
   );
 
   async function remove(course: Course) {
-    setDialog({ open: false, course: null });
+    // Asked on top of the open dialog: Cancel goes back to it with any changes still there.
     const ok = await confirm({
       title: `Delete ${course.code}?`,
       message: `${course.title} is hidden from teachers, students and every semester. Its attendance is kept, and you can restore it later.`,
@@ -200,6 +200,7 @@ export default function AdminCourses() {
       destructive: true,
     });
     if (!ok) return;
+    setDialog({ open: false, course: null });
     try {
       await adminApi.deleteCourse(course.id);
       list.setData((rows) => (rows ? rows.filter((row) => row.id !== course.id) : rows));
@@ -253,7 +254,17 @@ export default function AdminCourses() {
           <SearchField label="Search courses" placeholder="Search by code or title" value={search} onChangeText={setSearch} />
         </FilterItem>
         <FilterItem>
-          <Select label="Status" hideLabel value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+          <Select
+            label="Status"
+            hideLabel
+            value={status}
+            options={STATUS_OPTIONS}
+            // The other view's rows go at once (they would get this view's buttons until it loads).
+            onChange={(value) => {
+              if (value !== status) list.setData(null);
+              setStatus(value);
+            }}
+          />
         </FilterItem>
       </FilterBar>
 
@@ -284,7 +295,7 @@ export default function AdminCourses() {
                 rowKey={(row) => row.id}
                 columns={columns}
                 onRowPress={deletedView ? undefined : (course) => setDialog({ open: true, course })}
-                rowLabel={(row) => `${row.code}, ${row.title}. Open to edit.`}
+                rowLabel={(row) => `${row.code}, ${row.title}, ${formatCredits(row.credits)} credits. Open to edit.`}
                 phoneRow={(row) => ({
                   title: `${row.code} · ${row.title}`,
                   subtitle: `${formatCredits(row.credits)} credits`,

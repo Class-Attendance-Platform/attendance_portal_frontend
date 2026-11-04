@@ -24,7 +24,7 @@ import {
 } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useLeaveGuard } from '@/hooks/useLeaveGuard';
-import { adminApi, type ApiError, type ImportResult, type ImportRow } from '@/lib/api';
+import { adminApi, ApiError, type ImportResult, type ImportRow } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { todayISO } from '@/lib/dates';
 import { plural } from '@/lib/format';
@@ -78,8 +78,9 @@ function StatusCell({ row }: { row: ImportRow }) {
       ) : (
         <Pill label="Error" tone="absent" />
       )}
+      {/* An "exists" row may carry a note (its account is deleted: restore it), not an error */}
       {row.errors.map((error) => (
-        <Text key={error} variant="small" tone="absent">
+        <Text key={error} variant="small" tone={row.status === 'exists' ? 'muted' : 'absent'}>
           {error}
         </Text>
       ))}
@@ -87,9 +88,23 @@ function StatusCell({ row }: { row: ImportRow }) {
   );
 }
 
+/**
+ * Chrome (and so the desktop app) refuses to send a file that changed after it was chosen, which
+ * looks like no connection: say what to do instead.
+ */
+function fileProblem(problem: ApiError): ApiError {
+  if (problem.code !== 'network_error') return problem;
+  return new ApiError("Couldn't send the file. If you changed it after choosing it, choose it again; otherwise check your connection.", {
+    status: 0,
+    code: 'network_error',
+  });
+}
+
 /** /admin/students/import: a .csv / .xlsx file → dry run → apply → temporary passwords once. */
 export default function AdminStudentImport() {
-  const { isDesktop } = useBreakpoint();
+  // Tables and the two-column layout from 1100 px; below, phone rows and one column (next to the
+  // sidebar they would be squeezed).
+  const { isWide } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
   const semesters = useLoad(() => adminApi.semesters('active').then((r) => r.semesters), [], { refreshOnFocus: true });
@@ -98,26 +113,66 @@ export default function AdminStudentImport() {
   const [preview, setPreview] = React.useState<ImportResult | null>(null);
   const [applied, setApplied] = React.useState<ImportResult | null>(null);
 
-  // A semester finished or deleted elsewhere leaves the list: before the import, drop it as the choice too.
+  // A semester finished or deleted elsewhere leaves the list: before the import, drop it as the
+  // choice too, and say so (silently falling back to "Don't add" would add the students to none).
+  const chosenLabel = React.useRef<string | null>(null);
+  chosenLabel.current = semesters.data?.find((row) => row.id === semesterId)?.label ?? chosenLabel.current;
+  const [semesterGone, setSemesterGone] = React.useState<string | null>(null);
   React.useEffect(() => {
     const offered = semesters.data?.map((row) => row.id);
-    if (offered && !applied) setSemesterId((current) => keepChoice(current, offered, ''));
-  }, [semesters.data, applied]);
+    if (!offered || applied || keepChoice(semesterId, offered, '') === semesterId) return;
+    setSemesterGone(chosenLabel.current ?? 'The chosen semester');
+    setSemesterId('');
+  }, [semesters.data, applied, semesterId]);
+  const chooseSemester = (id: string) => {
+    setSemesterGone(null);
+    setSemesterId(id);
+  };
+
+  // apply() waits for the confirm, which lives above the pages: browser Back while it is open
+  // closes this page, and an import sent then would have nowhere to show the passwords.
+  const mounted = React.useRef(true);
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [checking, setChecking] = React.useState(false);
   const [applying, setApplying] = React.useState(false);
   const [error, setError] = React.useState<ApiError | null>(null);
+  const [applyError, setApplyError] = React.useState<ApiError | null>(null);
+  // The semester sent with the import (its name stays even if the list changes later).
+  const [appliedSemester, setAppliedSemester] = React.useState<string | null>(null);
   const [downloaded, setDownloaded] = React.useState(false);
   const web = Platform.OS === 'web';
+  // While a check or the import runs, the file and the semester stay as they were sent.
+  const busy = checking || applying;
 
-  // The temporary passwords are shown only once: ask before they are dropped unsaved.
-  const unsavedPasswords = !!applied?.created?.length && !downloaded;
-  const discardPasswords = {
-    title: 'Leave without the passwords?',
-    message: "The temporary passwords are not shown again. Without them, each new student's password has to be reset one by one.",
-    confirmLabel: 'Leave anyway',
-    cancelLabel: 'Stay',
-  };
-  useLeaveGuard(unsavedPasswords, discardPasswords);
+  // The temporary passwords are shown only once: ask before they are lost. While the import runs
+  // they are on their way; after "Download as CSV" the save may still have been cancelled.
+  const keepPasswords = applying || !!applied?.created?.length;
+  const discardPasswords = applying
+    ? {
+        title: 'Leave while the students are added?',
+        message: "Their temporary passwords come back only on this page. If you leave now, each new student's password has to be reset one by one.",
+        confirmLabel: 'Leave anyway',
+        cancelLabel: 'Stay',
+      }
+    : downloaded
+      ? {
+          title: 'Did the passwords file save?',
+          message: "The temporary passwords are not shown again. Leave only if the file was saved (or you noted them): without them, each new student's password has to be reset one by one.",
+          confirmLabel: 'Leave',
+          cancelLabel: 'Stay',
+        }
+      : {
+          title: 'Leave without the passwords?',
+          message: "The temporary passwords are not shown again. Without them, each new student's password has to be reset one by one.",
+          confirmLabel: 'Leave anyway',
+          cancelLabel: 'Stay',
+        };
+  useLeaveGuard(keepPasswords, discardPasswords);
 
   async function pick() {
     const chosen = await chooseFile();
@@ -126,17 +181,19 @@ export default function AdminStudentImport() {
     setPreview(null);
     setApplied(null);
     setError(null);
+    setApplyError(null);
   }
 
   async function check(current = file) {
     if (!current) return;
     setChecking(true);
     setError(null);
+    setApplyError(null);
     try {
       setPreview(await adminApi.importStudents({ file: { blob: current.blob, name: current.name } }));
     } catch (caught) {
       setPreview(null);
-      setError(toApiError(caught));
+      setError(fileProblem(toApiError(caught)));
     } finally {
       setChecking(false);
     }
@@ -148,26 +205,33 @@ export default function AdminStudentImport() {
     const ok = await confirm({
       title: `Add ${plural(preview.summary.create, 'student')}?`,
       message: `Their accounts are approved at once, each with a temporary password shown on the next screen only once.${
-        semester ? ` They are also added to ${semester.label}.` : ''
+        semester ? ` They are also added to ${semester.label}.` : ' They are not added to a semester.'
       }${preview.summary.exists + preview.summary.error ? ' Rows that already exist or have errors are skipped.' : ''}`,
       confirmLabel: 'Add students',
     });
     if (!ok) return;
+    if (!mounted.current) {
+      message.info('Nothing was added: the import page was closed.');
+      return;
+    }
     setApplying(true);
-    setError(null);
+    setApplyError(null);
     try {
-      const result = await adminApi.importStudents({ file: { blob: file.blob, name: file.name }, apply: true, semesterId: semesterId || undefined });
+      const result = await adminApi.importStudents({ file: { blob: file.blob, name: file.name }, apply: true, semesterId: semester?.id });
+      setAppliedSemester(semester?.label ?? null);
       setApplied(result);
       setDownloaded(false);
       setPreview(null);
       message.success(`${plural(result.created?.length ?? 0, 'student')} added.`);
     } catch (caught) {
-      const problem = toApiError(caught);
+      const problem = fileProblem(toApiError(caught));
       if (problem.code === 'conflict') {
         message.error(problem.message);
         void check();
       } else {
-        setError(problem);
+        // Shown next to the Add button. The semester choice stays: a retry is refused again until
+        // it is reopened (then the students join it), or the admin picks another one.
+        setApplyError(problem);
       }
     } finally {
       setApplying(false);
@@ -185,11 +249,14 @@ export default function AdminStudentImport() {
   }
 
   async function startOver() {
-    if (unsavedPasswords && !(await confirm({ ...discardPasswords, confirmLabel: 'Import another file', destructive: true }))) return;
+    if (keepPasswords && !(await confirm({ ...discardPasswords, confirmLabel: 'Import another file', destructive: true }))) return;
     setFile(null);
     setPreview(null);
     setApplied(null);
+    setAppliedSemester(null);
+    setSemesterGone(null);
     setError(null);
+    setApplyError(null);
   }
 
   const previewColumns: Column<ImportRow>[] = [
@@ -203,7 +270,6 @@ export default function AdminStudentImport() {
   ];
 
   const createdRows = applied?.created ?? [];
-  const appliedSemester = semesters.data?.find((row) => row.id === semesterId)?.label ?? null;
   const semesterOptions = [
     { label: "Don't add to a semester", value: '' },
     ...(semesters.data ?? []).map((row) => ({ label: row.label, value: row.id, description: `${plural(row.student_count, 'student')} now` })),
@@ -230,7 +296,7 @@ export default function AdminStudentImport() {
           />
           {createdRows.length && appliedSemester ? <Text>They were added to {appliedSemester}.</Text> : null}
           {createdRows.length ? (
-            isDesktop ? (
+            isWide ? (
               <View className="overflow-hidden rounded-control border border-border">
                 <DataTable
                   label="New accounts and temporary passwords"
@@ -275,13 +341,19 @@ export default function AdminStudentImport() {
         </Card>
       ) : (
         <>
-          <View className={isDesktop ? 'flex-row items-start gap-5' : 'gap-4'}>
-            <View className={isDesktop ? 'flex-[3]' : undefined}>
+          <View className={isWide ? 'flex-row items-start gap-5' : 'gap-4'}>
+            <View className={isWide ? 'flex-[3]' : undefined}>
               <Card title="1. Choose the file" className="gap-4">
                 {web ? (
                   <>
                     <View className="flex-row flex-wrap items-center gap-3">
-                      <Button label={file ? 'Choose another file' : 'Choose a file'} icon={FileUp} onPress={pick} variant={file ? 'secondary' : 'primary'} />
+                      <Button
+                        label={file ? 'Choose another file' : 'Choose a file'}
+                        icon={FileUp}
+                        onPress={pick}
+                        variant={file ? 'secondary' : 'primary'}
+                        disabled={busy}
+                      />
                       {file ? (
                         <View className="flex-row items-center gap-2">
                           <Icon as={FileSpreadsheet} size={20} color="primary" />
@@ -296,15 +368,29 @@ export default function AdminStudentImport() {
                       label="Also add them to a semester"
                       value={semesterId}
                       options={semesterOptions}
-                      onChange={setSemesterId}
+                      onChange={chooseSemester}
                       hint="Optional. The new students join this semester's class list."
+                      disabled={busy}
                     />
+                    {semesterGone ? (
+                      <Notice
+                        tone="warn"
+                        message={`${semesterGone} was finished or deleted meanwhile, so no semester is chosen now. Choose one again if the new students should join it.`}
+                      />
+                    ) : null}
                     {semesters.error ? (
                       <Notice tone="error" title="Couldn't load the semesters" message={semesters.error.message}>
                         <Button label="Try again" compact icon={RefreshCw} loading={semesters.loading} onPress={() => void semesters.reload()} />
                       </Notice>
                     ) : null}
-                    <Button label="Check the file" variant={file ? 'primary' : 'secondary'} icon={CircleCheck} loading={checking} disabled={!file} onPress={() => check()} />
+                    <Button
+                      label="Check the file"
+                      variant={file ? 'primary' : 'secondary'}
+                      icon={CircleCheck}
+                      loading={checking}
+                      disabled={!file || applying}
+                      onPress={() => check()}
+                    />
                   </>
                 ) : (
                   <Notice
@@ -315,7 +401,7 @@ export default function AdminStudentImport() {
                 <FormError error={error} />
               </Card>
             </View>
-            <View className={isDesktop ? 'flex-[2]' : undefined}>
+            <View className={isWide ? 'flex-[2]' : undefined}>
               <Card title="What the file needs" className="gap-4">
                 <Text tone="muted">
                   The first row names the columns, in any order. Each other row is one student. Accounts are approved at once and
@@ -379,11 +465,11 @@ export default function AdminStudentImport() {
               {preview.summary.error ? (
                 <Notice
                   tone="warn"
-                  message="Rows with errors are skipped. Fix them in the file and check it again, or add the other rows now."
+                  message="Rows with errors are skipped. Fix them in the file, then choose it again and check it, or add the other rows now."
                 />
               ) : null}
               {preview.rows.length ? (
-                isDesktop ? (
+                isWide ? (
                   <View className="overflow-hidden rounded-control border border-border">
                     <DataTable label="Rows in the file" rows={preview.rows} rowKey={(row) => String(row.row)} columns={previewColumns} />
                   </View>
@@ -409,11 +495,12 @@ export default function AdminStudentImport() {
               ) : (
                 <Text tone="muted">The file has no student rows.</Text>
               )}
+              <FormError error={applyError} />
               <Button
                 label={preview.summary.create ? `Add ${plural(preview.summary.create, 'student')}` : 'Nothing to add'}
                 variant="primary"
                 icon={Upload}
-                disabled={!preview.summary.create}
+                disabled={!preview.summary.create || checking}
                 loading={applying}
                 onPress={apply}
               />

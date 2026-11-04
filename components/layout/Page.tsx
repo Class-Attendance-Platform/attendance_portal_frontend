@@ -17,13 +17,15 @@ export type PageProps = {
    */
   onRefresh?: () => Promise<unknown>;
   className?: string;
+  /** The page's scroll view (e.g. to show a notice at the top: scrollTo without animation). */
+  scrollRef?: React.Ref<ScrollView>;
 };
 
 /**
  * The content area of a signed-in page: scrolls, max width 1200 px, padding 24/32 on desktop and
  * 16/20 on phones, 20 px between sections. Start it with a PageHeader.
  */
-export function Page({ children, scroll = true, refreshControl, onRefresh, className }: PageProps) {
+export function Page({ children, scroll = true, refreshControl, onRefresh, className, scrollRef }: PageProps) {
   const { isDesktop } = useBreakpoint();
   // Phones: room for the on-screen keyboard (see useKeyboardOverlap).
   const frame = React.useRef<View>(null);
@@ -50,6 +52,7 @@ export function Page({ children, scroll = true, refreshControl, onRefresh, class
   return (
     <View ref={frame} className="flex-1" style={keyboard ? { paddingBottom: keyboard } : undefined}>
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         overScrollMode="never"
         bounces={false}

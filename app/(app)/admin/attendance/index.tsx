@@ -4,7 +4,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { useAppConfig, useLoad } from '@/components/admin/hooks';
-import { FilterBar, FilterItem, LoadBlock, ResponsiveList, TwoLines } from '@/components/admin/parts';
+import { FilterBar, FilterItem, LoadBlock, ResponsiveList, rowWords, TwoLines } from '@/components/admin/parts';
 import { keepChoice } from '@/components/admin/rules';
 import { Page } from '@/components/layout/Page';
 import { Card, EmptyState, PageHeader, Pill, ProgressBar, Select, Text, type Column, type SelectOption } from '@/components/ui';
@@ -112,7 +112,16 @@ export default function AdminAttendance() {
                 rowKey={(row) => row.id}
                 columns={columns}
                 onRowPress={(row) => router.push(`/admin/attendance/${row.id}` as Href)}
-                rowLabel={(row) => `Open ${row.course.code} ${row.course.title}, ${row.semester.label}`}
+                // Phones read only this label, so it says what the row shows.
+                rowLabel={(row) =>
+                  rowWords(
+                    `${row.course.code} ${row.course.title}, ${row.semester.label}${row.semester.is_active ? '' : ' (finished)'}`,
+                    row.teacher ? `${row.teacher.name}${row.teacher.deleted ? ' (deleted)' : ''}` : 'No teacher yet',
+                    `${plural(row.student_count, 'student')}, ${plural(row.classes_held, 'class', 'classes')}`,
+                    `Average ${formatPercent(row.average_percent)}`,
+                    'Open it'
+                  )
+                }
                 phoneRow={(row) => ({
                   title: `${row.course.code} · ${row.course.title}`,
                   subtitle: `${row.semester.label}${row.semester.is_active ? '' : ' (finished)'}`,

@@ -12,12 +12,12 @@ import {
   LoadingState,
   Notice,
   Pill,
-  spaceKey,
+  radioKeys,
   Text,
   type Column,
 } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import type { ApiError } from '@/lib/api';
+import { semesterClashes, type ApiError } from '@/lib/api';
 import { cn, FOCUS_RING } from '@/lib/utils';
 import type { LoadState } from './hooks';
 
@@ -64,6 +64,27 @@ export function FormError({ error }: { error: ApiError | null }) {
   return <Notice tone="error" message={error.message} live />;
 }
 
+/**
+ * A 409 `already_in_semester` as a notice that stays: the message (it names only the first few)
+ * and every student it is about, with the semester each one is in now.
+ */
+export function SemesterClashNotice({ error, title, onClose }: { error: ApiError | null; title?: string; onClose?: () => void }) {
+  const clashes = semesterClashes(error);
+  if (!error || !clashes.length) return null;
+  return (
+    <Notice tone="error" title={title} message={error.message} live>
+      <View role="list" accessibilityLabel="Students in another semester" className="w-full gap-1">
+        {clashes.map((clash) => (
+          <Text key={clash.profile_id} role="listitem" variant="small">
+            {clash.name} ({clash.student_id}) · now in {clash.semester_label}
+          </Text>
+        ))}
+      </View>
+      {onClose ? <Button label="Close" variant="quiet" compact onPress={onClose} /> : null}
+    </Notice>
+  );
+}
+
 /** The first server error for a field, if any. */
 export const fieldError = (error: ApiError | null, ...names: string[]) => {
   for (const name of names) {
@@ -92,10 +113,13 @@ export type ResponsiveListProps<T> = {
   rowLabel?: (row: T) => string;
 };
 
-/** A table at ≥ 768 px, ListRows on phones. Put it in a `Card padded={false}`. */
+/**
+ * A table from 1100 px, ListRows below (phones, tablets, half-screen windows: next to the sidebar
+ * the columns would squeeze names to nothing). Put it in a `Card padded={false}`.
+ */
 export function ResponsiveList<T>({ label, rows, rowKey, columns, phoneRow, onRowPress, rowLabel }: ResponsiveListProps<T>) {
-  const { isDesktop } = useBreakpoint();
-  if (isDesktop) {
+  const { isWide } = useBreakpoint();
+  if (isWide) {
     const withChevron: Column<T>[] = onRowPress
       ? [...columns, { key: '__open', title: '', width: 20, render: () => <Icon as={ChevronRight} size={18} color="muted" /> }]
       : columns;
@@ -153,12 +177,25 @@ export function FilterItem({ children, grow, wide }: { children: React.ReactNode
 }
 
 /** "Deleted", "Waiting for approval" or "Disabled" for an account, else nothing. */
-export function AccountPill({ account }: { account: { deleted: boolean; is_verified: boolean; is_active: boolean } }) {
-  if (account.deleted) return <Pill label="Deleted" tone="absent" />;
-  if (!account.is_verified) return <Pill label="Waiting for approval" tone="warn" />;
-  if (!account.is_active) return <Pill label="Disabled" tone="neutral" />;
+type AccountState = { deleted: boolean; is_verified: boolean; is_active: boolean };
+
+/** The account's state in words ("Deleted", "Waiting for approval", "Disabled"); null when in use. */
+export function accountWords(account: AccountState): string | null {
+  if (account.deleted) return 'Deleted';
+  if (!account.is_verified) return 'Waiting for approval';
+  if (!account.is_active) return 'Disabled';
   return null;
 }
+
+export function AccountPill({ account }: { account: AccountState }) {
+  const words = accountWords(account);
+  if (!words) return null;
+  return <Pill label={words} tone={account.deleted ? 'absent' : account.is_verified ? 'neutral' : 'warn'} />;
+}
+
+/** A row's screen-reader label from its parts (empty ones left out), so the whole row is read. */
+export const rowWords = (...parts: (string | null | false | undefined)[]) =>
+  parts.filter(Boolean).map((part) => (/[.!?]$/.test(part as string) ? part : `${part}.`)).join(' ');
 
 /** A number tile that is also a link (overview). */
 export function LinkTile({
@@ -222,47 +259,72 @@ export function TwoLines({ main, sub, strong = true }: { main: string; sub?: str
   );
 }
 
-/** One choice of a small radio group, as a bordered box with a description. */
-export function ChoiceCard({
+/**
+ * A small radio group as bordered boxes with a description each. Keyboard (web): one Tab stop,
+ * the arrow keys move and choose, Space chooses.
+ */
+export function ChoiceCards<T extends string>({
   label,
-  description,
-  selected,
-  onPress,
+  choices,
+  value,
+  onChange,
 }: {
   label: string;
-  description?: string;
-  selected: boolean;
-  onPress: () => void;
+  choices: { value: T; label: string; description?: string }[];
+  value: T;
+  onChange: (value: T) => void;
 }) {
+  const refs = React.useRef<(View | null)[]>([]);
+  const chosenIndex = choices.findIndex((choice) => choice.value === value);
   return (
-    <Pressable
-      role="radio"
-      aria-checked={selected}
-      accessibilityState={{ checked: selected, selected }}
-      accessibilityLabel={description ? `${label}, ${description}` : label}
-      onPress={onPress}
-      {...spaceKey(onPress)}
-      className={cn(
-        'min-h-[44px] min-w-[220px] flex-1 flex-row items-start gap-3 rounded-control border p-3',
-        selected ? 'border-primary bg-primary-soft' : 'border-border bg-surface active:bg-bg web:hover:bg-bg',
-        FOCUS_RING
-      )}
-    >
-      <View
-        className={cn('mt-0.5 h-5 w-5 items-center justify-center rounded-pill border-2', selected ? 'border-primary' : 'border-muted')}
-      >
-        {selected ? <View className="h-2.5 w-2.5 rounded-pill bg-primary" /> : null}
-      </View>
-      <View className="flex-1 gap-0.5">
-        <Text weight="semibold" tone={selected ? 'primary' : 'default'}>
-          {label}
-        </Text>
-        {description ? (
-          <Text variant="small" tone="muted">
-            {description}
-          </Text>
-        ) : null}
-      </View>
-    </Pressable>
+    <View role="radiogroup" accessibilityLabel={label} className="flex-row flex-wrap gap-3">
+      {choices.map((choice, index) => {
+        const selected = index === chosenIndex;
+        return (
+          <Pressable
+            key={choice.value}
+            ref={(node) => {
+              refs.current[index] = node;
+            }}
+            role="radio"
+            aria-checked={selected}
+            accessibilityState={{ checked: selected, selected }}
+            accessibilityLabel={choice.description ? `${choice.label}, ${choice.description}` : choice.label}
+            onPress={() => onChange(choice.value)}
+            {...radioKeys({
+              index,
+              count: choices.length,
+              tabStop: index === Math.max(chosenIndex, 0),
+              onPick: () => onChange(choice.value),
+              onMove: (next) => {
+                refs.current[next]?.focus();
+                onChange(choices[next].value);
+              },
+            })}
+            className={cn(
+              'min-h-[44px] min-w-[220px] flex-1 flex-row items-start gap-3 rounded-control border p-3',
+              selected ? 'border-primary bg-primary-soft' : 'border-border bg-surface active:bg-bg web:hover:bg-bg',
+              FOCUS_RING
+            )}
+          >
+            <View
+              className={cn('mt-0.5 h-5 w-5 items-center justify-center rounded-pill border-2', selected ? 'border-primary' : 'border-muted')}
+            >
+              {selected ? <View className="h-2.5 w-2.5 rounded-pill bg-primary" /> : null}
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text weight="semibold" tone={selected ? 'primary' : 'default'}>
+                {choice.label}
+              </Text>
+              {choice.description ? (
+                <Text variant="small" tone="muted">
+                  {choice.description}
+                </Text>
+              ) : null}
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }

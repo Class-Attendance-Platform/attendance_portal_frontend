@@ -74,6 +74,12 @@ export const MIN_TARGET = 44;
 /** Width where the sidebar replaces the phone top bar and tab bar. */
 export const DESKTOP_BREAKPOINT = 768;
 
+/**
+ * Width where the admin lists show as tables. Below it (phones, tablets, half-screen windows) the
+ * sidebar leaves too little room for their columns, so they use the phone rows.
+ */
+export const WIDE_BREAKPOINT = 1100;
+
 /** Page content never gets wider than this. */
 export const PAGE_MAX_WIDTH = 1200;
 

@@ -3,7 +3,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { useDebounced, useLoad } from '@/components/admin/hooks';
-import { AccountPill, FilterBar, FilterItem, LoadBlock, ResponsiveList, TwoLines } from '@/components/admin/parts';
+import { AccountPill, accountWords, FilterBar, FilterItem, LoadBlock, ResponsiveList, rowWords, TwoLines } from '@/components/admin/parts';
 import { ResetPasswordDialog } from '@/components/admin/password';
 import { TeacherFormDialog, TeacherManageDialog } from '@/components/admin/teacher-dialogs';
 import { Page } from '@/components/layout/Page';
@@ -118,7 +118,17 @@ export default function AdminTeachers() {
           <SearchField label="Search teachers" placeholder="Search by name, email or employee ID" value={search} onChangeText={setSearch} />
         </FilterItem>
         <FilterItem>
-          <Select label="Status" hideLabel value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+          <Select
+            label="Status"
+            hideLabel
+            value={status}
+            options={STATUS_OPTIONS}
+            // The other view's rows go at once (the count would name them wrongly until it loads).
+            onChange={(value) => {
+              if (value !== status) list.setData(null);
+              setStatus(value);
+            }}
+          />
         </FilterItem>
       </FilterBar>
 
@@ -149,7 +159,16 @@ export default function AdminTeachers() {
                 rowKey={(row) => row.id}
                 columns={columns}
                 onRowPress={setSelected}
-                rowLabel={(row) => `${fullName(row)}. Open to manage.`}
+                // Phones read only this label (TalkBack groups a row's parts), so it says what the row shows.
+                rowLabel={(row) =>
+                  rowWords(
+                    `${fullName(row)}, ${row.employee_id || 'no employee ID'}, ${plural(row.course_count, 'course')}`,
+                    row.email,
+                    `Last sign-in ${row.last_login ? formatDate(row.last_login) : 'never'}`,
+                    accountWords(row),
+                    'Open to manage'
+                  )
+                }
                 phoneRow={(row) => ({
                   title: fullName(row),
                   subtitle: `${row.employee_id || 'No employee ID'} · ${plural(row.course_count, 'course')}`,

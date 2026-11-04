@@ -169,7 +169,8 @@ export function StudentFormDialog({
             ? undefined
             : 'The account is approved at once. Give the student the temporary password.'
       }
-      dismissable={!saving}
+      // Once the one-time password shows, only Done closes it (a stray tap would lose it).
+      dismissable={!saving && !created}
       actions={
         created ? (
           <Button label="Done" variant="primary" onPress={onClose} />
@@ -335,30 +336,34 @@ export function FacesDialog({
   const [error, setError] = React.useState<ApiError | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [resetting, setResetting] = React.useState(false);
+  // Only the newest request may show: an answer for a student closed meanwhile is dropped.
+  const request = React.useRef(0);
 
   const load = React.useCallback(async () => {
     if (!student) return;
+    const id = ++request.current;
     setLoading(true);
     setError(null);
     try {
-      setFaces(await facesApi.adminStudent(student.id));
+      const result = await facesApi.adminStudent(student.id);
+      if (id === request.current) setFaces(result);
     } catch (caught) {
-      setError(toApiError(caught));
+      if (id === request.current) setError(toApiError(caught));
     } finally {
-      setLoading(false);
+      if (id === request.current) setLoading(false);
     }
   }, [student]);
 
   React.useEffect(() => {
     setFaces(null);
     if (student) void load();
+    else request.current += 1; // closed
   }, [student, load]);
 
   async function reset() {
     if (!student) return;
     const name = fullName(student);
-    // Close this dialog first, then ask: the result shows on the list.
-    onClose();
+    // Asked on top of this dialog, which stays open (its button shows the progress) until done.
     const ok = await confirm({
       title: `Reset ${name}'s face?`,
       message: 'Their face photos are deleted. Face attendance cannot find them until they register again in the app.',
@@ -371,6 +376,7 @@ export function FacesDialog({
       await facesApi.adminReset(student.id);
       message.success(`Face data reset for ${name}.`);
       onReset(student);
+      onClose();
     } catch (caught) {
       message.error(toApiError(caught).message);
     } finally {
@@ -385,9 +391,10 @@ export function FacesDialog({
       onClose={onClose}
       title="Face photos"
       description={student ? `${fullName(student)} · ${student.student_id}` : undefined}
+      dismissable={!resetting}
       actions={
         <>
-          <Button label="Close" onPress={onClose} />
+          <Button label="Close" onPress={onClose} disabled={resetting} />
           {registered ? <Button label="Reset face" variant="danger" icon={RotateCcw} loading={resetting} onPress={reset} /> : null}
         </>
       }

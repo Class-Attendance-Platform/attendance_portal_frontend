@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
+import { radioKeys } from '@/components/ui/keys';
 import { Text } from '@/components/ui/text';
 import { cn, FOCUS_RING } from '@/lib/utils';
 
@@ -41,20 +42,38 @@ const ROLE_CHOICES: { value: SignUpRole; label: string; note: string; icon: Luci
   { value: 'TEACHER', label: 'Teacher', note: 'I teach courses', icon: Presentation },
 ];
 
-/** Sign-up's first question: two big choices, side by side. */
+/**
+ * Sign-up's first question: two big choices, side by side. Keyboard (web): one Tab stop, the arrow
+ * keys move and choose, Space chooses.
+ */
 export function RoleChoice({ value, onChange }: { value: SignUpRole | null; onChange: (role: SignUpRole) => void }) {
+  const refs = React.useRef<(View | null)[]>([]);
+  const chosenIndex = ROLE_CHOICES.findIndex((choice) => choice.value === value);
   return (
     <View role="radiogroup" accessibilityLabel="I am a" className="flex-row gap-3">
-      {ROLE_CHOICES.map((choice) => {
+      {ROLE_CHOICES.map((choice, index) => {
         const selected = choice.value === value;
         return (
           <Pressable
             key={choice.value}
+            ref={(node) => {
+              refs.current[index] = node;
+            }}
             role="radio"
             aria-checked={selected}
             accessibilityState={{ checked: selected, selected }}
             accessibilityLabel={`${choice.label}: ${choice.note}`}
             onPress={() => onChange(choice.value)}
+            {...radioKeys({
+              index,
+              count: ROLE_CHOICES.length,
+              tabStop: index === Math.max(chosenIndex, 0),
+              onPick: () => onChange(choice.value),
+              onMove: (next) => {
+                refs.current[next]?.focus();
+                onChange(ROLE_CHOICES[next].value);
+              },
+            })}
             className={cn(
               'min-h-[112px] flex-1 items-center justify-center gap-2 rounded-control border px-3 py-4',
               selected ? 'border-primary bg-primary-soft' : 'border-border bg-surface active:bg-bg web:hover:bg-bg',

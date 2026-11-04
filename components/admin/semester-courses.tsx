@@ -138,7 +138,8 @@ function CourseAssignDialog({
             variant="primary"
             icon={editing ? Check : BookPlus}
             loading={saving}
-            disabled={!choices.data}
+            // Every course is taught here already: the notice says so, there is nothing to add.
+            disabled={!choices.data || (!editing && courseOptions.length === 0)}
             onPress={save}
           />
         </>
@@ -177,7 +178,8 @@ function CourseAssignDialog({
 
 /** The courses taught in a semester: add one (with a teacher), change the teacher, remove. */
 export function SemesterCourses({ semester, onChanged }: { semester: Semester; onChanged: () => void }) {
-  const { isDesktop } = useBreakpoint();
+  // The table from 1100 px; below, the phone rows (next to the sidebar its columns get too narrow).
+  const { isDesktop, isWide } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
   const courses = useLoad(() => adminApi.semesterCourses(semester.id).then((r) => r.courses), [semester.id], {
@@ -269,7 +271,7 @@ export function SemesterCourses({ semester, onChanged }: { semester: Semester; o
                 message={readOnly ? 'This semester is deleted.' : 'Add the courses taught this semester and choose each one’s teacher.'}
                 action={readOnly ? undefined : { label: 'Add course', icon: BookPlus, onPress: () => setDialog({ open: true, editing: null }) }}
               />
-            ) : isDesktop ? (
+            ) : isWide ? (
               <DataTable label="Courses" columns={columns} rows={rows} rowKey={(row) => row.course_info_id} />
             ) : (
               <View role="list" accessibilityLabel="Courses">

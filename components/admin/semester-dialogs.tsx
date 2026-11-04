@@ -9,7 +9,7 @@ import { compareISODate } from '@/lib/dates';
 import { formatDate, levelLabel } from '@/lib/format';
 import { useAppConfig } from './hooks';
 import { cleanSession, currentSession, levelOptions, termOptions } from './options';
-import { fieldError, FormError } from './parts';
+import { fieldError, FormError, SemesterClashNotice } from './parts';
 import { FieldCell, FieldRow } from './student-dialogs';
 
 /** "24 Aug 2026 – 16 Dec 2026", "From 24 Aug 2026", "No dates set". */
@@ -214,9 +214,13 @@ export function useSemesterActions() {
   const confirm = useConfirm();
   const message = useMessage();
   const [busy, setBusy] = React.useState<string | null>(null);
+  // A reopen refused because students of its class list are in another active semester now: the
+  // page shows them all in a notice that stays (the message bar names only a few, for 5 s).
+  const [clash, setClash] = React.useState<{ semester: Semester; error: ApiError } | null>(null);
 
-  async function run(key: string, action: () => Promise<Semester | null>) {
+  async function run(key: string, action: () => Promise<Semester | null>, semester?: Semester) {
     setBusy(key);
+    setClash(null);
     try {
       return await action();
     } catch (caught) {
@@ -227,6 +231,7 @@ export function useSemesterActions() {
             `${error.message.replace(/\s*Finish it first\.?\s*$/, '')} Finish that one first, then reopen this one.`
           : error.message
       );
+      if (semester && error.code === ADMIN_ERRORS.alreadyInSemester) setClash({ semester, error });
       return null;
     } finally {
       setBusy(null);
@@ -255,11 +260,15 @@ export function useSemesterActions() {
       confirmLabel: 'Reopen semester',
     });
     if (!ok) return null;
-    return run(`reopen-${semester.id}`, async () => {
-      const result = await adminApi.reopenSemester(semester.id);
-      message.success(`${semester.label} is active again.`);
-      return result.semester ?? { ...semester, is_active: true };
-    });
+    return run(
+      `reopen-${semester.id}`,
+      async () => {
+        const result = await adminApi.reopenSemester(semester.id);
+        message.success(`${semester.label} is active again.`);
+        return result.semester ?? { ...semester, is_active: true };
+      },
+      semester
+    );
   };
 
   const remove = async (semester: Semester) => {
@@ -285,7 +294,11 @@ export function useSemesterActions() {
       return result.semester ?? { ...semester, deleted: false, is_active: false };
     });
 
-  return { busy, finish, reopen, remove, restore };
+  const clashNotice = clash ? (
+    <SemesterClashNotice error={clash.error} title={`${clash.semester.label} was not reopened`} onClose={() => setClash(null)} />
+  ) : null;
+
+  return { busy, finish, reopen, remove, restore, clashNotice };
 }
 
 /** Small "Active" / "Finished" / "Deleted" pill text. */

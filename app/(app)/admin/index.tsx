@@ -4,7 +4,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { useAppConfig, useLoad } from '@/components/admin/hooks';
-import { LinkTile, LoadBlock, ResponsiveList, TwoLines } from '@/components/admin/parts';
+import { LinkTile, LoadBlock, ResponsiveList, rowWords, TwoLines } from '@/components/admin/parts';
 import { Page } from '@/components/layout/Page';
 import { Card, EmptyState, PageHeader, Pill, ProgressBar, Text, type Column } from '@/components/ui';
 import { adminApi, type Overview } from '@/lib/api';
@@ -110,7 +110,14 @@ export default function AdminOverview() {
                     rowKey={(row) => row.id}
                     columns={semesterColumns}
                     onRowPress={(row) => router.push(`/admin/semesters/${row.id}` as Href)}
-                    rowLabel={(row) => `Open ${row.label}`}
+                    // Phones read only this label, so it says what the row shows.
+                    rowLabel={(row) =>
+                      rowWords(
+                        `${row.label}: ${plural(row.student_count, 'student')}, ${plural(row.course_count, 'course')}, average ${formatPercent(row.average_percent)}`,
+                        row.below_min_count > 0 && `${plural(row.below_min_count, 'student')} below ${min}%`,
+                        'Open it'
+                      )
+                    }
                     phoneRow={(row) => ({
                       title: row.label,
                       subtitle: `${plural(row.student_count, 'student')} · ${plural(row.course_count, 'course')}`,
@@ -150,7 +157,12 @@ export default function AdminOverview() {
                     rowKey={(row) => row.session_id}
                     columns={sessionColumns}
                     onRowPress={(row) => router.push(`/admin/attendance/${row.course_info_id}` as Href)}
-                    rowLabel={(row) => `${row.course_code} on ${formatDate(row.date)}: ${row.present} of ${row.total} present. Open the course.`}
+                    rowLabel={(row) =>
+                      rowWords(
+                        `${row.course_code} ${row.course_title} on ${formatDate(row.date)}, ${deliveryLabel(row)}: ${row.present} of ${row.total} present`,
+                        'Open the course'
+                      )
+                    }
                     phoneRow={(row) => ({
                       title: `${row.course_code} · ${row.course_title}`,
                       subtitle: `${formatDate(row.date)} · ${deliveryLabel(row)}`,
