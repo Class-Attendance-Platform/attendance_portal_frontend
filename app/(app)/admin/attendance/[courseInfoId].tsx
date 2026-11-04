@@ -4,7 +4,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { useAppConfig, useLoad } from '@/components/admin/hooks';
-import { LoadBlock, ResponsiveList, TwoLines } from '@/components/admin/parts';
+import { LoadBlock, ResponsiveList, rowWords, TwoLines } from '@/components/admin/parts';
 import { ExportDialog } from '@/components/teacher/export-form';
 import { Page } from '@/components/layout/Page';
 import {
@@ -56,15 +56,18 @@ function membershipLine(student: { joined_at: string | null; left_at: string | n
 function StudentDaysDialog({ courseInfoId, student, onClose }: { courseInfoId: UUID; student: CourseStudent | null; onClose: () => void }) {
   const [detail, setDetail] = React.useState<CourseStudentDetail | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  // Only the newest request may show: an answer for a student closed meanwhile is dropped.
+  const request = React.useRef(0);
 
   const load = React.useCallback(() => {
+    const id = ++request.current;
     if (!student) return;
     setDetail(null);
     setError(null);
     teacherApi
       .student(courseInfoId, student.profile_id)
-      .then(setDetail)
-      .catch((caught) => setError(toApiError(caught).message));
+      .then((result) => id === request.current && setDetail(result))
+      .catch((caught) => id === request.current && setError(toApiError(caught).message));
   }, [courseInfoId, student]);
 
   React.useEffect(load, [load]);
@@ -248,7 +251,13 @@ export default function AdminCourseAttendance() {
                   label={`Below ${min}%`}
                   value={String(below)}
                   tone={below > 0 ? 'warn' : 'default'}
-                  hint={below > 0 ? `${below === 1 ? 'Student needs' : 'Students need'} attention` : 'Everyone is above'}
+                  hint={
+                    loaded.course.classes_held === 0
+                      ? 'No classes yet'
+                      : below > 0
+                        ? `${below === 1 ? 'Student needs' : 'Students need'} attention`
+                        : 'Everyone is above'
+                  }
                 />
                 <StatTile
                   label="Faces registered"
@@ -271,7 +280,15 @@ export default function AdminCourseAttendance() {
                         rowKey={(row) => row.profile_id}
                         columns={studentColumns}
                         onRowPress={setStudent}
-                        rowLabel={(row) => `${row.name}, ${formatPercent(row.percent)}. Open to see each day.`}
+                        // Phones read only this label, so it says what the row shows.
+                        rowLabel={(row) =>
+                          rowWords(
+                            `${row.name}, ${row.student_id}: attended ${row.attended} of ${plural(row.held, 'class', 'classes')}, ${formatPercent(row.percent)}`,
+                            row.below_min && `Below ${min}%`,
+                            membershipLine(row)?.replace(' · ', ', '),
+                            'Open to see each day'
+                          )
+                        }
                         phoneRow={(row) => ({
                           title: row.name,
                           subtitle: `${row.student_id} · ${row.attended} of ${plural(row.held, 'class', 'classes')}`,

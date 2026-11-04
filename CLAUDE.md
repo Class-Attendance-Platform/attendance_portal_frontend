@@ -72,8 +72,9 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
     expo-keep-awake, browser full screen), `face-review.ts` (pure: the class-photo review, the day's
     earlier corrections and hand marks (method TEACHER) kept). `export-form`'s `ExportDialog` is also
     the admin attendance page's export.
-  - `admin/`: `hooks` (`useLoad`, `useDebounced`), `parts` (`LoadBlock`, `ResponsiveList`, `ChoiceCard`,
-    …), student/teacher/semester dialogs, `semester-roster` / `-courses` / `-promote`, `password`
+  - `admin/`: `hooks` (`useLoad`, `useDebounced`), `parts` (`LoadBlock`, `ResponsiveList` (table from
+    1100 px, phone rows below), `ChoiceCards`, `SemesterClashNotice`, `accountWords`/`rowWords` for full
+    screen-reader row labels, …), student/teacher/semester dialogs, `semester-roster` / `-courses` / `-promote`, `password`
     (temporary passwords and admin reset), `files` (CSV in the browser), `options`; `rules.ts` (pure:
     refresh on return, Promote ticks, choices that left a reloaded list; `tests/admin-rules.test.mjs`).
     Android has no file picker for the import (the page says to use the web or desktop app).
@@ -114,7 +115,8 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   refresh token via `/auth/logout/`), `refreshUser` (one GET /auth/me/ shared, and reused for 5 s:
   `lib/shared-request.ts`, `tests/auth-shared-request.test.mjs`), `setUser`. Signing out in one web
   tab signs out the others; signing in there with another account signs this tab out too.
-  `hooks/useBreakpoint.ts` (768 px). `hooks/useAppConfig.ts` GET /config/app/ once per app start
+  `hooks/useBreakpoint.ts` (768 px; `isWide` from 1100 px: the admin tables, which next to the sidebar
+  would squeeze names away, show as phone rows below it). `hooks/useAppConfig.ts` GET /config/app/ once per app start
   (minimum %, levels, terms, app name; defaults until it answers). `hooks/useLeaveGuard.ts` asks
   before unsaved work is dropped (back: `useConfirm`; browser Back/Forward on the web: the page stays
   and asks, `hooks/leaveGuardHistory.ts`; web reload/close: the browser asks; the desktop app asks
@@ -129,7 +131,8 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   live in `app/src/main/java/com/grinch/classattendanceportal/` (the package must match the
   namespace); `app/build.gradle` takes the version
   and release signing key from env (`ANDROID_*`, set by the workflow from repo secrets; debug key if
-  missing). Launcher icons and splash logo are generated from `assets/images/hstu.png`.
+  missing, except that a `v*` tag build fails without them instead of publishing a debug-signed APK).
+  Launcher icons and splash logo are generated from `assets/images/hstu.png`.
 - `.github/workflows/`: `checks.yml` (PRs: tsc + web build), `android.yml` (APK), `desktop.yml`
   (Windows .exe + Linux AppImage). A `v*` tag / GitHub Release attaches `HSTU-Attendance-Portal-*.apk`,
   `HSTU-Attendance-Portal-Setup-*.exe` and `HSTU-Attendance-Portal-*.AppImage`.

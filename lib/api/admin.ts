@@ -10,6 +10,8 @@ export const ADMIN_ERRORS = {
   levelHasActiveSemester: 'level_has_active_semester',
   /** 409: a student is a current member of another active semester (nothing changed). */
   alreadyInSemester: 'already_in_semester',
+  /** 409 on reject: the sign-up was approved meanwhile (nothing changed). */
+  alreadyApproved: 'already_approved',
 } as const;
 
 /** One row of a 409 `already_in_semester` answer: the other active semester the student is in now. */
@@ -332,7 +334,7 @@ export const adminApi = {
   pendingUsers: () => api.get<PendingUsersResponse>('/api/admin/users/pending/'),
   /** POST /admin/users/<user_id>/verify/: approve a sign-up. */
   approveUser: (userId: UUID) => api.post<OkMessage>(`/api/admin/users/${userId}/verify/`),
-  /** POST /admin/users/<user_id>/reject/: soft-deletes the sign-up. */
+  /** POST /admin/users/<user_id>/reject/: soft-deletes the sign-up (409 already_approved if approved meanwhile). */
   rejectUser: (userId: UUID) => api.post<Ok & { message?: string }>(`/api/admin/users/${userId}/reject/`),
   /** POST /admin/users/<user_id>/reset-password/ with a temporary password (signs the user out). */
   resetPassword: (userId: UUID, newPassword: string) =>

@@ -5,13 +5,13 @@ import { View } from 'react-native';
 
 import { Button, Card, Checkbox, EmptyState, Icon, Notice, Select, Text, TextField, useConfirm, useMessage } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { ADMIN_ERRORS, adminApi, type ApiError, type ISODate, type PromoteBody, type Semester, type UUID } from '@/lib/api';
+import { ADMIN_ERRORS, adminApi, semesterClashes, type ApiError, type ISODate, type PromoteBody, type Semester, type UUID } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { compareISODate } from '@/lib/dates';
 import { levelTermLabel, plural } from '@/lib/format';
 import { useAppConfig, useLoad } from './hooks';
 import { cleanSession, levelOptions, nextLevelTerm, termOptions } from './options';
-import { ChoiceCard, fieldError, FormError, LoadBlock } from './parts';
+import { ChoiceCards, fieldError, FormError, LoadBlock, SemesterClashNotice } from './parts';
 import { chosenAfterLoad, keepChoice } from './rules';
 import { LevelTakenNotice, OptionalDateField } from './semester-dialogs';
 import { FieldCell, FieldRow } from './student-dialogs';
@@ -133,14 +133,15 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
           });
           if (!ok) return;
 
-          const allChosen = picked.size === members.length;
+          // Exactly the students ticked here, even when that is everyone: without the list the server
+          // would also move students added after this page loaded.
           const body: PromoteBody =
             target === 'new'
               ? {
                   target: { level, semester: term, session: cleanSession(session), start_date: startDate, end_date: endDate },
-                  profile_ids: allChosen ? undefined : [...picked],
+                  profile_ids: [...picked],
                 }
-              : { target: null, target_semester_id: existingId as UUID, profile_ids: allChosen ? undefined : [...picked] };
+              : { target: null, target_semester_id: existingId as UUID, profile_ids: [...picked] };
 
           setSaving(true);
           setError(null);
@@ -149,13 +150,28 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
             message.success(`${plural(result.moved, 'student')} moved to ${targetLabel}. ${semester.label} is finished.`);
             router.replace(`/admin/semesters/${result.target_semester_id}` as Href);
           } catch (caught) {
-            setError(toApiError(caught));
+            const problem = toApiError(caught);
+            setError(problem);
+            // Students now in another active semester (nothing moved): untick them, the notice names them all.
+            const clashing = new Set(semesterClashes(problem).map((clash) => clash.profile_id));
+            if (clashing.size) changeTicks((current) => new Set([...(current ?? [])].filter((id) => !clashing.has(id))));
+            // Someone left the class list, or the chosen semester was finished or deleted, meanwhile:
+            // load it again (the ticks stay, minus who left; a target that can no longer be chosen
+            // is dropped and shows greyed out).
+            if (problem.field('profile_ids') || problem.field('target_semester_id') || problem.code === 'semester_finished') {
+              void data.reload();
+            }
           } finally {
             setSaving(false);
           }
         }
 
-        const err = (key: string) => missing[key] ?? fieldError(error, key);
+        // The new semester's field errors come nested under `target`.
+        const targetError = (key: string) => {
+          const nested = (error?.body.errors as { target?: Record<string, unknown> } | undefined)?.target?.[key];
+          return Array.isArray(nested) && typeof nested[0] === 'string' ? nested[0] : undefined;
+        };
+        const err = (key: string) => missing[key] ?? fieldError(error, key) ?? targetError(key);
         const levelTaken = error?.code === ADMIN_ERRORS.levelHasActiveSemester;
         const existingOptions = others.map((other) => ({
           label: other.label,
@@ -177,20 +193,23 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
             />
 
             <Card title="1. Move them to" className="gap-4">
-              <View role="radiogroup" accessibilityLabel="Move them to" className="flex-row flex-wrap gap-3">
-                <ChoiceCard
-                  label="A new semester"
-                  description={next ? `For example ${levelTermLabel(next.level, next.term)} · ${next.session}` : 'Set the level, term and session'}
-                  selected={target === 'new'}
-                  onPress={() => setTarget('new')}
-                />
-                <ChoiceCard
-                  label="An existing semester"
-                  description={others.length ? 'One that is already set up' : 'There is no other semester yet'}
-                  selected={target === 'existing'}
-                  onPress={() => setTarget('existing')}
-                />
-              </View>
+              <ChoiceCards<Target>
+                label="Move them to"
+                value={target}
+                onChange={setTarget}
+                choices={[
+                  {
+                    value: 'new',
+                    label: 'A new semester',
+                    description: next ? `For example ${levelTermLabel(next.level, next.term)} · ${next.session}` : 'Set the level, term and session',
+                  },
+                  {
+                    value: 'existing',
+                    label: 'An existing semester',
+                    description: others.length ? 'One that is already set up' : 'There is no other semester yet',
+                  },
+                ]}
+              />
 
               {target === 'new' ? (
                 <View className="gap-4">
@@ -296,13 +315,20 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
               <Text tone="muted">
                 {plural(picked.size, 'student')} will move. {semester.label} will be finished.
               </Text>
-              {levelTaken && error ? <LevelTakenNotice error={error} level={level} /> : <FormError error={error} />}
+              {levelTaken && error ? (
+                <LevelTakenNotice error={error} level={level} />
+              ) : semesterClashes(error).length ? (
+                <SemesterClashNotice error={error} title="Nobody was moved" />
+              ) : (
+                <FormError error={error} />
+              )}
               <Button
                 label={`Promote ${plural(picked.size, 'student')}`}
                 variant="primary"
                 icon={GraduationCap}
                 loading={saving}
-                disabled={!picked.size}
+                // Nothing to move them to: the only semesters there are finished (greyed out above).
+                disabled={!picked.size || (target === 'existing' && !existingOptions.some((option) => !option.disabled))}
                 onPress={promote}
               />
             </Card>

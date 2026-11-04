@@ -5,7 +5,7 @@ import { View } from 'react-native';
 
 import { useAppConfig, useDebounced, useLoad } from '@/components/admin/hooks';
 import { levelOptions, termOptions } from '@/components/admin/options';
-import { AccountPill, FilterBar, FilterItem, LoadBlock, ResponsiveList, TwoLines } from '@/components/admin/parts';
+import { AccountPill, accountWords, FilterBar, FilterItem, LoadBlock, ResponsiveList, rowWords, TwoLines } from '@/components/admin/parts';
 import { ResetPasswordDialog } from '@/components/admin/password';
 import { FacesDialog, StudentFormDialog, StudentManageDialog } from '@/components/admin/student-dialogs';
 import { Page } from '@/components/layout/Page';
@@ -176,7 +176,17 @@ export default function AdminStudents() {
           />
         </FilterItem>
         <FilterItem>
-          <Select label="Status" hideLabel value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+          <Select
+            label="Status"
+            hideLabel
+            value={status}
+            options={STATUS_OPTIONS}
+            // The other view's rows go at once (the count would name them wrongly until it loads).
+            onChange={(value) => {
+              if (value !== status) list.setData(null);
+              setStatus(value);
+            }}
+          />
         </FilterItem>
       </FilterBar>
 
@@ -215,7 +225,18 @@ export default function AdminStudents() {
                 rowKey={(row) => row.id}
                 columns={columns}
                 onRowPress={setSelected}
-                rowLabel={(row) => `${fullName(row)}, ${row.student_id}. Open to manage.`}
+                // Phones read only this label (TalkBack groups a row's parts), so it says what the row shows.
+                rowLabel={(row) =>
+                  rowWords(
+                    `${fullName(row)}, ${row.student_id}, ${levelTermLabel(row.current_level, row.current_semester)}`,
+                    row.email,
+                    `Last sign-in ${row.last_login ? formatDate(row.last_login) : 'never'}`,
+                    accountWords(row),
+                    row.face_registered && 'Face registered',
+                    row.semester ? `In ${row.semester.label}` : !row.deleted && 'Not in a semester',
+                    'Open to manage'
+                  )
+                }
                 phoneRow={(row) => ({
                   title: fullName(row),
                   subtitle: `${row.student_id} · ${levelTermLabel(row.current_level, row.current_semester)}`,
@@ -227,6 +248,12 @@ export default function AdminStudents() {
                       <Text variant="small" tone="muted">
                         Last sign-in {row.last_login ? formatDate(row.last_login) : 'never'}
                       </Text>
+                      {/* The table's Semester column */}
+                      {row.semester ? (
+                        <Text variant="small" tone="muted">
+                          In {row.semester.label}
+                        </Text>
+                      ) : null}
                       <View className="flex-row flex-wrap gap-2">
                         {row.face_registered ? <Pill label="Face registered" tone="present" icon={Check} /> : null}
                         {row.semester || row.deleted ? null : <Pill label="Not in a semester" tone="neutral" />}

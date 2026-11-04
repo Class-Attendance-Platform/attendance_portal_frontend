@@ -115,7 +115,8 @@ export function ResetPasswordDialog({
         done ? undefined : `${person?.name ?? ''} gets this temporary password and is signed out on every device.`
       }
       size="sm"
-      dismissable={!saving}
+      // Once the new password shows, only Done closes it (a stray tap would lose it).
+      dismissable={!saving && !done}
       actions={
         done ? (
           <Button label="Done" variant="primary" onPress={onClose} />

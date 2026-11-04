@@ -239,11 +239,21 @@ function AddStudentsDialog({
 
 /** The semester's students: joined and left dates, add, remove, former members. */
 export function SemesterRoster({ semester, onChanged }: { semester: Semester; onChanged: () => void }) {
-  const { isDesktop } = useBreakpoint();
+  // The table from 1100 px; below, the phone rows (next to the sidebar its columns get too narrow).
+  const { isDesktop, isWide } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
-  // A finished semester's class list is everyone who was in it: show former members there.
+  // A finished semester's class list is everyone who was in it: show former members there. The box
+  // follows Finish and Reopen until the admin sets it themselves.
   const [includeLeft, setIncludeLeft] = React.useState(!semester.is_active);
+  const leftChosen = React.useRef(false);
+  React.useEffect(() => {
+    if (!leftChosen.current) setIncludeLeft(!semester.is_active);
+  }, [semester.is_active]);
+  const chooseIncludeLeft = (value: boolean) => {
+    leftChosen.current = true;
+    setIncludeLeft(value);
+  };
   const [adding, setAdding] = React.useState(false);
   const [removing, setRemoving] = React.useState<UUID | null>(null);
   const roster = useLoad(
@@ -294,7 +304,7 @@ export function SemesterRoster({ semester, onChanged }: { semester: Semester; on
 
   const toolbar = (
     <>
-      <Checkbox checked={includeLeft} onChange={setIncludeLeft} label="Show former members" />
+      <Checkbox checked={includeLeft} onChange={chooseIncludeLeft} label="Show former members" />
       {readOnly ? null : <Button label="Add students" variant="primary" icon={UserPlus} onPress={() => setAdding(true)} />}
     </>
   );
@@ -335,7 +345,7 @@ export function SemesterRoster({ semester, onChanged }: { semester: Semester; on
                 }
                 action={readOnly ? undefined : { label: 'Add students', icon: UserPlus, onPress: () => setAdding(true) }}
               />
-            ) : isDesktop ? (
+            ) : isWide ? (
               <DataTable label="Students" columns={columns} rows={rows} rowKey={(row) => row.profile_id} />
             ) : (
               <View role="list" accessibilityLabel="Students">
@@ -346,7 +356,12 @@ export function SemesterRoster({ semester, onChanged }: { semester: Semester; on
                       title={row.name}
                       subtitle={`${row.student_id} · ${row.joined_at ? `Joined ${formatDate(row.joined_at)}` : 'From the start'}`}
                       right={row.left_at ? <Pill label={`Left ${formatDate(row.left_at)}`} tone="neutral" /> : removeButton(row)}
-                    />
+                    >
+                      {/* The table shows it under the name */}
+                      <Text variant="small" tone="muted">
+                        {row.email}
+                      </Text>
+                    </ListRow>
                   </View>
                 ))}
               </View>

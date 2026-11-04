@@ -1,4 +1,4 @@
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { CircleCheck, Link2Off, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { View, type TextInput } from 'react-native';
@@ -71,16 +71,22 @@ export default function ResetPasswordScreen() {
   const [leaving, setLeaving] = React.useState(false);
 
   // This browser may still be signed in to another account (a shared lab PC): sign it out first,
-  // so "Sign in" shows the form instead of that account's pages.
-  async function goToSignIn() {
+  // so sign-in (and "Ask for a new link") show their forms instead of that account's pages.
+  async function leaveTo(path: '/login' | '/forgot-password') {
     setLeaving(true);
     try {
       if (user) await logout();
     } finally {
       setLeaving(false);
-      router.replace('/login');
+      router.replace(path);
     }
   }
+  const backToSignIn = (
+    <View className="flex-row justify-center border-t border-border pt-4">
+      {/* A button (it signs out first): on the web a role="link" without an href ignores Enter */}
+      <TextLink role="button" label="Back to sign in" disabled={leaving} onPress={() => void leaveTo('/login')} />
+    </View>
+  );
 
   async function submit() {
     if (submitting) return;
@@ -116,7 +122,7 @@ export default function ResetPasswordScreen() {
             message="You can sign in with your new password now."
           >
             <Text tone="muted">For safety, you were signed out on your other devices.</Text>
-            <Button label="Sign in" variant="primary" fullWidth loading={leaving} onPress={goToSignIn} />
+            <Button label="Sign in" variant="primary" fullWidth loading={leaving} onPress={() => void leaveTo('/login')} />
           </Outcome>
         ) : state === 'invalid' ? (
           <Outcome
@@ -129,13 +135,10 @@ export default function ResetPasswordScreen() {
               label="Ask for a new link"
               variant="primary"
               fullWidth
-              onPress={() => router.replace('/forgot-password')}
+              loading={leaving}
+              onPress={() => void leaveTo('/forgot-password')}
             />
-            <View className="flex-row justify-center border-t border-border pt-4">
-              <Link href="/login" asChild>
-                <TextLink label="Back to sign in" />
-              </Link>
-            </View>
+            {backToSignIn}
           </Outcome>
         ) : (
           <>
@@ -179,11 +182,7 @@ export default function ResetPasswordScreen() {
               loading={submitting}
               onPress={submit}
             />
-            <View className="flex-row justify-center border-t border-border pt-4">
-              <Link href="/login" asChild>
-                <TextLink label="Back to sign in" />
-              </Link>
-            </View>
+            {backToSignIn}
           </>
         )}
       </Card>

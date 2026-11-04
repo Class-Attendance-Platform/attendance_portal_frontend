@@ -71,8 +71,9 @@ const SERVER_FIELDS: FieldName[] = [
 
 const MAX_STUDENT_ID = 2147483647;
 
-function roleFromParam(raw: string | undefined): SignUpRole | null {
-  const value = (raw ?? '').toLowerCase();
+function roleFromParam(raw: string | string[] | undefined): SignUpRole | null {
+  // A link with ?role= twice gives an array
+  const value = String((Array.isArray(raw) ? raw[0] : raw) ?? '').toLowerCase();
   if (value === 'student') return 'STUDENT';
   if (value === 'teacher') return 'TEACHER';
   return null;

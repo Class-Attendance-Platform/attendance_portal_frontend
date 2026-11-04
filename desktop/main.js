@@ -55,7 +55,9 @@ function createWindow() {
     if (!isOwnSite(url)) openInBrowser(url);
     return { action: 'deny' };
   });
-  mainWindow.webContents.on('will-navigate', (event, url) => {
+  // The URL is on the event (Electron 25+); the second argument is the deprecated old one.
+  mainWindow.webContents.on('will-navigate', (event, legacyUrl) => {
+    const url = event.url || legacyUrl;
     if (!isOwnSite(url)) {
       event.preventDefault();
       openInBrowser(url);
@@ -78,9 +80,10 @@ function createWindow() {
   });
 
   // No internet or server down: show a small page with a Retry button.
-  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _description, _url, isMainFrame) => {
+  // "Try again" there returns to the page that failed (the portal's own pages only).
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _description, failedUrl, isMainFrame) => {
     if (isMainFrame && errorCode !== -3 /* aborted, e.g. a redirect */) {
-      mainWindow.loadFile(path.join(__dirname, 'offline.html'), { query: { url: APP_URL } });
+      mainWindow.loadFile(path.join(__dirname, 'offline.html'), { query: { url: isOwnSite(failedUrl) ? failedUrl : APP_URL } });
     }
   });
 

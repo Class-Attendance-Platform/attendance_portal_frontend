@@ -110,7 +110,8 @@ export function TeacherFormDialog({
             ? undefined
             : 'The account is approved at once. Give the teacher the temporary password.'
       }
-      dismissable={!saving}
+      // Once the one-time password shows, only Done closes it (a stray tap would lose it).
+      dismissable={!saving && !created}
       actions={
         created ? (
           <Button label="Done" variant="primary" onPress={onClose} />

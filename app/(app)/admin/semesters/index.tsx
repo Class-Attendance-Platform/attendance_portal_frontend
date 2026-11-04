@@ -1,7 +1,7 @@
 import { Link, type Href } from 'expo-router';
 import { CalendarPlus, CalendarRange, CircleStop, RotateCcw, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { useLoad } from '@/components/admin/hooks';
 import { FilterBar, FilterItem, LoadBlock } from '@/components/admin/parts';
@@ -23,11 +23,19 @@ const semesterHref = (semester: Semester) => `/admin/semesters/${semester.id}` a
 
 /** /admin/semesters: active and finished semesters; create, finish, reopen, delete, restore. */
 export default function AdminSemesters() {
-  const { isDesktop } = useBreakpoint();
+  // Tables from 1100 px; below, the phone rows (next to the sidebar the columns would squeeze names away).
+  const { isWide } = useBreakpoint();
   const [show, setShow] = React.useState<Show>('all');
   const [creating, setCreating] = React.useState(false);
   const list = useLoad(() => adminApi.semesters(show).then((r) => r.semesters), [show], { refreshOnFocus: true });
   const actions = useSemesterActions();
+  // A refused reopen's notice sits under the header, while Reopen is lower down (the Finished
+  // card): bring the notice into view (no animation).
+  const scrollRef = React.useRef<ScrollView>(null);
+  const clashShown = actions.clashNotice !== null;
+  React.useEffect(() => {
+    if (clashShown) scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [clashShown]);
 
   const update = (changed: Semester | null) => {
     if (!changed) return;
@@ -109,7 +117,7 @@ export default function AdminSemesters() {
   ];
 
   const table = (rows: Semester[], label: string) =>
-    isDesktop ? (
+    isWide ? (
       <DataTable label={label} columns={columns} rows={rows} rowKey={(row) => row.id} />
     ) : (
       <View role="list" accessibilityLabel={label}>
@@ -126,12 +134,13 @@ export default function AdminSemesters() {
     );
 
   return (
-    <Page>
+    <Page scrollRef={scrollRef}>
       <PageHeader
         title="Semesters"
         meta="One active semester per level. Finished semesters keep their history."
         actions={<Button label="New semester" variant="primary" icon={CalendarPlus} onPress={() => setCreating(true)} />}
       />
+      {actions.clashNotice}
 
       <FilterBar>
         <FilterItem>

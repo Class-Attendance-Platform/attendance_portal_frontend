@@ -100,6 +100,7 @@ export default function AdminSemester() {
               <Pill label={semesterState(data).label} tone={semesterState(data).tone} />
               <Pill label={`Session ${data.session || 'not set'}`} tone="neutral" />
             </View>
+            {actions.clashNotice}
             {data.deleted ? (
               <Notice tone="warn" message="This semester is deleted: it is hidden from every list. Restore it to change it again." />
             ) : !data.is_active ? (
