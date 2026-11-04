@@ -4,7 +4,8 @@
 #
 # Release signing: add these repository secrets (Settings → Secrets and variables → Actions):
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
-# Without them the APK is signed with the public debug key (fine for testing only).
+# Without them a pull request or manual build is signed with the public debug key (testing only),
+# and a version tag fails instead of publishing.
 name: Android APK
 
 on:
@@ -60,15 +61,23 @@ jobs:
         if: github.ref_type == 'tag'
         run: echo "ANDROID_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
-      - name: Release signing key (if the secrets are set)
+      # A version tag publishes the APK: it must have the release key. A debug-signed "update" could
+      # be signed by anyone, and the real release could not install over it later.
+      - name: Release signing key (if the secrets are set; required for a version tag)
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
             echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "::error::A version tag needs the four ANDROID_* signing secrets (see the top of this file). Nothing was published."
+            exit 1
           else
-            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: this APK is signed with the debug key."
+            echo "::warning::The ANDROID_* signing secrets are not all set: this APK is signed with the debug key (testing only)."
           fi
 
       - name: Build
