@@ -43,8 +43,7 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   - `(auth)/` public: `login`, `register` (role first), `pending` (`?email=`, `?created=1`),
     `forgot-password`, `reset-password?uid=&token=`; they keep `?redirect=` between them. Their
     pieces (forms, `GuestOnly`, account cards, app version check) are in `components/auth/`.
-  - `about.tsx` (public: version, credits, face-model licence, privacy note). Phones check the app
-    version at start (`AppVersionGate` in `_layout.tsx`): "Please update" below the minimum.
+  - Phones check the app version at start (`AppVersionGate` in `_layout.tsx`): "Please update" below the minimum.
   - `(app)/_layout.tsx`: signed-in guard + `AppShell`. `(app)/account.tsx` (name, password change,
     a student's face status, sign out), `(app)/check-in.tsx` (`/check-in?s=&c=` QR target: sends the
     code once, then drops it from the address). Role groups with their own guard layout:
@@ -52,8 +51,7 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
     `courses/[courseInfoId]?tab=attendance|students|history|reports`, `…/roll-call`, `…/face`,
     `…/students/[profileId]`; `live/[sessionId]` full screen, no shell), `(app)/admin/*` (overview,
     approvals, students + import, teachers, courses, semesters, read-only attendance).
-  - Old URLs redirect: `dashboard/*`, `attendance/submit` (explains old QR codes), `face/register`,
-    `face/class`, `verify`.
+  - Old URLs redirect: `face/register`, `face/class`.
 - Each area keeps its pieces in `components/<area>/` (screens import them; other areas may too):
   - `student/`: `CheckInFlow` (code entry + results; used by both check-in routes), `QrScanner`
     (Android only), `LiveBanner` + `use-live-sessions` (GET /student/live/ every 25 s while shown),
@@ -75,13 +73,15 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   - `admin/`: `hooks` (`useLoad`, `useDebounced`), `parts` (`LoadBlock`, `ResponsiveList` (table from
     1100 px, phone rows below), `ChoiceCards`, `SemesterClashNotice`, `accountWords`/`rowWords` for full
     screen-reader row labels, …), student/teacher/semester dialogs, `semester-roster` / `-courses` / `-promote`, `password`
-    (temporary passwords and admin reset), `files` (CSV in the browser), `options`; `rules.ts` (pure:
-    refresh on return, Promote ticks, choices that left a reloaded list; `tests/admin-rules.test.mjs`).
+    (temporary passwords and admin reset), `files` (temporary passwords with `expo-crypto`, CSV in the browser), `options`; `rules.ts` (pure:
+    temporary password rules, refresh on return, Promote ticks, choices that left a reloaded list; `tests/admin-rules.test.mjs`).
     Android has no file picker for the import (the page says to use the web or desktop app).
   - `auth/`: see `(auth)/` above; `version.ts` is pure (`tests/version.test.mjs`).
   - The three `use-load` hooks differ on purpose (student: retry and quiet refresh; teacher:
     `refreshOnFocus`; admin: keeps old data while reloading, and `refreshOnFocus` (on for every page
-    list, not dialog lists) never undoes a `setData` made while it runs); pick the area's own.
+    list, not dialog lists) never undoes a `setData` made while it runs); all three refresh when the
+    user comes back to the browser tab, window or app (`hooks/onComeBack.ts`, `lib/come-back.ts`,
+    `tests/come-back.test.mjs`); pick the area's own.
 - `components/ui/` building blocks (`index.ts` exports all; see `docs/design-system.md`): Text, Icon,
   Button/IconButton, TextField, PasswordField, SearchField, Select, Checkbox, DateField, Dialog,
   ConfirmDialog (`useConfirm`; mounts only while asking, so it shows on top of an open Dialog),
@@ -103,7 +103,7 @@ trailing slash. Run the backend locally with its test settings + `seed_local_dem
   another tab saved, drop a result that arrives after a sign-out, never touch another account's saved
   login). It has no imports so `tests/refresh.test.mjs` can run it in Node.
 - `lib/session.ts` saved login: web `localStorage` `portal_user`; phones `expo-secure-store` (separate
-  keys: values are limited to ~2 KB). `lib/device.ts` random per-install `device_id` (check-ins).
+  keys: values are limited to ~2 KB). `lib/device.ts` random per-install `device_id` (`expo-crypto`, check-ins).
 - `lib/format.ts` dates "05 Oct 2026", times (Dhaka), percent (rounded **down**, so 74.5 never reads as
   "75%" next to "Below 75%": `lib/percent.ts`, `tests/format.test.mjs`), "Level 3 · Term I", names, initials;
   `lib/dates.ts` `YYYY-MM-DD` maths in Dhaka time (calendar grid, today, no-future checks);

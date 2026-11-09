@@ -28,7 +28,7 @@ export default function PendingScreen() {
 
   return (
     <GuestOnly>
-      <PublicPage title="Waiting for approval" footerLinks={[{ label: 'About this app', href: '/about' }]}>
+      <PublicPage title="Waiting for approval">
         <Card className="gap-5">
           <View className="items-center gap-3 pt-2">
             <View className="h-12 w-12 items-center justify-center rounded-pill bg-warn-soft">

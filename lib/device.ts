@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
@@ -9,13 +10,7 @@ const KEY = 'portal_device_id';
 let cached: string | null = null;
 
 function randomHex(bytes: number): string {
-  const values = new Uint8Array(bytes);
-  const cryptoApi = (globalThis as { crypto?: { getRandomValues?: (array: Uint8Array) => Uint8Array } }).crypto;
-  if (cryptoApi?.getRandomValues) {
-    cryptoApi.getRandomValues(values);
-  } else {
-    for (let i = 0; i < bytes; i += 1) values[i] = Math.floor(Math.random() * 256);
-  }
+  const values = Crypto.getRandomValues(new Uint8Array(bytes));
   return Array.from(values, (value) => value.toString(16).padStart(2, '0')).join('');
 }
 

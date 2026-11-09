@@ -1,9 +1,8 @@
-import { Link } from 'expo-router';
 import { LogOut } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { appVersion, UpdateNotice } from '@/components/auth/AppUpdate';
+import { UpdateNotice } from '@/components/auth/AppUpdate';
 import { ChangePasswordCard } from '@/components/auth/ChangePasswordCard';
 import { FaceStatusCard } from '@/components/auth/FaceStatusCard';
 import { ProfileCard } from '@/components/auth/ProfileCard';
@@ -13,7 +12,6 @@ import { Card } from '@/components/ui/card';
 import { useMessage } from '@/components/ui/message-bar';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
-import { TextLink } from '@/components/ui/text-link';
 import { useAuth } from '@/hooks/AuthContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { cn } from '@/lib/utils';
@@ -57,16 +55,6 @@ export default function AccountScreen() {
 
         <View className={column}>
           <ChangePasswordCard />
-
-          <Card title="About this app" className="gap-3">
-            <Text tone="muted">Version {appVersion()}. Credits, the face model licence and how your data is used.</Text>
-            {/* Room above and below the link for its 44 px touch area. */}
-            <View className="flex-row py-1.5">
-              <Link href="/about" asChild>
-                <TextLink label="Open About this app" />
-              </Link>
-            </View>
-          </Card>
 
           <Card title="Sign out" className="gap-3">
             <Text tone="muted">Sign out of the portal on this device. You can sign in again with your email and password.</Text>

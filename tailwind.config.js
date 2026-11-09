@@ -5,6 +5,9 @@ const color = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // 'class' keeps the app light-only (no .dark class is ever set) and avoids
+  // react-native-css-interop's dev-mode crash when its MutationObserver calls colorScheme.set().
+  darkMode: 'class',
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}', './hooks/**/*.{ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {

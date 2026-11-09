@@ -1,8 +1,8 @@
 import { useFocusEffect } from 'expo-router';
 import * as React from 'react';
-import { AppState, Platform } from 'react-native';
 
 import { useMessage } from '@/components/ui/message-bar';
+import { onComeBack } from '@/hooks/onComeBack';
 import { toApiError, type ApiError } from '@/lib/api/client';
 
 export type LoadState<T> = {
@@ -22,37 +22,6 @@ export type LoadState<T> = {
    */
   pull: () => Promise<void>;
 };
-
-const onWeb = Platform.OS === 'web' && typeof document !== 'undefined' && typeof window !== 'undefined';
-
-/**
- * Calls `back` when the student comes back after leaving: the Android app returns to the front,
- * or the browser tab or desktop-app window is shown or focused again. Returns the unsubscribe.
- */
-function onComeBack(back: () => void): () => void {
-  let away = false;
-  const leave = () => {
-    away = true;
-  };
-  const arrive = () => {
-    if (!away) return;
-    away = false;
-    back();
-  };
-  if (onWeb) {
-    const onVisibility = () => (document.visibilityState === 'hidden' ? leave() : arrive());
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('blur', leave);
-    window.addEventListener('focus', arrive);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('blur', leave);
-      window.removeEventListener('focus', arrive);
-    };
-  }
-  const subscription = AppState.addEventListener('change', (state) => (state === 'active' ? arrive() : leave()));
-  return () => subscription.remove();
-}
 
 /**
  * Loads data for a screen: loading → data or error (with retry). It loads again quietly when the

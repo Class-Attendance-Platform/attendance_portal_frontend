@@ -18,11 +18,11 @@ export type PublicPageProps = {
   title?: string;
   /** Content width: narrow 420 (forms, default) or wide 720 (reading). */
   width?: 'narrow' | 'wide';
-  /** Links under the content, e.g. [{label: 'About', href: '/about'}]. */
+  /** Optional links under the content. */
   footerLinks?: { label: string; href: Href }[];
 };
 
-/** Pages without the signed-in shell (sign-in, about): logo and name on top, a centred column. */
+/** Pages without the signed-in shell (sign-in, registration): logo and name on top, a centred column. */
 export function PublicPage({ children, title, width = 'narrow', footerLinks }: PublicPageProps) {
   const insets = useSafeAreaInsets();
   const { isDesktop } = useBreakpoint();

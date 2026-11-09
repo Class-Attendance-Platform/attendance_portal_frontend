@@ -90,7 +90,7 @@ function useOpenDownload(url: string) {
 // "Not now" lasts until the app is closed, for that latest version.
 let dismissedVersion: string | null = null;
 
-/** A notice that a newer app version is ready (Account and About pages). Native only. */
+/** A notice that a newer app version is ready (Account page). Native only. */
 export function UpdateNotice() {
   const { status, installed, config } = useAppUpdate();
   const [dismissed, setDismissed] = React.useState(dismissedVersion);

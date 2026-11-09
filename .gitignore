@@ -42,6 +42,7 @@ expo-env.d.ts
 
 # Production web build (served by nginx on the VPS) and desktop installers
 web-build/
+dist/
 release/
 
 # secrets: never commit (they were public until this commit; rotate them)

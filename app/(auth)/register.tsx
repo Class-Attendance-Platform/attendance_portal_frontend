@@ -191,7 +191,7 @@ export default function RegisterScreen() {
 
   return (
     <GuestOnly>
-      <PublicPage title="Create an account" footerLinks={[{ label: 'About this app', href: '/about' }]}>
+      <PublicPage title="Create an account">
         <Card className="gap-5">
           <FormHeading title="Create an account" lead="New accounts are approved by an admin before you can sign in." />
 

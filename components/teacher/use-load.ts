@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import * as React from 'react';
 
+import { onComeBack } from '@/hooks/onComeBack';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { ApiError, toApiError } from '@/lib/api/client';
 
@@ -16,7 +17,8 @@ export type Loaded<T> = {
 
 /**
  * Loads data for a screen: loading, error (an ApiError with a readable message) and reload.
- * `refreshOnFocus`: load again quietly when the screen comes back into view (e.g. after "Back").
+ * `refreshOnFocus`: load again quietly when the screen comes back into view (e.g. after "Back")
+ * and when the teacher comes back to the browser tab, window or app while it shows.
  */
 export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList, { refreshOnFocus = false } = {}): Loaded<T> {
   const [data, setData] = React.useState<T | null>(null);
@@ -57,9 +59,13 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList, {
     React.useCallback(() => {
       if (firstFocus.current) {
         firstFocus.current = false;
-        return;
+      } else if (refreshOnFocus) {
+        void reload({ quiet: true });
       }
-      if (refreshOnFocus) void reload({ quiet: true });
+      if (!refreshOnFocus) return undefined;
+      return onComeBack(() => {
+        void reload({ quiet: true });
+      });
     }, [refreshOnFocus, reload])
   );
 

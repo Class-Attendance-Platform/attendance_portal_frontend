@@ -57,7 +57,6 @@ Status is never colour alone: Present/Absent pills carry text, warnings carry wo
 |---|---|---|
 | `/login`, `/register`, `/forgot-password`, `/reset-password`, `/pending` | public | sign-in and account recovery |
 | `/check-in?s=&c=` | student (sign in first) | QR/link target; submits once |
-| `/about` | anyone | version, credits, face model licence, privacy note |
 | `/account` | signed in | profile (name editable), change password, sign out |
 | `/student` | student | home: live banner, overall, courses this term |
 | `/student/courses`, `/student/courses/[courseInfoId]` | student | all semesters; one course with each day |

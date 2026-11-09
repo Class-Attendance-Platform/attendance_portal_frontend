@@ -1,6 +1,7 @@
 import { useFocusEffect, useNavigation } from 'expo-router';
 import * as React from 'react';
 
+import { onComeBack } from '@/hooks/onComeBack';
 import { ApiError } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { focusAction, takeQuietAnswer } from './rules';
@@ -21,8 +22,9 @@ export type LoadState<T> = {
 export type LoadOptions = {
   /**
    * Loads again quietly when the page comes back into view (Back, a crumb or its nav item going
-   * back to it): the data stays on screen, no spinner, and a failure keeps the old data (except a
-   * 403 or 404: the item is gone, so that error shows).
+   * back to it, or coming back to the browser tab, window or app): the data stays on screen, no
+   * spinner, and a failure keeps the old data (except a 403 or 404: the item is gone, so that
+   * error shows).
    */
   refreshOnFocus?: boolean;
 };
@@ -100,10 +102,19 @@ export function useLoad<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
+  const onReturn = React.useCallback(() => {
+    if (!refreshOnFocusRef.current) return;
+    const action = focusAction(running.current, dataRef.current !== null);
+    if (action === 'refresh') void run(true);
+    else if (action === 'load') void run(false);
+    else again.current = true;
+  }, [run]);
+
   // useFocusEffect also runs when a page opens: skip that one, its load is already on its way. A
   // list that mounted while its page was hidden (a tab that loaded in the background) gets no such
   // call, so its first one is a real return. The callback stays the same (it reads refs), or it
-  // would run again on every render.
+  // would run again on every render. While the page is in view, coming back to the tab, window or
+  // app does the same as going Back to it.
   const navigation = useNavigation();
   const firstFocus = React.useRef<boolean | null>(null);
   if (firstFocus.current === null) firstFocus.current = navigation.isFocused();
@@ -111,14 +122,11 @@ export function useLoad<T>(
     React.useCallback(() => {
       if (firstFocus.current) {
         firstFocus.current = false;
-        return;
+      } else {
+        onReturn();
       }
-      if (!refreshOnFocusRef.current) return;
-      const action = focusAction(running.current, dataRef.current !== null);
-      if (action === 'refresh') void run(true);
-      else if (action === 'load') void run(false);
-      else again.current = true;
-    }, [run])
+      return onComeBack(onReturn);
+    }, [onReturn])
   );
 
   React.useEffect(

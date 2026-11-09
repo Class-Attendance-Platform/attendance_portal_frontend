@@ -83,8 +83,7 @@ Defined three times, keep them in step: CSS variables in `global.css`, Tailwind 
 - `Page`: the scrolling content column (max 1200 px; padding 24/32 desktop, 8/20 phone; 20 px gaps).
   `onRefresh`: pull down to load again in the Android app (the platform's own RefreshControl
   spinner, allowed by the owner; nothing on the web). The student pages use it.
-- `PublicPage`: pages without the shell (sign-in, about): logo and name, a centred column, footer links.
-- `PlaceholderPage` / `PublicPlaceholder`: for a route whose screen is not built yet (no route uses them now).
+- `PublicPage`: pages without the shell (sign-in, registration): logo and name, a centred column, footer links.
 
 ## Page patterns
 

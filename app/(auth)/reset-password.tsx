@@ -112,7 +112,7 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <PublicPage title="Choose a new password" footerLinks={[{ label: 'About this app', href: '/about' }]}>
+    <PublicPage title="Choose a new password">
       <Card className="gap-5">
         {state === 'done' ? (
           <Outcome
