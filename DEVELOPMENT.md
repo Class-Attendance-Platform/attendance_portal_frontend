@@ -3,7 +3,7 @@
 Expo (SDK 55) + expo-router + NativeWind app for HSTU class attendance, shipped three ways: web app
 (https://attendanceportal.sakibkx.tech, static build on the owner's VPS), Android APK and a desktop app
 (both built by GitHub Actions). Backend: sibling repo `attendance_portal_backend` (Django; see its
-CLAUDE.md for the API, safety rules and demo logins, and its `deploy/README.md` for the server steps).
+DEVELOPMENT.md for the API, safety rules and demo logins, and its `deploy/README.md` for the server steps).
 
 ## Working with the owner (always)
 - Ask before assuming; questions as multiple choice, recommended option first, marked "(Recommended)".
