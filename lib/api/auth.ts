@@ -47,7 +47,7 @@ export type RegisterBody = StudentRegisterBody | TeacherRegisterBody;
 
 /** 201: the account waits for admin approval. No tokens. */
 export interface RegisterResponse extends OkMessage {
-  status: 'pending';
+  status: 'pending' | 'approved';
 }
 
 export interface MeResponse extends Ok {

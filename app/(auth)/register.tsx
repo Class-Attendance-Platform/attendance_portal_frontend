@@ -166,8 +166,12 @@ export default function RegisterScreen() {
     setSubmitting(true);
     try {
       const body = bodyFor(role, values);
-      await authApi.register(body);
-      router.replace(authHref('/pending', redirect, { email: body.email.toLowerCase(), created: '1' }));
+      const res = await authApi.register(body);
+      if (res.status === 'approved') {
+        router.replace(authHref('/login', redirect, { email: body.email.toLowerCase(), created: '1' }));
+      } else {
+        router.replace(authHref('/pending', redirect, { email: body.email.toLowerCase(), created: '1' }));
+      }
     } catch (error) {
       setSubmitting(false);
       if (!isApiError(error)) {

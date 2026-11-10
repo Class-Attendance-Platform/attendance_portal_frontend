@@ -28,6 +28,8 @@ export { SearchField } from './search-field';
 export { Select } from './select';
 export type { SelectOption } from './select';
 export { StatTile } from './stat-tile';
+export { Switch } from './switch';
+export type { SwitchProps } from './switch';
 export { EmptyState, ErrorState, LoadingState } from './states';
 export { Tabs, useTab } from './tabs';
 export type { TabItem } from './tabs';

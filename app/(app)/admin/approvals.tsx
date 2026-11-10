@@ -1,5 +1,5 @@
 import { Link, type Href } from 'expo-router';
-import { Check, GraduationCap, UserCheck, X } from 'lucide-react-native';
+import { Check, GraduationCap, Presentation, Shield, UserCheck, X } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -13,6 +13,7 @@ import {
   Notice,
   PageHeader,
   Pill,
+  Switch,
   Text,
   useConfirm,
   useMessage,
@@ -42,7 +43,28 @@ export default function AdminApprovals() {
   // Active semesters, to point at the one matching an approved student's level and term (none
   // while they cannot load: the notice then links to Semesters).
   const semesters = useLoad(() => adminApi.semesters('active').then((r) => r.semesters), [], { refreshOnFocus: true });
+  const autoApproval = useLoad(() => adminApi.autoApprovalSettings().then((r) => r.settings), [], { refreshOnFocus: true });
+  const [updatingRole, setUpdatingRole] = React.useState<'admin' | 'teacher' | 'student' | null>(null);
   const [busy, setBusy] = React.useState<{ id: string; action: 'approve' | 'reject' } | null>(null);
+
+  async function toggleAutoApprove(role: 'admin' | 'teacher' | 'student', nextValue: boolean) {
+    setUpdatingRole(role);
+    try {
+      const res = await adminApi.updateAutoApprovalSettings({ [role]: nextValue });
+      autoApproval.setData(res.settings);
+      const roleName = role === 'admin' ? 'Admin' : role === 'teacher' ? 'Teacher' : 'Student';
+      message.success(
+        nextValue
+          ? `${roleName} auto-approval enabled. New registrations will be approved automatically.`
+          : `${roleName} auto-approval disabled. New registrations will require manual approval.`
+      );
+    } catch (caught) {
+      const problem = toApiError(caught);
+      message.error(problem.message || 'Could not update auto-approval setting.');
+    } finally {
+      setUpdatingRole(null);
+    }
+  }
   const [approved, setApproved] = React.useState<Approved[]>([]);
 
   const drop = (user: PendingUser) => list.setData((rows) => (rows ? rows.filter((row) => row.id !== user.id) : rows));
@@ -176,6 +198,88 @@ export default function AdminApprovals() {
           </Link>
         </Notice>
       ))}
+      <Card title="Auto-Approval Settings">
+        <Text tone="muted" className="-mt-1 mb-3">
+          Control whether new registrations are approved automatically or require manual review.
+        </Text>
+        <View className="divide-y divide-border">
+          {/* Admin Toggle */}
+          <View className="flex-row items-center justify-between py-3">
+            <View className="flex-1 pr-4">
+              <View className="flex-row items-center gap-2">
+                <Shield size={18} color="#4f46e5" />
+                <Text weight="semibold">Admin</Text>
+                <Pill
+                  label={autoApproval.data?.admin ? 'Auto-Approved' : 'Manual Review'}
+                  tone={autoApproval.data?.admin ? 'present' : 'neutral'}
+                />
+              </View>
+              <Text variant="small" tone="muted" className="mt-1">
+                {autoApproval.data?.admin
+                  ? 'New admin accounts are automatically approved upon registration.'
+                  : 'New admin accounts require manual approval before they can sign in.'}
+              </Text>
+            </View>
+            <Switch
+              checked={!!autoApproval.data?.admin}
+              onChange={(val) => toggleAutoApprove('admin', val)}
+              disabled={updatingRole === 'admin' || autoApproval.loading}
+              accessibilityLabel="Admin auto-approval"
+            />
+          </View>
+
+          {/* Teacher Toggle */}
+          <View className="flex-row items-center justify-between py-3">
+            <View className="flex-1 pr-4">
+              <View className="flex-row items-center gap-2">
+                <Presentation size={18} color="#0284c7" />
+                <Text weight="semibold">Teacher</Text>
+                <Pill
+                  label={autoApproval.data?.teacher ? 'Auto-Approved' : 'Manual Review'}
+                  tone={autoApproval.data?.teacher ? 'present' : 'neutral'}
+                />
+              </View>
+              <Text variant="small" tone="muted" className="mt-1">
+                {autoApproval.data?.teacher
+                  ? 'New teacher registrations are automatically approved upon sign-up.'
+                  : 'New teacher registrations require manual approval before they can sign in.'}
+              </Text>
+            </View>
+            <Switch
+              checked={!!autoApproval.data?.teacher}
+              onChange={(val) => toggleAutoApprove('teacher', val)}
+              disabled={updatingRole === 'teacher' || autoApproval.loading}
+              accessibilityLabel="Teacher auto-approval"
+            />
+          </View>
+
+          {/* Student Toggle */}
+          <View className="flex-row items-center justify-between py-3">
+            <View className="flex-1 pr-4">
+              <View className="flex-row items-center gap-2">
+                <GraduationCap size={18} color="#16a34a" />
+                <Text weight="semibold">Student</Text>
+                <Pill
+                  label={autoApproval.data?.student ? 'Auto-Approved' : 'Manual Review'}
+                  tone={autoApproval.data?.student ? 'present' : 'neutral'}
+                />
+              </View>
+              <Text variant="small" tone="muted" className="mt-1">
+                {autoApproval.data?.student
+                  ? 'New student registrations are automatically approved upon sign-up.'
+                  : 'New student registrations require manual approval before they can sign in.'}
+              </Text>
+            </View>
+            <Switch
+              checked={!!autoApproval.data?.student}
+              onChange={(val) => toggleAutoApprove('student', val)}
+              disabled={updatingRole === 'student' || autoApproval.loading}
+              accessibilityLabel="Student auto-approval"
+            />
+          </View>
+        </View>
+      </Card>
+
       <Card padded={false} className="overflow-hidden">
         <LoadBlock state={list} loadingLabel="Loading sign-ups…">
           {(users) =>

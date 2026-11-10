@@ -45,6 +45,17 @@ export interface PendingUser {
   employee_id?: string;
 }
 
+
+export interface AutoApprovalSettings {
+  admin: boolean;
+  teacher: boolean;
+  student: boolean;
+}
+
+export interface AutoApprovalResponse extends Ok {
+  settings: AutoApprovalSettings;
+}
+
 export interface PendingUsersResponse extends Ok {
   /** Oldest first. */
   users: PendingUser[];
@@ -329,7 +340,12 @@ export interface AdminCourseInfosResponse extends Ok {
 // ---------------------------------------------------------------------------------------------------
 
 export const adminApi = {
-  // Approvals
+  // Approvals & Auto-approval
+  /** GET /admin/auto-approval/ */
+  autoApprovalSettings: () => api.get<AutoApprovalResponse>('/api/admin/auto-approval/'),
+  /** PATCH /admin/auto-approval/ */
+  updateAutoApprovalSettings: (settings: Partial<AutoApprovalSettings>) =>
+    api.patch<AutoApprovalResponse>('/api/admin/auto-approval/', settings),
   /** GET /admin/users/pending/ */
   pendingUsers: () => api.get<PendingUsersResponse>('/api/admin/users/pending/'),
   /** POST /admin/users/<user_id>/verify/: approve a sign-up. */
