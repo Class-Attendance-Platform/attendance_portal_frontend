@@ -11,7 +11,7 @@ export const termOptions = (config: AppConfig): SelectOption<Term>[] =>
   config.terms.map((term) => ({ label: `Term ${term}`, value: term }));
 
 /** The credit values the server knows (GET /config/credits/ can replace them). */
-export const DEFAULT_CREDITS = ['CREDIT_1_00', 'CREDIT_1_50', 'CREDIT_2_00', 'CREDIT_3_00'];
+export const DEFAULT_CREDITS = ['CREDIT_0_75', 'CREDIT_1_00', 'CREDIT_1_50', 'CREDIT_2_00', 'CREDIT_3_00'];
 
 export const creditOptions = (credits: string[]): SelectOption<string>[] =>
   credits.map((credit) => ({ label: `${formatCredits(credit)} credits`, value: credit }));
