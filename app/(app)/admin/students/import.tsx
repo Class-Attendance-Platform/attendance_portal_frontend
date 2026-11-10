@@ -15,11 +15,13 @@ import {
   ListRow,
   Notice,
   PageHeader,
+  Pagination,
   Pill,
   Select,
   Text,
   useConfirm,
   useMessage,
+  usePagination,
   type Column,
 } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
@@ -84,6 +86,102 @@ function StatusCell({ row }: { row: ImportRow }) {
           {error}
         </Text>
       ))}
+    </View>
+  );
+}
+
+function CreatedRowsList({ rows, isWide }: { rows: ImportResult['created']; isWide: boolean }) {
+  const { page, setPage, pageSize, setPageSize, totalPages, pagedItems } = usePagination(rows ?? [], { pageSize: 15 });
+  return (
+    <View className="overflow-hidden rounded-control border border-border">
+      {isWide ? (
+        <DataTable
+          label="New accounts and temporary passwords"
+          rows={pagedItems}
+          rowKey={(row) => String(row.student_id)}
+          columns={[
+            { key: 'student_id', title: 'Student ID', width: 120, render: (row) => <Text tabular>{String(row.student_id)}</Text> },
+            { key: 'email', title: 'Email', flex: 2, render: (row) => <Text selectable>{row.email}</Text> },
+            {
+              key: 'password',
+              title: 'Temporary password',
+              flex: 1.2,
+              render: (row) => (
+                <Text selectable weight="semibold" tabular>
+                  {row.temporary_password}
+                </Text>
+              ),
+            },
+          ]}
+        />
+      ) : (
+        <View role="list" accessibilityLabel="New accounts and temporary passwords">
+          {pagedItems.map((row, index) => (
+            <ListRow key={row.student_id} divider={index > 0} title={row.email} subtitle={`Student ID ${row.student_id}`}>
+              <Text selectable weight="semibold" tabular>
+                {row.temporary_password}
+              </Text>
+            </ListRow>
+          ))}
+        </View>
+      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={rows?.length ?? 0}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[15, 30, 50]}
+        itemLabel="accounts"
+      />
+    </View>
+  );
+}
+
+function PreviewRowsList({
+  rows,
+  isWide,
+  columns,
+}: {
+  rows: ImportRow[];
+  isWide: boolean;
+  columns: Column<ImportRow>[];
+}) {
+  const { page, setPage, pageSize, setPageSize, totalPages, pagedItems } = usePagination(rows, { pageSize: 15 });
+  return (
+    <View className="overflow-hidden rounded-control border border-border">
+      {isWide ? (
+        <DataTable label="Rows in the file" rows={pagedItems} rowKey={(row) => String(row.row)} columns={columns} />
+      ) : (
+        <View role="list" accessibilityLabel="Rows in the file">
+          {pagedItems.map((row, index) => (
+            <ListRow
+              key={row.row}
+              divider={index > 0}
+              title={row.name || row.email || `Row ${row.row}`}
+              subtitle={`Row ${row.row} · ${row.student_id ?? 'no ID'} · ${[row.level, row.term].filter(Boolean).join(' · ') || 'no level'}`}
+            >
+              {row.email ? (
+                <Text variant="small" tone="muted">
+                  {row.email}
+                </Text>
+              ) : null}
+              <StatusCell row={row} />
+            </ListRow>
+          ))}
+        </View>
+      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={rows.length}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[15, 30, 50]}
+        itemLabel="rows"
+      />
     </View>
   );
 }
@@ -296,39 +394,7 @@ export default function AdminStudentImport() {
           />
           {createdRows.length && appliedSemester ? <Text>They were added to {appliedSemester}.</Text> : null}
           {createdRows.length ? (
-            isWide ? (
-              <View className="overflow-hidden rounded-control border border-border">
-                <DataTable
-                  label="New accounts and temporary passwords"
-                  rows={createdRows}
-                  rowKey={(row) => String(row.student_id)}
-                  columns={[
-                    { key: 'student_id', title: 'Student ID', width: 120, render: (row) => <Text tabular>{String(row.student_id)}</Text> },
-                    { key: 'email', title: 'Email', flex: 2, render: (row) => <Text selectable>{row.email}</Text> },
-                    {
-                      key: 'password',
-                      title: 'Temporary password',
-                      flex: 1.2,
-                      render: (row) => (
-                        <Text selectable weight="semibold" tabular>
-                          {row.temporary_password}
-                        </Text>
-                      ),
-                    },
-                  ]}
-                />
-              </View>
-            ) : (
-              <View className="rounded-control border border-border">
-                {createdRows.map((row, index) => (
-                  <ListRow key={row.student_id} divider={index > 0} title={row.email} subtitle={`Student ID ${row.student_id}`}>
-                    <Text selectable weight="semibold" tabular>
-                      {row.temporary_password}
-                    </Text>
-                  </ListRow>
-                ))}
-              </View>
-            )
+            <CreatedRowsList rows={createdRows} isWide={isWide} />
           ) : (
             <Text tone="muted">No accounts were added: every row already existed or had an error.</Text>
           )}
@@ -369,94 +435,71 @@ export default function AdminStudentImport() {
                       value={semesterId}
                       options={semesterOptions}
                       onChange={chooseSemester}
-                      hint="Optional. The new students join this semester's class list."
                       disabled={busy}
+                      hint={
+                        semesters.error
+                          ? `Semesters could not be loaded: ${semesters.error.message}`
+                          : "Optional. You can add them from the semester's page later."
+                      }
                     />
                     {semesterGone ? (
                       <Notice
                         tone="warn"
-                        message={`${semesterGone} was finished or deleted meanwhile, so no semester is chosen now. Choose one again if the new students should join it.`}
+                        message={`${semesterGone} was finished or deleted. Choose another semester or leave it on "Don't add".`}
                       />
                     ) : null}
-                    {semesters.error ? (
-                      <Notice tone="error" title="Couldn't load the semesters" message={semesters.error.message}>
-                        <Button label="Try again" compact icon={RefreshCw} loading={semesters.loading} onPress={() => void semesters.reload()} />
-                      </Notice>
+                    {file ? (
+                      <View className="flex-row items-center gap-3">
+                        <Button
+                          label="Check this file"
+                          variant="primary"
+                          icon={CircleCheck}
+                          loading={checking}
+                          disabled={busy}
+                          onPress={() => check()}
+                        />
+                        <Text variant="small" tone="muted">
+                          Checks the rows before anything is saved.
+                        </Text>
+                      </View>
                     ) : null}
-                    <Button
-                      label="Check the file"
-                      variant={file ? 'primary' : 'secondary'}
-                      icon={CircleCheck}
-                      loading={checking}
-                      disabled={!file || applying}
-                      onPress={() => check()}
-                    />
                   </>
                 ) : (
                   <Notice
                     tone="info"
-                    message="Importing a file works in the web app and the desktop app. Open the portal in a browser on a computer to import students."
+                    title="Import is on the web"
+                    message="Use the web dashboard to upload a CSV or Excel file of students."
                   />
                 )}
                 <FormError error={error} />
               </Card>
             </View>
+
             <View className={isWide ? 'flex-[2]' : undefined}>
-              <Card title="What the file needs" className="gap-4">
-                <Text tone="muted">
-                  The first row names the columns, in any order. Each other row is one student. Accounts are approved at once and
-                  get a random temporary password.
-                </Text>
-                <View className="rounded-control border border-border">
-                  {COLUMNS.map((column, index) => (
-                    <View
-                      key={column.name}
-                      className={`flex-row flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-2 ${index > 0 ? 'border-t border-border' : ''}`}
-                    >
-                      <Text weight="semibold" style={{ minWidth: 92 }}>
-                        {column.name}
-                      </Text>
-                      <Text tone="muted" className="flex-1" style={{ minWidth: 200 }}>
-                        {column.about}
-                        {column.required ? '' : ' (optional)'}
-                      </Text>
-                    </View>
+              <Card title="Columns" className="gap-3">
+                <Text tone="muted">The file's first row must have these column names in any order:</Text>
+                <View role="list" accessibilityLabel="Columns" className="gap-1.5">
+                  {COLUMNS.map((col) => (
+                    <Text key={col.name} role="listitem" variant="small">
+                      <Text weight="semibold">{col.name}</Text>: {col.about}
+                    </Text>
                   ))}
                 </View>
-                <View className="gap-2">
-                  <Text variant="small" weight="semibold" tone="muted">
-                    Sample
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator
-                    className="rounded-control border border-border bg-bg"
-                    contentContainerClassName="p-3"
-                    accessibilityLabel="Sample file"
-                  >
-                    <View>
-                      {SAMPLE.map((line) => (
-                        <Text key={line.join(',')} variant="small" selectable numberOfLines={1} style={{ fontFamily: Platform.OS === 'web' ? 'ui-monospace, monospace' : undefined }}>
-                          {line.join(',')}
-                        </Text>
-                      ))}
-                    </View>
-                  </ScrollView>
-                  {canSaveFiles ? (
-                    <Button
-                      label="Download the sample"
-                      variant="quiet"
-                      icon={Download}
-                      onPress={() => saveTextFile('students-sample.csv', toCsv(SAMPLE[0], SAMPLE.slice(1)))}
-                    />
-                  ) : null}
-                </View>
+                {canSaveFiles ? (
+                  <Button
+                    label="Download sample CSV"
+                    variant="quiet"
+                    compact
+                    icon={Download}
+                    onPress={() => saveTextFile('sample-students.csv', toCsv(SAMPLE[0], SAMPLE.slice(1)))}
+                  />
+                ) : null}
               </Card>
             </View>
           </View>
 
           {preview ? (
-            <Card title="2. Check and add" className="gap-4">
+            <Card title="2. Review and add" className="gap-4">
               <View className="flex-row flex-wrap gap-2">
                 <Pill label={`${preview.summary.create} to add`} tone="present" />
                 <Pill label={`${preview.summary.exists} already exist`} tone="neutral" />
@@ -469,29 +512,7 @@ export default function AdminStudentImport() {
                 />
               ) : null}
               {preview.rows.length ? (
-                isWide ? (
-                  <View className="overflow-hidden rounded-control border border-border">
-                    <DataTable label="Rows in the file" rows={preview.rows} rowKey={(row) => String(row.row)} columns={previewColumns} />
-                  </View>
-                ) : (
-                  <View className="rounded-control border border-border">
-                    {preview.rows.map((row, index) => (
-                      <ListRow
-                        key={row.row}
-                        divider={index > 0}
-                        title={row.name || row.email || `Row ${row.row}`}
-                        subtitle={`Row ${row.row} · ${row.student_id ?? 'no ID'} · ${[row.level, row.term].filter(Boolean).join(' · ') || 'no level'}`}
-                      >
-                        {row.email ? (
-                          <Text variant="small" tone="muted">
-                            {row.email}
-                          </Text>
-                        ) : null}
-                        <StatusCell row={row} />
-                      </ListRow>
-                    ))}
-                  </View>
-                )
+                <PreviewRowsList rows={preview.rows} isWide={isWide} columns={previewColumns} />
               ) : (
                 <Text tone="muted">The file has no student rows.</Text>
               )}

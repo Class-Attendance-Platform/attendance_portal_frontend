@@ -112,6 +112,9 @@ export default function AdminAttendance() {
                 rowKey={(row) => row.id}
                 columns={columns}
                 onRowPress={(row) => router.push(`/admin/attendance/${row.id}` as Href)}
+                pageSize={15}
+                pageSizeOptions={[15, 30, 50]}
+                itemLabel="courses"
                 // Phones read only this label, so it says what the row shows.
                 rowLabel={(row) =>
                   rowWords(

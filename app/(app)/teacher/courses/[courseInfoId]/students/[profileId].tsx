@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Notice } from '@/components/ui/notice';
 import { PageHeader } from '@/components/ui/page-header';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { StatusPill } from '@/components/ui/pill';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { StatTile } from '@/components/ui/stat-tile';
@@ -126,6 +127,8 @@ export default function TeacherCourseStudent() {
   const name = student.name;
   const tile = isDesktop ? undefined : 'min-w-[90px] p-3';
 
+  const { page, setPage, pageSize, setPageSize, totalPages, pagedItems } = usePagination(days, { pageSize: 15 });
+
   const flip = (day: StudentDay) => (next: 'PRESENT' | 'ABSENT') => correction.change(day.date, profileId, next, name);
 
   const columns: Column<StudentDay>[] = [
@@ -196,9 +199,9 @@ export default function TeacherCourseStudent() {
           {days.length === 0 ? (
             <EmptyState icon={CalendarX2} title="No classes yet" message="Days show here once the course has a class." />
           ) : wide ? (
-            <DataTable label={`${name}'s class days`} columns={columns} rows={days} rowKey={(day) => day.date} />
+            <DataTable label={`${name}'s class days`} columns={columns} rows={pagedItems} rowKey={(day) => day.date} />
           ) : (
-            days.map((day, index) => (
+            pagedItems.map((day, index) => (
               <View key={day.date} className={cn('gap-2 py-3', isDesktop ? 'px-5' : 'px-4', index > 0 && 'border-t border-border')}>
                 <View className="flex-row items-start justify-between gap-3">
                   <View className="flex-1 gap-0.5">
@@ -217,8 +220,19 @@ export default function TeacherCourseStudent() {
             ))
           )}
         </View>
+        {days.length > 0 ? (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={days.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[15, 30, 50]}
+            itemLabel="days"
+          />
+        ) : null}
       </Card>
     </Page>
   );
 }
-

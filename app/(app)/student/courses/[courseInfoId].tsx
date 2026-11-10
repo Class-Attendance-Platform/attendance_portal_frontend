@@ -10,6 +10,7 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { ListRow } from '@/components/ui/list-row';
 import { Notice } from '@/components/ui/notice';
 import { PageHeader } from '@/components/ui/page-header';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Pill, StatusPill } from '@/components/ui/pill';
 import { StatTile } from '@/components/ui/stat-tile';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
@@ -187,6 +188,8 @@ export default function StudentCourse() {
   ];
   const anyChanged = rows.some((row) => row.changed);
 
+  const { page, setPage, pageSize, setPageSize, totalPages, pagedItems } = usePagination(rows, { pageSize: 15 });
+
   // Status and Note hold one pill each: fixed widths keep "Not counted" and "Changed by teacher"
   // on one line.
   const columns: Column<DayRow>[] = [
@@ -252,9 +255,9 @@ export default function StudentCourse() {
               <EmptyState icon={CalendarDays} title="No classes held" message="No attendance was recorded in this course." />
             )
           ) : width >= TABLE_MIN ? (
-            <DataTable label="Class days" columns={columns} rows={rows} rowKey={(row) => row.date} />
+            <DataTable label="Class days" columns={columns} rows={pagedItems} rowKey={(row) => row.date} />
           ) : (
-            rows.map((row, index) => (
+            pagedItems.map((row, index) => (
               <ListRow
                 key={row.date}
                 title={formatDateWithWeekday(row.date)}
@@ -268,6 +271,18 @@ export default function StudentCourse() {
             ))
           )}
         </View>
+        {rows.length > 0 ? (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={rows.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[15, 30, 50]}
+            itemLabel="days"
+          />
+        ) : null}
       </Card>
     </Page>
   );

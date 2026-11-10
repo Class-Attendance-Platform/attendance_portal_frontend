@@ -6,10 +6,8 @@ import {
   Button,
   Card,
   Checkbox,
-  DataTable,
   Dialog,
   EmptyState,
-  ListRow,
   LoadingState,
   Notice,
   Pill,
@@ -26,7 +24,7 @@ import { toApiError } from '@/lib/api/client';
 import { formatDate, fullName, levelLabel, levelTermLabel, plural } from '@/lib/format';
 import { useAppConfig, useDebounced, useLoad } from './hooks';
 import { levelOptions } from './options';
-import { FormError, LoadBlock, TwoLines } from './parts';
+import { FormError, LoadBlock, ResponsiveList, TwoLines } from './parts';
 
 const joinedText = (member: RosterMember) => (member.joined_at ? formatDate(member.joined_at) : 'From the start');
 
@@ -239,8 +237,7 @@ function AddStudentsDialog({
 
 /** The semester's students: joined and left dates, add, remove, former members. */
 export function SemesterRoster({ semester, onChanged }: { semester: Semester; onChanged: () => void }) {
-  // The table from 1100 px; below, the phone rows (next to the sidebar its columns get too narrow).
-  const { isDesktop, isWide } = useBreakpoint();
+  const { isDesktop } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
   // A finished semester's class list is everyone who was in it: show former members there. The box
@@ -345,26 +342,26 @@ export function SemesterRoster({ semester, onChanged }: { semester: Semester; on
                 }
                 action={readOnly ? undefined : { label: 'Add students', icon: UserPlus, onPress: () => setAdding(true) }}
               />
-            ) : isWide ? (
-              <DataTable label="Students" columns={columns} rows={rows} rowKey={(row) => row.profile_id} />
             ) : (
-              <View role="list" accessibilityLabel="Students">
-                {rows.map((row, index) => (
-                  <View key={row.profile_id} role="listitem">
-                    <ListRow
-                      divider={index > 0}
-                      title={row.name}
-                      subtitle={`${row.student_id} · ${row.joined_at ? `Joined ${formatDate(row.joined_at)}` : 'From the start'}`}
-                      right={row.left_at ? <Pill label={`Left ${formatDate(row.left_at)}`} tone="neutral" /> : removeButton(row)}
-                    >
-                      {/* The table shows it under the name */}
-                      <Text variant="small" tone="muted">
-                        {row.email}
-                      </Text>
-                    </ListRow>
-                  </View>
-                ))}
-              </View>
+              <ResponsiveList
+                label="Students"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.profile_id}
+                pageSize={15}
+                pageSizeOptions={[15, 30, 50]}
+                itemLabel="students"
+                phoneRow={(row) => ({
+                  title: row.name,
+                  subtitle: `${row.student_id} · ${row.joined_at ? `Joined ${formatDate(row.joined_at)}` : 'From the start'}`,
+                  right: row.left_at ? <Pill label={`Left ${formatDate(row.left_at)}`} tone="neutral" /> : removeButton(row),
+                  children: (
+                    <Text variant="small" tone="muted">
+                      {row.email}
+                    </Text>
+                  ),
+                })}
+              />
             )
           }
         </LoadBlock>

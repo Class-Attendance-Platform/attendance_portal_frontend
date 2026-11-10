@@ -5,10 +5,8 @@ import { View } from 'react-native';
 import {
   Button,
   Card,
-  DataTable,
   Dialog,
   EmptyState,
-  ListRow,
   Notice,
   Pill,
   Select,
@@ -23,7 +21,7 @@ import { adminApi, type AdminTeacher, type ApiError, type Course, type Semester,
 import { toApiError } from '@/lib/api/client';
 import { formatCredits, fullName } from '@/lib/format';
 import { useLoad } from './hooks';
-import { fieldError, FormError, LoadBlock, TwoLines } from './parts';
+import { fieldError, FormError, LoadBlock, ResponsiveList, TwoLines } from './parts';
 
 const NO_TEACHER = '';
 
@@ -178,8 +176,7 @@ function CourseAssignDialog({
 
 /** The courses taught in a semester: add one (with a teacher), change the teacher, remove. */
 export function SemesterCourses({ semester, onChanged }: { semester: Semester; onChanged: () => void }) {
-  // The table from 1100 px; below, the phone rows (next to the sidebar its columns get too narrow).
-  const { isDesktop, isWide } = useBreakpoint();
+  const { isDesktop } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
   const courses = useLoad(() => adminApi.semesterCourses(semester.id).then((r) => r.courses), [semester.id], {
@@ -271,23 +268,26 @@ export function SemesterCourses({ semester, onChanged }: { semester: Semester; o
                 message={readOnly ? 'This semester is deleted.' : 'Add the courses taught this semester and choose each one’s teacher.'}
                 action={readOnly ? undefined : { label: 'Add course', icon: BookPlus, onPress: () => setDialog({ open: true, editing: null }) }}
               />
-            ) : isWide ? (
-              <DataTable label="Courses" columns={columns} rows={rows} rowKey={(row) => row.course_info_id} />
             ) : (
-              <View role="list" accessibilityLabel="Courses">
-                {rows.map((row, index) => (
-                  <View key={row.course_info_id} role="listitem">
-                    <ListRow
-                      divider={index > 0}
-                      title={`${row.course.code} · ${row.course.title}`}
-                      subtitle={`${formatCredits(row.course.credits)} credits`}
-                    >
+              <ResponsiveList
+                label="Courses"
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.course_info_id}
+                pageSize={15}
+                pageSizeOptions={[15, 30, 50]}
+                itemLabel="courses"
+                phoneRow={(row) => ({
+                  title: `${row.course.code} · ${row.course.title}`,
+                  subtitle: `${formatCredits(row.course.credits)} credits`,
+                  children: (
+                    <>
                       <View className="items-start">{teacherCell(row, true)}</View>
                       {readOnly ? null : <View className="mt-1 items-start">{buttons(row)}</View>}
-                    </ListRow>
-                  </View>
-                ))}
-              </View>
+                    </>
+                  ),
+                })}
+              />
             )
           }
         </LoadBlock>

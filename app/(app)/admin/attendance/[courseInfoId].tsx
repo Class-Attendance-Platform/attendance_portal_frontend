@@ -280,6 +280,9 @@ export default function AdminCourseAttendance() {
                         rowKey={(row) => row.profile_id}
                         columns={studentColumns}
                         onRowPress={setStudent}
+                        pageSize={15}
+                        pageSizeOptions={[15, 30, 50]}
+                        itemLabel="students"
                         // Phones read only this label, so it says what the row shows.
                         rowLabel={(row) =>
                           rowWords(
@@ -324,6 +327,9 @@ export default function AdminCourseAttendance() {
                         rows={loaded.dates}
                         rowKey={(row) => row.date}
                         columns={dateColumns}
+                        pageSize={15}
+                        pageSizeOptions={[15, 30, 50]}
+                        itemLabel="dates"
                         phoneRow={(row) => ({
                           title: formatDateWithWeekday(row.date),
                           right: (

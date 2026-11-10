@@ -7,7 +7,7 @@ import { useLoad } from '@/components/admin/hooks';
 import { FilterBar, FilterItem, LoadBlock } from '@/components/admin/parts';
 import { SemesterFormDialog, semesterDates, useSemesterActions } from '@/components/admin/semester-dialogs';
 import { Page } from '@/components/layout/Page';
-import { Button, Card, DataTable, EmptyState, PageHeader, Select, Text, TextLink, type Column } from '@/components/ui';
+import { Button, Card, DataTable, EmptyState, PageHeader, Pagination, Select, Text, TextLink, usePagination, type Column } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { adminApi, type Semester } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,56 @@ const SHOW_OPTIONS: { label: string; value: Show }[] = [
 ];
 
 const semesterHref = (semester: Semester) => `/admin/semesters/${semester.id}` as Href;
+
+function SemesterTable({
+  rows,
+  label,
+  columns,
+  title,
+  semesterDatesText,
+  rowButtons,
+  isWide,
+}: {
+  rows: Semester[];
+  label: string;
+  columns: Column<Semester>[];
+  title: (row: Semester) => React.ReactNode;
+  semesterDatesText: (row: Semester) => string;
+  rowButtons: (row: Semester) => React.ReactNode;
+  isWide: boolean;
+}) {
+  const { page, setPage, totalPages, pagedItems, pageSize, setPageSize } = usePagination(rows, { pageSize: 15 });
+
+  return (
+    <View className="w-full">
+      {isWide ? (
+        <DataTable label={label} columns={columns} rows={pagedItems} rowKey={(row) => row.id} />
+      ) : (
+        <View role="list" accessibilityLabel={label}>
+          {pagedItems.map((row, index) => (
+            <View key={row.id} role="listitem" className={cn('gap-2 px-4 py-4', index > 0 && 'border-t border-border')}>
+              <View className="items-start">{title(row)}</View>
+              <Text variant="small" tone="muted">
+                {semesterDatesText(row)} · {plural(row.student_count, 'student')} · {plural(row.course_count, 'course')}
+              </Text>
+              <View className="mt-1 flex-row flex-wrap gap-2">{rowButtons(row)}</View>
+            </View>
+          ))}
+        </View>
+      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={rows.length}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[15, 30, 50]}
+        itemLabel="semesters"
+      />
+    </View>
+  );
+}
 
 /** /admin/semesters: active and finished semesters; create, finish, reopen, delete, restore. */
 export default function AdminSemesters() {
@@ -116,22 +166,17 @@ export default function AdminSemesters() {
     },
   ];
 
-  const table = (rows: Semester[], label: string) =>
-    isWide ? (
-      <DataTable label={label} columns={columns} rows={rows} rowKey={(row) => row.id} />
-    ) : (
-      <View role="list" accessibilityLabel={label}>
-        {rows.map((row, index) => (
-          <View key={row.id} role="listitem" className={cn('gap-2 px-4 py-4', index > 0 && 'border-t border-border')}>
-            <View className="items-start">{title(row)}</View>
-            <Text variant="small" tone="muted">
-              {semesterDates(row)} · {plural(row.student_count, 'student')} · {plural(row.course_count, 'course')}
-            </Text>
-            <View className="mt-1 flex-row flex-wrap gap-2">{rowButtons(row)}</View>
-          </View>
-        ))}
-      </View>
-    );
+  const table = (rows: Semester[], label: string) => (
+    <SemesterTable
+      rows={rows}
+      label={label}
+      columns={columns}
+      title={title}
+      semesterDatesText={semesterDates}
+      rowButtons={rowButtons}
+      isWide={isWide}
+    />
+  );
 
   return (
     <Page scrollRef={scrollRef}>

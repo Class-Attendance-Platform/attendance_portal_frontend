@@ -4,14 +4,12 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { useLoad } from '@/components/admin/hooks';
-import { LoadBlock, TwoLines } from '@/components/admin/parts';
+import { LoadBlock, ResponsiveList, TwoLines } from '@/components/admin/parts';
 import { Page } from '@/components/layout/Page';
 import {
   Button,
   Card,
-  DataTable,
   EmptyState,
-  ListRow,
   Notice,
   PageHeader,
   Pill,
@@ -20,7 +18,6 @@ import {
   useMessage,
   type Column,
 } from '@/components/ui';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { ADMIN_ERRORS, adminApi, type PendingUser } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { EMPTY, formatDate, fullName, levelTermLabel, plural, roleLabel } from '@/lib/format';
@@ -39,8 +36,6 @@ type Approved = { id: string; name: string; semester: { id: string; label: strin
 
 /** /admin/approvals: sign-ups waiting for approval, approve or reject each. */
 export default function AdminApprovals() {
-  // Tables from 1100 px; below, the phone rows (next to the sidebar the columns would squeeze names away).
-  const { isWide } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
   const list = useLoad(() => adminApi.pendingUsers().then((r) => r.users), [], { refreshOnFocus: true });
@@ -190,29 +185,32 @@ export default function AdminApprovals() {
                 title="No sign-ups waiting"
                 message="When students or teachers sign up, they show here. They can sign in once you approve them."
               />
-            ) : isWide ? (
-              <DataTable label="Sign-ups waiting for approval" columns={columns} rows={users} rowKey={(row) => row.id} />
             ) : (
-              <View role="list" accessibilityLabel="Sign-ups waiting for approval">
-                {users.map((user, index) => (
-                  <View key={user.id} role="listitem">
-                    <ListRow
-                      divider={index > 0}
-                      title={fullName(user)}
-                      subtitle={`${roleLabel(user.role)} · ${idLabel(user)}`}
-                    >
+              <ResponsiveList
+                label="Sign-ups waiting for approval"
+                columns={columns}
+                rows={users}
+                rowKey={(row) => row.id}
+                pageSize={15}
+                pageSizeOptions={[15, 30, 50]}
+                itemLabel="sign-ups"
+                phoneRow={(row) => ({
+                  title: fullName(row),
+                  subtitle: `${roleLabel(row.role)} · ${idLabel(row)}`,
+                  children: (
+                    <>
                       <Text variant="small" tone="muted">
-                        {user.email}
+                        {row.email}
                       </Text>
                       <Text variant="small" tone="muted">
-                        {user.role === 'STUDENT' ? `${levelTermLabel(user.current_level, user.current_semester)} · ` : ''}
-                        Signed up {formatDate(user.date_joined)}
+                        {row.role === 'STUDENT' ? `${levelTermLabel(row.current_level, row.current_semester)} · ` : ''}
+                        Signed up {formatDate(row.date_joined)}
                       </Text>
-                      <View className="mt-1">{actions(user)}</View>
-                    </ListRow>
-                  </View>
-                ))}
-              </View>
+                      <View className="mt-1">{actions(row)}</View>
+                    </>
+                  ),
+                })}
+              />
             )
           }
         </LoadBlock>

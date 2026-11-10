@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { useMessage } from '@/components/ui/message-bar';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { StatusPill } from '@/components/ui/pill';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { Text } from '@/components/ui/text';
@@ -124,6 +125,13 @@ function DayRecords({ courseInfoId, date, hasClass, range, onChanged, onDeleted 
 
   const title = formatDateWithWeekday(date);
 
+  const logs = day.data?.logs ?? [];
+  const present = logs.filter((log) => log.status === 'PRESENT').length;
+
+  const { page, setPage, pageSize, setPageSize, totalPages, pagedItems } = usePagination(logs, { pageSize: 15 });
+
+  const flip = (log: HistoryLog) => (next: 'PRESENT' | 'ABSENT') => correction.change(date, log.profile_id, next, log.name);
+
   if (day.loading) {
     return (
       <Card title={title}>
@@ -163,11 +171,6 @@ function DayRecords({ courseInfoId, date, hasClass, range, onChanged, onDeleted 
       </Card>
     );
   }
-
-  const logs = day.data.logs;
-  const present = logs.filter((log) => log.status === 'PRESENT').length;
-
-  const flip = (log: HistoryLog) => (next: 'PRESENT' | 'ABSENT') => correction.change(date, log.profile_id, next, log.name);
 
   const columns: Column<HistoryLog>[] = [
     { key: 'student_id', title: 'Student ID', width: 96, render: (log) => String(log.student_id) },
@@ -214,9 +217,9 @@ function DayRecords({ courseInfoId, date, hasClass, range, onChanged, onDeleted 
       </Text>
       <View className="mt-3">
         {wide ? (
-          <DataTable label={`Attendance on ${formatDate(date)}`} columns={columns} rows={logs} rowKey={(log) => log.profile_id} />
+          <DataTable label={`Attendance on ${formatDate(date)}`} columns={columns} rows={pagedItems} rowKey={(log) => log.profile_id} />
         ) : (
-          logs.map((log, index) => {
+          pagedItems.map((log, index) => {
             const changed = changedText(log);
             return (
               <View key={log.profile_id} className={cn('gap-2 py-3', isDesktop ? 'px-5' : 'px-4', index > 0 && 'border-t border-border')}>
@@ -239,6 +242,18 @@ function DayRecords({ courseInfoId, date, hasClass, range, onChanged, onDeleted 
             );
           })
         )}
+        {logs.length > 0 ? (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={logs.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[15, 30, 50]}
+            itemLabel="students"
+          />
+        ) : null}
       </View>
     </Card>
   );

@@ -225,6 +225,9 @@ export default function AdminStudents() {
                 rowKey={(row) => row.id}
                 columns={columns}
                 onRowPress={setSelected}
+                pageSize={15}
+                pageSizeOptions={[15, 30, 50]}
+                itemLabel="students"
                 // Phones read only this label (TalkBack groups a row's parts), so it says what the row shows.
                 rowLabel={(row) =>
                   rowWords(
@@ -287,15 +290,17 @@ export default function AdminStudents() {
         onRestore={() => selected && void restore(selected)}
         restoring={restoring}
       />
+
       <StudentFormDialog
         open={form.open}
         student={form.student}
         onClose={() => setForm({ open: false, student: null })}
-        onSaved={(student, created) => {
+        onSaved={(saved, created) => {
           if (created) void list.reload();
-          else replace(student);
+          else replace(saved);
         }}
       />
+
       <ResetPasswordDialog
         person={resetFor ? { userId: resetFor.user_id, name: fullName(resetFor), email: resetFor.email } : null}
         onClose={() => setResetFor(null)}

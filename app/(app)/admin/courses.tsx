@@ -296,6 +296,9 @@ export default function AdminCourses() {
                 columns={columns}
                 onRowPress={deletedView ? undefined : (course) => setDialog({ open: true, course })}
                 rowLabel={(row) => `${row.code}, ${row.title}, ${formatCredits(row.credits)} credits. Open to edit.`}
+                pageSize={15}
+                pageSizeOptions={[15, 30, 50]}
+                itemLabel="courses"
                 phoneRow={(row) => ({
                   title: `${row.code} · ${row.title}`,
                   subtitle: `${formatCredits(row.credits)} credits`,

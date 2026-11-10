@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { ListRow } from '@/components/ui/list-row';
+import { Pagination, usePagination } from '@/components/ui/pagination';
 import { Pill } from '@/components/ui/pill';
 import { SearchField } from '@/components/ui/search-field';
 import { Icon } from '@/components/ui/icon';
@@ -93,6 +94,8 @@ export function StudentsTab({ courseInfoId, students, minPercent, newestClass, s
   });
   const belowCount = students.filter((student) => student.percent !== null && student.percent < minPercent).length;
 
+  const { page, setPage, pageSize, setPageSize, totalPages, pagedItems } = usePagination(rows, { pageSize: 15 });
+
   const open = (student: CourseStudent) => router.push(studentHref(courseInfoId, student.profile_id));
   const noteOf = (student: CourseStudent) => membershipNote(student, newestClass, semesterActive);
 
@@ -159,7 +162,7 @@ export function StudentsTab({ courseInfoId, students, minPercent, newestClass, s
           <DataTable
             label="Students"
             columns={columns}
-            rows={rows}
+            rows={pagedItems}
             rowKey={(row) => row.profile_id}
             onRowPress={open}
             rowLabel={(row) => rowLabel(row, minPercent, noteOf(row))}
@@ -168,7 +171,7 @@ export function StudentsTab({ courseInfoId, students, minPercent, newestClass, s
         ) : rows.length === 0 ? (
           empty
         ) : (
-          rows.map((student, index) => {
+          pagedItems.map((student, index) => {
             const note = noteOf(student);
             return (
               <ListRow
@@ -190,6 +193,18 @@ export function StudentsTab({ courseInfoId, students, minPercent, newestClass, s
             );
           })
         )}
+        {rows.length > 0 ? (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={rows.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[15, 30, 50]}
+            itemLabel="students"
+          />
+        ) : null}
       </Card>
     </View>
   );

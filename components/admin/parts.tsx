@@ -11,6 +11,7 @@ import {
   ListRow,
   LoadingState,
   Notice,
+  Pagination,
   Pill,
   radioKeys,
   Text,
@@ -111,32 +112,87 @@ export type ResponsiveListProps<T> = {
   /** Rows open something (a dialog or a page). */
   onRowPress?: (row: T) => void;
   rowLabel?: (row: T) => string;
+  /** Number of rows per page (default: 15). */
+  pageSize?: number;
+  /** Set to false to disable pagination. Defaults to true. */
+  paginate?: boolean;
+  /** Optional page size choices (e.g. [15, 30, 50]). */
+  pageSizeOptions?: number[];
+  /** Noun for items e.g. "courses". Defaults to label.toLowerCase(). */
+  itemLabel?: string;
 };
 
 /**
  * A table from 1100 px, ListRows below (phones, tablets, half-screen windows: next to the sidebar
  * the columns would squeeze names to nothing). Put it in a `Card padded={false}`.
  */
-export function ResponsiveList<T>({ label, rows, rowKey, columns, phoneRow, onRowPress, rowLabel }: ResponsiveListProps<T>) {
+export function ResponsiveList<T>({
+  label,
+  rows,
+  rowKey,
+  columns,
+  phoneRow,
+  onRowPress,
+  rowLabel,
+  pageSize: initialPageSize = 15,
+  paginate = true,
+  pageSizeOptions,
+  itemLabel,
+}: ResponsiveListProps<T>) {
   const { isWide } = useBreakpoint();
-  if (isWide) {
-    const withChevron: Column<T>[] = onRowPress
-      ? [...columns, { key: '__open', title: '', width: 20, render: () => <Icon as={ChevronRight} size={18} color="muted" /> }]
-      : columns;
-    return <DataTable label={label} columns={withChevron} rows={rows} rowKey={rowKey} onRowPress={onRowPress} rowLabel={rowLabel} />;
-  }
+  const [pageSize, setPageSize] = React.useState(initialPageSize);
+  const [page, setPage] = React.useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+
+  // Reset or clamp page when totalPages decreases (e.g. filtered by search)
+  React.useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const shouldPaginate = paginate && rows.length > 0;
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = shouldPaginate ? (safePage - 1) * pageSize : 0;
+  const endIndex = shouldPaginate ? Math.min(startIndex + pageSize, rows.length) : rows.length;
+  const visibleRows = shouldPaginate ? rows.slice(startIndex, endIndex) : rows;
+
+  const withChevron: Column<T>[] = onRowPress
+    ? [...columns, { key: '__open', title: '', width: 20, render: () => <Icon as={ChevronRight} size={18} color="muted" /> }]
+    : columns;
+
   return (
-    <View role="list" accessibilityLabel={label}>
-      {rows.map((row, index) => (
-        <View key={rowKey(row)} role="listitem">
-          <ListRow
-            divider={index > 0}
-            {...phoneRow(row)}
-            onPress={onRowPress ? () => onRowPress(row) : undefined}
-            accessibilityLabel={rowLabel?.(row)}
-          />
+    <View className="w-full">
+      {isWide ? (
+        <DataTable label={label} columns={withChevron} rows={visibleRows} rowKey={rowKey} onRowPress={onRowPress} rowLabel={rowLabel} />
+      ) : (
+        <View role="list" accessibilityLabel={label}>
+          {visibleRows.map((row, index) => (
+            <View key={rowKey(row)} role="listitem">
+              <ListRow
+                divider={index > 0}
+                {...phoneRow(row)}
+                onPress={onRowPress ? () => onRowPress(row) : undefined}
+                accessibilityLabel={rowLabel?.(row)}
+              />
+            </View>
+          ))}
         </View>
-      ))}
+      )}
+
+      {shouldPaginate ? (
+        <Pagination
+          page={safePage}
+          totalPages={totalPages}
+          totalItems={rows.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={pageSizeOptions ? (size) => { setPageSize(size); setPage(1); } : undefined}
+          pageSizeOptions={pageSizeOptions}
+          itemLabel={itemLabel ?? label.toLowerCase()}
+        />
+      ) : null}
     </View>
   );
 }

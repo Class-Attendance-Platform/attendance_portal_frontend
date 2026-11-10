@@ -159,6 +159,9 @@ export default function AdminTeachers() {
                 rowKey={(row) => row.id}
                 columns={columns}
                 onRowPress={setSelected}
+                pageSize={15}
+                pageSizeOptions={[15, 30, 50]}
+                itemLabel="teachers"
                 // Phones read only this label (TalkBack groups a row's parts), so it says what the row shows.
                 rowLabel={(row) =>
                   rowWords(

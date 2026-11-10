@@ -19,6 +19,8 @@ export { MessageProvider, useMessage } from './message-bar';
 export { Notice } from './notice';
 export { PageHeader } from './page-header';
 export type { Crumb } from './page-header';
+export { Pagination, usePagination } from './pagination';
+export type { PaginationProps, UsePaginationOptions } from './pagination';
 export { PasswordField } from './password-field';
 export { Pill, StatusPill } from './pill';
 export { ProgressBar } from './progress-bar';
