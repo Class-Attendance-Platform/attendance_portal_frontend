@@ -23,7 +23,13 @@ declare module 'axios' {
 
 // Backend address. Set EXPO_PUBLIC_API_URL (e.g. in .env.local) for a deployed backend.
 // No trailing slash: paths are joined as `${API_BASE}/api/...`.
-export const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+export const API_BASE = (
+  process.env.EXPO_PUBLIC_API_URL !== undefined
+    ? process.env.EXPO_PUBLIC_API_URL
+    : typeof window !== 'undefined'
+      ? ''
+      : `http://127.0.0.1:${process.env.EXPO_PUBLIC_API_PORT || '8000'}`
+).replace(/\/+$/, '');
 
 // Public address of the web app (EXPO_PUBLIC_WEB_URL). Links people open in a browser (QR
 // check-in links, password reset) point here. Empty in local development.
