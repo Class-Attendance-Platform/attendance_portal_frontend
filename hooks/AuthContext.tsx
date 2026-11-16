@@ -37,6 +37,8 @@ interface AuthContextType {
    * tokens until an admin approves) or "account_disabled"; `message` is ready to show.
    */
   login: (email: string, password: string) => Promise<User>;
+  /** Signs in with tokens + user returned directly (e.g. right after registration). */
+  adoptSession: (session: { user: User; access: string; refresh: string }) => User;
   /** Signs out here and blacklists the refresh token on the server (in the background). */
   logout: () => Promise<void>;
   /** Reloads the user from GET /auth/me/. */
@@ -196,13 +198,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('storage', onStorage);
   }, [leave, message]);
 
+  const adoptSession = useCallback(
+    (session: { user: User; access: string; refresh: string }) => {
+      setSignedOut(false);
+      return startSession(session.user, session.access ?? null, session.refresh ?? null);
+    },
+    [startSession]
+  );
+
   const login = useCallback(
     async (email: string, password: string) => {
       const response = await authApi.login(email, password);
-      setSignedOut(false);
-      return startSession(response.user, response.access ?? null, response.refresh ?? null);
+      return adoptSession(response);
     },
-    [startSession]
+    [adoptSession]
   );
 
   const logout = useCallback(async () => {
@@ -229,8 +238,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, signedOut, login, logout, refreshUser, setUser }),
-    [user, isLoading, signedOut, login, logout, refreshUser, setUser]
+    () => ({ user, isLoading, signedOut, login, adoptSession, logout, refreshUser, setUser }),
+    [user, isLoading, signedOut, login, adoptSession, logout, refreshUser, setUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

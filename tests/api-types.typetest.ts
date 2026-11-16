@@ -1,6 +1,7 @@
 // Compile-time checks that the API types keep the contract's null cases and fields
 // (attendance_portal_backend/docs/api-v2.md). `npx tsc --noEmit` runs them: an
 // "Unused '@ts-expect-error' directive" error means a type lost its null case. Nothing runs.
+import type { RegisterResponse } from '@/lib/api/auth';
 import type { HistoryLog, MarkResponse } from '@/lib/api/sessions';
 import type { StudentCourseDetail, StudentCourseSummary, StudentSemester } from '@/lib/api/student';
 import type { SetAttendanceResponse } from '@/lib/api/teacher';
@@ -33,3 +34,12 @@ export const deviceCheckIn: CheckInMethod = 'FINGERPRINT';
 // Section 5 / 6 responses carry what the screens show next.
 export const markedStudent: string = marked.student.name;
 export const changed: boolean = corrected.changed;
+
+// Section 1: registration immediately verifies the account and returns tokens + user.
+declare const registered: RegisterResponse;
+export const registeredTokens: [string, string, 'approved', string] = [
+  registered.access,
+  registered.refresh,
+  registered.status,
+  registered.user.id,
+];

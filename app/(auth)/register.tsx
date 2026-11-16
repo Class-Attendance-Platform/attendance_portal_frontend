@@ -1,6 +1,7 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
+import { ShieldCheck } from 'lucide-react-native';
 import * as React from 'react';
-import { View, type TextInput } from 'react-native';
+import { BackHandler, View, type TextInput } from 'react-native';
 
 import {
   confirmProblem,
@@ -14,19 +15,24 @@ import {
 } from '@/components/auth/forms';
 import { authHref, GuestOnly, useRedirectParam } from '@/components/auth/guest';
 import { PublicPage } from '@/components/layout/PublicPage';
+import { FaceCapture } from '@/components/student/FaceCapture';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
+import { useMessage } from '@/components/ui/message-bar';
 import { Notice } from '@/components/ui/notice';
 import { PasswordField } from '@/components/ui/password-field';
 import { Select } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { TextLink } from '@/components/ui/text-link';
+import { useAuth } from '@/hooks/AuthContext';
 import { useAppConfig } from '@/hooks/useAppConfig';
-import { authApi, type RegisterBody } from '@/lib/api/auth';
-import { isApiError } from '@/lib/api/client';
+import { authApi, type RegisterBody, type StudentRegisterBody, type TeacherRegisterBody } from '@/lib/api/auth';
+import { isApiError, type ApiError } from '@/lib/api/client';
 import { DEFAULT_APP_CONFIG } from '@/lib/api/config';
-import { levelLabel } from '@/lib/format';
+import type { RegisterFacePhotos } from '@/lib/api/faces';
+import { levelLabel, levelTermLabel } from '@/lib/format';
 
 type FieldName =
   | 'first_name'
@@ -98,31 +104,46 @@ function validate(role: SignUpRole, values: Values): Errors {
   return errors;
 }
 
-function bodyFor(role: SignUpRole, values: Values): RegisterBody {
-  const common = {
+function studentBodyFor(values: Values): StudentRegisterBody {
+  return {
+    role: 'STUDENT',
     email: values.email.trim(),
     password: values.password,
     first_name: values.first_name.trim(),
     last_name: values.last_name.trim(),
+    student_id: Number(values.student_id.trim()),
+    current_level: values.current_level,
+    current_semester: values.current_semester,
   };
-  if (role === 'STUDENT') {
-    return {
-      role,
-      ...common,
-      student_id: Number(values.student_id.trim()),
-      current_level: values.current_level,
-      current_semester: values.current_semester,
-    };
-  }
-  return { role, ...common, employee_id: values.employee_id.trim() };
 }
 
-/** /register: Student or Teacher first, then the details. The account waits for an admin. */
+function teacherBodyFor(values: Values): TeacherRegisterBody {
+  return {
+    role: 'TEACHER',
+    email: values.email.trim(),
+    password: values.password,
+    first_name: values.first_name.trim(),
+    last_name: values.last_name.trim(),
+    employee_id: values.employee_id.trim(),
+  };
+}
+
+function bodyFor(role: SignUpRole, values: Values): RegisterBody {
+  return role === 'STUDENT' ? studentBodyFor(values) : teacherBodyFor(values);
+}
+
+/**
+ * /register: Student or Teacher first, then the details. Students complete mandatory 3-photo face
+ * registration right here as Step 2; accounts are verified and signed in immediately.
+ */
 export default function RegisterScreen() {
   const params = useLocalSearchParams<{ role?: string }>();
   const role = roleFromParam(params.role);
   const redirect = useRedirectParam();
+  const { adoptSession } = useAuth();
+  const message = useMessage();
 
+  const [step, setStep] = React.useState<'details' | 'face'>('details');
   const [values, setValues] = React.useState<Values>(EMPTY);
   const [errors, setErrors] = React.useState<Errors>({});
   const [problem, setProblem] = React.useState<string | null>(null);
@@ -131,6 +152,19 @@ export default function RegisterScreen() {
   const lists =
     config.levels?.length && config.terms?.length ? config : { levels: DEFAULT_APP_CONFIG.levels, terms: DEFAULT_APP_CONFIG.terms };
   const refs = React.useRef<Partial<Record<FieldName, TextInput | null>>>({});
+
+  React.useEffect(() => {
+    if (role !== 'STUDENT' && step === 'face') setStep('details');
+  }, [role, step]);
+
+  React.useEffect(() => {
+    if (step !== 'face') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setStep('details');
+      return true;
+    });
+    return () => sub.remove();
+  }, [step]);
 
   const set = (name: FieldName) => (value: string) => {
     setValues((current) => ({ ...current, [name]: value }));
@@ -145,6 +179,7 @@ export default function RegisterScreen() {
 
   function chooseRole(next: SignUpRole) {
     router.setParams({ role: next.toLowerCase() });
+    setStep('details');
     setErrors({});
     setProblem(null);
   }
@@ -152,6 +187,19 @@ export default function RegisterScreen() {
   function focusFirstError(found: Errors) {
     const first = FOCUS_ORDER.find((name) => found[name]);
     if (first) refs.current[first]?.focus();
+  }
+
+  function applyServerError(error: ApiError) {
+    const fromServer: Errors = {};
+    for (const name of SERVER_FIELDS) fromServer[name] = error.field(name);
+    const known = Object.values(fromServer).some(Boolean);
+    setErrors(fromServer);
+    // Errors without a field here (e.g. too many tries) go in the notice above the button.
+    if (!known) setProblem(error.message);
+    else if (Object.keys(error.fieldErrors).some((key) => !SERVER_FIELDS.includes(key as FieldName))) {
+      setProblem(error.message);
+    }
+    requestAnimationFrame(() => focusFirstError(fromServer));
   }
 
   async function submit() {
@@ -165,12 +213,14 @@ export default function RegisterScreen() {
     }
     setSubmitting(true);
     try {
-      const body = bodyFor(role, values);
-      const res = await authApi.register(body);
-      if (res.status === 'approved') {
-        router.replace(authHref('/login', redirect, { email: body.email.toLowerCase(), created: '1' }));
+      if (role === 'STUDENT') {
+        await authApi.checkRegister(bodyFor(role, values));
+        setSubmitting(false);
+        setStep('face');
       } else {
-        router.replace(authHref('/pending', redirect, { email: body.email.toLowerCase(), created: '1' }));
+        const res = await authApi.register(teacherBodyFor(values));
+        message.success('Account created.');
+        adoptSession(res);
       }
     } catch (error) {
       setSubmitting(false);
@@ -178,26 +228,79 @@ export default function RegisterScreen() {
         setProblem('Could not create the account. Please try again.');
         return;
       }
-      const fromServer: Errors = {};
-      for (const name of SERVER_FIELDS) fromServer[name] = error.field(name);
-      const known = Object.values(fromServer).some(Boolean);
-      setErrors(fromServer);
-      // Errors without a field here (e.g. too many tries) go in the notice above the button.
-      if (!known) setProblem(error.message);
-      else if (Object.keys(error.fieldErrors).some((key) => !SERVER_FIELDS.includes(key as FieldName))) {
-        setProblem(error.message);
+      applyServerError(error);
+    }
+  }
+
+  async function submitStudentWithFace(photos: RegisterFacePhotos) {
+    try {
+      const res = await authApi.registerStudent(studentBodyFor(values), photos);
+      message.success('Account created and face registered.');
+      adoptSession(res);
+    } catch (error) {
+      if (isApiError(error) && SERVER_FIELDS.some((name) => Boolean(error.field(name)))) {
+        applyServerError(error);
+        setStep('details');
+        throw new Error('stopped');
       }
-      focusFirstError(fromServer);
+      throw error;
     }
   }
 
   const student = role === 'STUDENT';
 
+  if (student && step === 'face') {
+    const fullNameText = [values.first_name.trim(), values.last_name.trim()].filter(Boolean).join(' ');
+    return (
+      <GuestOnly>
+        <PublicPage title="Register your face" width="wide">
+          <Card className="gap-3">
+            <FormHeading
+              title="Register your face"
+              lead="Step 2 of 2: Take 3 quick photos of your face to finish creating your student account."
+            />
+            <View className="gap-0.5 rounded-control border border-border bg-bg px-3 py-2.5">
+              <Text weight="semibold">{fullNameText}</Text>
+              <Text variant="small" tone="muted">
+                {`${values.email.trim().toLowerCase()} · Student ID ${values.student_id.trim()} · ${levelTermLabel(values.current_level, values.current_semester)}`}
+              </Text>
+            </View>
+          </Card>
+
+          <FaceCapture
+            noSidebar
+            uploadingLabel="Creating your account…"
+            onSubmitPhotos={submitStudentWithFace}
+            cancel={{ label: 'Back to details', onPress: () => setStep('details') }}
+          />
+
+          <Card className="gap-2">
+            <View className="flex-row items-center gap-2">
+              <Icon as={ShieldCheck} size={20} color="primary" />
+              <Text weight="semibold">What is kept</Text>
+            </View>
+            <Text tone="muted">
+              3 small face pictures and numbers made from them, used only to match you in your teacher's class photos.
+              Class photos are never stored. You can replace or delete your face data later from your account.
+            </Text>
+          </Card>
+        </PublicPage>
+      </GuestOnly>
+    );
+  }
+
   return (
     <GuestOnly>
       <PublicPage title="Create an account">
         <Card className="gap-5">
-          <FormHeading title="Create an account" lead="New accounts are approved by an admin before you can sign in." />
+          <FormHeading
+            title="Create an account"
+            lead={
+              student
+                ? 'Step 1 of 2: Enter your details, then register your face.'
+                : 'Choose your role and enter your details to get started.'
+            }
+          />
 
           <View className="gap-2">
             <Text variant="label">I am a</Text>
@@ -338,7 +441,15 @@ export default function RegisterScreen() {
               {problem ? <Notice live tone="error" message={problem} /> : null}
 
               <Button
-                label={submitting ? 'Creating account…' : 'Create account'}
+                label={
+                  student
+                    ? submitting
+                      ? 'Checking details…'
+                      : 'Continue to face registration'
+                    : submitting
+                      ? 'Creating account…'
+                      : 'Create account'
+                }
                 variant="primary"
                 fullWidth
                 loading={submitting}

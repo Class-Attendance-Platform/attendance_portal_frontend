@@ -1,5 +1,7 @@
 import { updateSession } from '../session';
-import { api, bareClient, getTokenOwner, isApiError, setTokens } from './client';
+import { appendPhoto } from '../upload';
+import { api, bareClient, getTokenOwner, isApiError, MULTIPART, setTokens } from './client';
+import { notifyFaceChange, type RegisterFacePhotos } from './faces';
 import type { Ok, OkMessage, User } from './types';
 
 // Section 1 of the contract: accounts and sign-in.
@@ -45,9 +47,10 @@ export interface TeacherRegisterBody {
 
 export type RegisterBody = StudentRegisterBody | TeacherRegisterBody;
 
-/** 201: the account waits for admin approval. No tokens. */
-export interface RegisterResponse extends OkMessage {
-  status: 'pending' | 'approved';
+/** 201: the account is verified immediately and returns fresh sign-in tokens + user. */
+export interface RegisterResponse extends OkMessage, TokenPair {
+  status: 'approved';
+  user: User;
 }
 
 export interface MeResponse extends Ok {
@@ -79,8 +82,38 @@ export const authApi = {
   login: (email: string, password: string) =>
     api.post<LoginResponse>('/api/auth/login/', { email: email.trim(), password }, { skipAuth: true }),
 
-  /** POST /auth/register/. Duplicate email / student id / employee id → 400 field errors. */
-  register: (body: RegisterBody) => api.post<RegisterResponse>('/api/auth/register/', body, { skipAuth: true }),
+  /** POST /auth/register/check/: validates sign-up details before opening face capture. */
+  checkRegister: (body: RegisterBody) => api.post<Ok>('/api/auth/register/check/', body, { skipAuth: true }),
+
+  /** POST /auth/register/ (teacher JSON sign-up). Duplicate email / employee id → 400 field errors. */
+  register: (body: TeacherRegisterBody) => api.post<RegisterResponse>('/api/auth/register/', body, { skipAuth: true }),
+
+  /**
+   * POST /auth/register/ (multipart): creates a verified student account and registers their 3 face
+   * poses in one step, returning sign-in tokens and the user.
+   */
+  registerStudent: async (body: StudentRegisterBody, photos: RegisterFacePhotos) => {
+    const form = new FormData();
+    form.append('role', body.role);
+    form.append('email', body.email);
+    form.append('password', body.password);
+    form.append('first_name', body.first_name);
+    form.append('last_name', body.last_name);
+    form.append('student_id', String(body.student_id));
+    form.append('current_level', body.current_level);
+    form.append('current_semester', body.current_semester);
+    form.append('consent', 'true');
+    await appendPhoto(form, 'straight', photos.straight);
+    await appendPhoto(form, 'left', photos.left);
+    await appendPhoto(form, 'right', photos.right);
+    const result = await api.post<RegisterResponse>('/api/auth/register/', form, {
+      ...MULTIPART,
+      skipAuth: true,
+      timeout: 120000,
+    });
+    notifyFaceChange();
+    return result;
+  },
 
   /**
    * POST /auth/logout/: blacklists the refresh token. Takes the tokens explicitly because the app

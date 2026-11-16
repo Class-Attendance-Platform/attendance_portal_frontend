@@ -42,6 +42,7 @@ const PICTURE_SIZE = Platform.OS === 'android' ? '1280x960' : undefined;
  * and the camera is as wide as the cards under it.
  */
 const SIDE_BY_SIDE_MIN = 248 + 32 * 2 + 440 + 20 + 240;
+const SIDE_BY_SIDE_PUBLIC_MIN = 16 * 2 + 440 + 20 + 240;
 
 function StepRow({ index, label, state }: { index: number; label: string; state: 'done' | 'now' | 'waiting' }) {
   return (
@@ -81,9 +82,15 @@ function StepRow({ index, label, state }: { index: number; label: string; state:
 }
 
 export type FaceCaptureProps = {
-  /** After the server accepted the 3 photos. */
-  onRegistered: (status: FaceStatus) => void;
-  /** The second button: "Do it later" / "Cancel". */
+  /** After the server accepted the 3 photos (used when `onSubmitPhotos` is not provided). */
+  onRegistered?: (status: FaceStatus) => void;
+  /** Custom upload handler (e.g. during student sign-up, submitting account + face together). */
+  onSubmitPhotos?: (photos: RegisterFacePhotos) => Promise<void>;
+  /** True on public pages without the 248 px sidebar. */
+  noSidebar?: boolean;
+  /** Label shown while the 3 photos are being uploaded and checked. */
+  uploadingLabel?: string;
+  /** The second button: "Do it later" / "Cancel" / "Back to details". */
   cancel: { label: string; onPress: () => void };
 };
 
@@ -91,9 +98,15 @@ export type FaceCaptureProps = {
  * The guided capture from the old app, restyled: front camera with an oval guide, 3 photos
  * (straight, left, right) each after a plain 3-2-1 countdown, consent, then the upload.
  */
-export function FaceCapture({ onRegistered, cancel }: FaceCaptureProps) {
+export function FaceCapture({
+  onRegistered,
+  onSubmitPhotos,
+  noSidebar = false,
+  uploadingLabel = 'Checking your photos…',
+  cancel,
+}: FaceCaptureProps) {
   const { isDesktop, width } = useBreakpoint();
-  const sideBySide = isDesktop && width >= SIDE_BY_SIDE_MIN;
+  const sideBySide = isDesktop && width >= (noSidebar ? SIDE_BY_SIDE_PUBLIC_MIN : SIDE_BY_SIDE_MIN);
   const message = useMessage();
   const [permission, requestPermission, getPermission] = useCameraPermission();
   const cameraRef = React.useRef<CameraView>(null);
@@ -200,10 +213,16 @@ export function FaceCapture({ onRegistered, cancel }: FaceCaptureProps) {
       }
       setPhase('uploading');
       // The upload finishes even if the student left the page meanwhile: the result is kept.
-      const status = await facesApi.registerMine(photos as RegisterFacePhotos);
-      setPhase('ready');
-      setShots(0);
-      onRegistered(status);
+      if (onSubmitPhotos) {
+        await onSubmitPhotos(photos as RegisterFacePhotos);
+        setPhase('ready');
+        setShots(0);
+      } else {
+        const status = await facesApi.registerMine(photos as RegisterFacePhotos);
+        setPhase('ready');
+        setShots(0);
+        onRegistered?.(status);
+      }
     } catch (caught) {
       setCountdown(null);
       setShots(0);
@@ -309,7 +328,7 @@ export function FaceCapture({ onRegistered, cancel }: FaceCaptureProps) {
           <View className="rounded-pill px-3 py-1" style={{ backgroundColor: colors.text }}>
             <Text variant="caption" weight="semibold" tone="inverse">
               {phase === 'uploading'
-                ? 'Checking your photos…'
+                ? uploadingLabel
                 : phase === 'capturing'
                   ? STEPS[Math.min(shots, STEPS.length - 1)].label
                   : 'Keep your face inside the oval'}
@@ -349,7 +368,7 @@ export function FaceCapture({ onRegistered, cancel }: FaceCaptureProps) {
         />
         <View className="flex-row flex-wrap items-center gap-3">
           <Button
-            label={phase === 'capturing' ? 'Taking photos…' : phase === 'uploading' ? 'Checking your photos…' : 'Start'}
+            label={phase === 'capturing' ? 'Taking photos…' : phase === 'uploading' ? uploadingLabel : 'Start'}
             variant="primary"
             icon={Camera}
             loading={busy}

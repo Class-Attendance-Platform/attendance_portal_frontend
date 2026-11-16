@@ -94,7 +94,7 @@ export function onFaceChange(listener: () => void): () => void {
   };
 }
 
-function notifyFaceChange() {
+export function notifyFaceChange() {
   for (const listener of Array.from(faceListeners)) {
     try {
       listener();
