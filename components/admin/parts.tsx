@@ -22,12 +22,6 @@ import { semesterClashes, type ApiError } from '@/lib/api';
 import { cn, FOCUS_RING } from '@/lib/utils';
 import type { LoadState } from './hooks';
 
-// Pieces shared by the admin pages.
-
-/**
- * Shows the loaded data, a spinner on the first load, or the error with "Try again".
- * When a reload fails with data on screen, the data stays and a notice says so.
- */
 export function LoadBlock<T>({
   state,
   children,
@@ -59,16 +53,11 @@ export function LoadBlock<T>({
   );
 }
 
-/** A form's error that is not about one field (shown in a Notice next to the fields). */
 export function FormError({ error }: { error: ApiError | null }) {
   if (!error) return null;
   return <Notice tone="error" message={error.message} live />;
 }
 
-/**
- * A 409 `already_in_semester` as a notice that stays: the message (it names only the first few)
- * and every student it is about, with the semester each one is in now.
- */
 export function SemesterClashNotice({ error, title, onClose }: { error: ApiError | null; title?: string; onClose?: () => void }) {
   const clashes = semesterClashes(error);
   if (!error || !clashes.length) return null;
@@ -86,7 +75,6 @@ export function SemesterClashNotice({ error, title, onClose }: { error: ApiError
   );
 }
 
-/** The first server error for a field, if any. */
 export const fieldError = (error: ApiError | null, ...names: string[]) => {
   for (const name of names) {
     const message = error?.field(name);
@@ -96,36 +84,24 @@ export const fieldError = (error: ApiError | null, ...names: string[]) => {
 };
 
 export type ResponsiveListProps<T> = {
-  /** Read by screen readers, e.g. "Students". */
   label: string;
   rows: T[];
   rowKey: (row: T) => string;
-  /** The desktop table's columns. */
   columns: Column<T>[];
-  /** The same row on phones. */
   phoneRow: (row: T) => {
     title: string;
     subtitle?: string;
     children?: React.ReactNode;
     right?: React.ReactNode;
   };
-  /** Rows open something (a dialog or a page). */
   onRowPress?: (row: T) => void;
   rowLabel?: (row: T) => string;
-  /** Number of rows per page (default: 15). */
   pageSize?: number;
-  /** Set to false to disable pagination. Defaults to true. */
   paginate?: boolean;
-  /** Optional page size choices (e.g. [15, 30, 50]). */
   pageSizeOptions?: number[];
-  /** Noun for items e.g. "courses". Defaults to label.toLowerCase(). */
   itemLabel?: string;
 };
 
-/**
- * A table from 1100 px, ListRows below (phones, tablets, half-screen windows: next to the sidebar
- * the columns would squeeze names to nothing). Put it in a `Card padded={false}`.
- */
 export function ResponsiveList<T>({
   label,
   rows,
@@ -145,7 +121,6 @@ export function ResponsiveList<T>({
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
 
-  // Reset or clamp page when totalPages decreases (e.g. filtered by search)
   React.useEffect(() => {
     if (page > totalPages) {
       setPage(totalPages);
@@ -197,7 +172,6 @@ export function ResponsiveList<T>({
   );
 }
 
-/** Label / value rows (a person's details in a dialog). */
 export function DetailRows({ rows }: { rows: { label: string; value: React.ReactNode }[] }) {
   return (
     <View>
@@ -220,22 +194,18 @@ export function DetailRows({ rows }: { rows: { label: string; value: React.React
   );
 }
 
-/** Filters above a list: they wrap on phones. */
 export function FilterBar({ children }: { children: React.ReactNode }) {
   return <View className="flex-row flex-wrap items-end gap-3">{children}</View>;
 }
 
-/** A filter control's width: the search box grows, selects stay narrow (full width on phones). */
 export function FilterItem({ children, grow, wide }: { children: React.ReactNode; grow?: boolean; wide?: boolean }) {
   const { isDesktop } = useBreakpoint();
   const size = grow ? 'min-w-[240px] flex-1' : !isDesktop ? 'min-w-[140px] flex-1' : wide ? 'w-[380px]' : 'w-[190px]';
   return <View className={size}>{children}</View>;
 }
 
-/** "Deleted", "Waiting for approval" or "Disabled" for an account, else nothing. */
 type AccountState = { deleted: boolean; is_verified: boolean; is_active: boolean };
 
-/** The account's state in words ("Deleted", "Waiting for approval", "Disabled"); null when in use. */
 export function accountWords(account: AccountState): string | null {
   if (account.deleted) return 'Deleted';
   if (!account.is_verified) return 'Waiting for approval';
@@ -249,11 +219,9 @@ export function AccountPill({ account }: { account: AccountState }) {
   return <Pill label={words} tone={account.deleted ? 'absent' : account.is_verified ? 'neutral' : 'warn'} />;
 }
 
-/** A row's screen-reader label from its parts (empty ones left out), so the whole row is read. */
 export const rowWords = (...parts: (string | null | false | undefined)[]) =>
   parts.filter(Boolean).map((part) => (/[.!?]$/.test(part as string) ? part : `${part}.`)).join(' ');
 
-/** A number tile that is also a link (overview). */
 export function LinkTile({
   href,
   label,
@@ -301,7 +269,6 @@ export function LinkTile({
   );
 }
 
-/** Two lines in a table cell: main text and a muted line under it. */
 export function TwoLines({ main, sub, strong = true }: { main: string; sub?: string | null; strong?: boolean }) {
   return (
     <View className="gap-0.5">
@@ -315,10 +282,6 @@ export function TwoLines({ main, sub, strong = true }: { main: string; sub?: str
   );
 }
 
-/**
- * A small radio group as bordered boxes with a description each. Keyboard (web): one Tab stop,
- * the arrow keys move and choose, Space chooses.
- */
 export function ChoiceCards<T extends string>({
   label,
   choices,

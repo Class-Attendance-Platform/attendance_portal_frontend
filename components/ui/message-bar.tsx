@@ -26,7 +26,6 @@ type MessageApi = {
 
 const MessageContext = React.createContext<MessageApi | null>(null);
 
-/** A message stays until it is closed or for this long. */
 const VISIBLE_MS = 5000;
 
 const STYLES: Record<MessageType, { icon: LucideIcon; tint: ColorToken; bg: string; border: string }> = {
@@ -38,20 +37,12 @@ const STYLES: Record<MessageType, { icon: LucideIcon; tint: ColorToken; bg: stri
 type MessageState = {
   message: (Message & { id: number }) | null;
   hide: () => void;
-  /** Open dialogs, oldest first: the newest one (on top) shows the message. */
   dialogs: string[];
   registerDialog: (id: string) => () => void;
 };
 
 const MessageStateContext = React.createContext<MessageState | null>(null);
 
-/**
- * Shows short messages at the top of the screen ("Saved.", "Could not save: ..."). One at a
- * time: a new message replaces the old one. Use `useMessage()`.
- *
- * Dialogs are drawn above everything else (a separate layer on the web, a separate window on
- * Android), so while one is open the message is shown inside the top dialog instead.
- */
 export function MessageProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = React.useState<(Message & { id: number }) | null>(null);
   const [dialogs, setDialogs] = React.useState<string[]>([]);
@@ -109,10 +100,6 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * For Dialog: while `open` and the top dialog, shows the current message inside the dialog (above
- * its backdrop, so its close button works and closes only the message).
- */
 export function DialogMessageBar({ open }: { open: boolean }) {
   const state = React.useContext(MessageStateContext);
   const id = React.useId();
@@ -127,7 +114,6 @@ export function DialogMessageBar({ open }: { open: boolean }) {
   return <MessageBar message={state.message} onClose={state.hide} />;
 }
 
-/** The bar itself, across the top of the screen (or of the dialog layer). */
 function MessageBar({ message, onClose }: { message: Message & { id: number }; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const style = STYLES[message.type];
@@ -164,7 +150,6 @@ function MessageBar({ message, onClose }: { message: Message & { id: number }; o
   );
 }
 
-/** `message.success('Saved.')`, `message.error(error.message)`, `message.info(...)`. */
 export function useMessage() {
   const api = React.useContext(MessageContext);
   if (!api) throw new Error('useMessage must be used within a MessageProvider');

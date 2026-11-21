@@ -28,13 +28,10 @@ export type ExportFormProps = {
   courseInfoId: UUID;
   courseCode: string;
   dates: ClassDate[];
-  /** Start with one date chosen. */
   initialDate?: string | null;
-  /** Called after a successful download (e.g. to close a dialog). */
   onDone?: () => void;
 };
 
-/** Pick the format and whole course or one date, then download (web) or share (phones). */
 export function ExportForm({ courseInfoId, courseCode, dates, initialDate, onDone }: ExportFormProps) {
   const message = useMessage();
   const [format, setFormat] = React.useState<ExportFormat>('pdf');
@@ -125,7 +122,6 @@ export function ExportForm({ courseInfoId, courseCode, dates, initialDate, onDon
 
 export type ExportDialogProps = Omit<ExportFormProps, 'onDone'> & { open: boolean; onClose: () => void };
 
-/** The page header's "Export" button opens this. */
 export function ExportDialog({ open, onClose, ...form }: ExportDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} title="Export attendance" description={`${form.courseCode}: download the attendance as a file.`}>

@@ -1,7 +1,6 @@
 import { Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import * as React from 'react';
 
-/** Old route: /face/class?courseInfoId=… → /teacher/courses/<id>/face. */
 export default function OldFaceClassRedirect() {
   const { courseInfoId } = useLocalSearchParams<{ courseInfoId?: string }>();
   const id = Array.isArray(courseInfoId) ? courseInfoId[0] : courseInfoId;

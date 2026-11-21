@@ -8,7 +8,6 @@ import { toApiError } from '@/lib/api/client';
 import { makeTemporaryPassword } from './files';
 import { fieldError, FormError } from './parts';
 
-/** A visible password field with a button that makes a new random one. */
 export function TemporaryPasswordField({
   value,
   onChange,
@@ -36,7 +35,6 @@ export function TemporaryPasswordField({
   );
 }
 
-/** The password, once, after it was set: so the admin can hand it over. */
 export function PasswordHandover({ email, password, note }: { email: string; password: string; note?: string }) {
   return (
     <View className="gap-3">
@@ -66,12 +64,10 @@ export function PasswordHandover({ email, password, note }: { email: string; pas
   );
 }
 
-/** Admin reset of someone's password: a temporary password, then the handover. */
 export function ResetPasswordDialog({
   person,
   onClose,
 }: {
-  /** Open while set. */
   person: { userId: UUID; name: string; email: string } | null;
   onClose: () => void;
 }) {
@@ -115,7 +111,6 @@ export function ResetPasswordDialog({
         done ? undefined : `${person?.name ?? ''} gets this temporary password and is signed out on every device.`
       }
       size="sm"
-      // Once the new password shows, only Done closes it (a stray tap would lose it).
       dismissable={!saving && !done}
       actions={
         done ? (

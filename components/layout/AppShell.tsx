@@ -20,23 +20,13 @@ import { activeItem, isActive, NAV, type NavItem } from './nav';
 
 const LOGO = require('@/assets/images/hstu.png');
 
-/** Pages shown without the shell (full screen for a projector). */
 const BARE_ROUTES = [/^\/teacher\/live\//];
 
-/**
- * The signed-in frame. ≥ 768 px: sidebar (logo, role nav, the user at the bottom).
- * Phones: top bar (logo and name, account button; the page title is the PageHeader right under
- * it, as in mockup A) and a bottom tab bar, inside the safe area.
- */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const pathname = usePathname();
   const { isDesktop } = useBreakpoint();
 
-  // One tree for every case: the screens inside (the Stack) keep their place, so they are not
-  // re-created when the full-screen page opens or closes, or the window crosses 768 px. The main
-  // area's role never changes either: on the web it decides the element (<main> or <div>), and a
-  // new element would re-create every screen.
   const shellUser = user && !BARE_ROUTES.some((pattern) => pattern.test(pathname)) ? user : null;
   const items = shellUser ? NAV[shellUser.role] : [];
   return (
@@ -55,7 +45,6 @@ function userLine(user: User) {
   return `${roleLabel(user.role)} · CSE`;
 }
 
-/** The logo goes home; like the nav, back to it (dismissTo) when home is the section you are in. */
 function Brand({ size, home, back }: { size: number; home: Href; back: boolean }) {
   return (
     <Link href={home} dismissTo={back} asChild>
@@ -94,8 +83,6 @@ function Sidebar({ user, items, pathname }: { user: User; items: NavItem[]; path
         {items.map((item) => {
           const active = item === current;
           return (
-            // The section you are in goes back to its page (dismissTo), so pages with unsaved
-            // work ask first and none stays hidden under it. Other sections open on top.
             <Link key={item.href} href={item.href as Href} dismissTo={active} asChild>
               <Pressable
                 role="link"
@@ -191,7 +178,6 @@ function TabBar({ items, pathname }: { items: NavItem[]; pathname: string }) {
       {tabs.map((item) => {
         const active = item === current;
         return (
-          // As in the sidebar: the section you are in goes back to its page.
           <Link key={item.href} href={item.href as Href} dismissTo={active} asChild>
             <Pressable
               role="link"

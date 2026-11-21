@@ -8,39 +8,24 @@ import { Icon } from './icon';
 import { Text } from './text';
 
 export type PaginationProps = {
-  /** 1-based current page */
   page: number;
-  /** Total number of pages */
   totalPages: number;
-  /** Total number of items across all pages */
   totalItems?: number;
-  /** Items per page */
   pageSize?: number;
-  /** Callback when page changes */
   onPageChange: (page: number) => void;
-  /** Optional callback when page size changes */
   onPageSizeChange?: (pageSize: number) => void;
-  /** Available page size options (e.g. [15, 30, 50]) */
   pageSizeOptions?: number[];
-  /** Plural noun for items, e.g. "courses", "students" */
   itemLabel?: string;
-  /** Hide the pagination bar when totalPages <= 1 (default true) */
   hideOnSinglePage?: boolean;
-  /** Compact mode (hides text on Next/Previous buttons) */
   compact?: boolean;
   className?: string;
 };
 
 export type UsePaginationOptions = {
-  /** Default items per page (default: 15) */
   pageSize?: number;
-  /** Initial page (default: 1) */
   initialPage?: number;
 };
 
-/**
- * Manages pagination state and computes the sliced subset of items.
- */
 export function usePagination<T>(items: T[], options: UsePaginationOptions = {}) {
   const [pageSize, setPageSize] = React.useState(options.pageSize ?? 15);
   const [page, setPage] = React.useState(options.initialPage ?? 1);
@@ -48,7 +33,6 @@ export function usePagination<T>(items: T[], options: UsePaginationOptions = {})
   const totalItems = items.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-  // If items shrink (e.g. search filter) and current page is beyond totalPages, adjust.
   React.useEffect(() => {
     if (page > totalPages) {
       setPage(totalPages);
@@ -90,9 +74,6 @@ export function usePagination<T>(items: T[], options: UsePaginationOptions = {})
   };
 }
 
-/**
- * Accessible pagination controls for desktop and mobile.
- */
 export function Pagination({
   page,
   totalPages,

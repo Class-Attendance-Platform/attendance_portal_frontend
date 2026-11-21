@@ -5,19 +5,14 @@ import { Platform, Pressable, View } from 'react-native';
 import { Icon } from './icon';
 import { Text } from './text';
 
-// Shared pieces of form fields: label above, hint or error below.
-
 export type FieldFrameProps = {
   label: string;
-  /** Hide the label visually (screen readers still read it). Use only when the purpose is obvious. */
   hideLabel?: boolean;
   hint?: string | null;
   error?: string | null;
   required?: boolean;
-  /** Pressing the label focuses the control. */
   onLabelPress?: () => void;
   nativeID?: string;
-  /** Id for the hint/error text; point the control at it with `describedBy(messageId, ...)`. */
   messageId?: string;
   children: React.ReactNode;
   className?: string;
@@ -38,8 +33,6 @@ export function FieldFrame({
   return (
     <View className={className ?? 'gap-1.5'}>
       {hideLabel ? null : (
-        // tabIndex -1: on the web the label is not a Tab stop of its own (react-native-web makes every
-        // Pressable focusable otherwise); clicking it still focuses or opens the control.
         <Pressable onPress={onLabelPress} accessible={false} tabIndex={-1} className="self-start">
           <Text variant="label" nativeID={nativeID}>
             {label}
@@ -53,10 +46,6 @@ export function FieldFrame({
   );
 }
 
-/**
- * Web: `aria-describedby` so screen readers read the hint or error with the control (React
- * Native's accessibilityHint does that on phones but does nothing on the web).
- */
 export function describedBy(messageId: string, hasMessage: boolean): object {
   return Platform.OS === 'web' && hasMessage ? { 'aria-describedby': messageId } : {};
 }
@@ -90,12 +79,10 @@ export function FieldMessage({ hint, error, nativeID }: { hint?: string | null; 
   return null;
 }
 
-/** Classes for the box of an input-like control. */
 export function controlBoxClass({ focused, error, disabled }: { focused?: boolean; error?: boolean; disabled?: boolean }) {
   return [
     'min-h-[44px] flex-row items-center rounded-control bg-surface',
     error ? 'border-absent' : focused ? 'border-primary' : 'border-border',
-    // A 2 px border when focused or wrong, with 1 px less padding so nothing moves.
     focused || error ? 'border-2 px-[11px]' : 'border px-3',
     disabled ? 'opacity-60' : '',
   ].join(' ');

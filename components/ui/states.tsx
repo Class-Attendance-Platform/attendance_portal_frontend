@@ -12,12 +12,10 @@ export type EmptyStateProps = {
   title: string;
   message?: string;
   icon?: LucideIcon;
-  /** A button, e.g. { label: 'Add a course', onPress }. */
   action?: Pick<ButtonProps, 'label' | 'onPress' | 'icon' | 'variant'>;
   className?: string;
 };
 
-/** Nothing to show yet: says why and what to do. */
 export function EmptyState({ title, message, icon = Inbox, action, className }: EmptyStateProps) {
   return (
     <View className={cn('items-center gap-3 px-4 py-8', className)}>
@@ -41,14 +39,12 @@ export function EmptyState({ title, message, icon = Inbox, action, className }: 
 
 export type ErrorStateProps = {
   title?: string;
-  /** Usually `error.message` from the API (already readable). */
   message: string;
   onRetry?: () => void;
   retrying?: boolean;
   className?: string;
 };
 
-/** Loading failed: the reason and a "Try again" button. */
 export function ErrorState({ title = "Couldn't load this", message, onRetry, retrying, className }: ErrorStateProps) {
   return (
     <View role="alert" className={cn('items-center gap-3 px-4 py-8', className)}>
@@ -71,14 +67,11 @@ export function ErrorState({ title = "Couldn't load this", message, onRetry, ret
 }
 
 export type LoadingStateProps = {
-  /** Default "Loading…". */
   label?: string;
-  /** Fill the screen (while the app starts). */
   fullScreen?: boolean;
   className?: string;
 };
 
-/** A plain spinner with words. */
 export function LoadingState({ label = 'Loading…', fullScreen, className }: LoadingStateProps) {
   return (
     <View

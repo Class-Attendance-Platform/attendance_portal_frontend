@@ -16,10 +16,6 @@ const STEPS = [
   'If nothing happens for a few days, contact the department office.',
 ];
 
-/**
- * After sign-up (`?created=1`) and after a sign-in before approval: the account waits for an
- * admin. Shows the email (`?email=`) and keeps `?redirect=` for the way back to sign in.
- */
 export default function PendingScreen() {
   const params = useLocalSearchParams<{ email?: string; created?: string }>();
   const redirect = useRedirectParam();

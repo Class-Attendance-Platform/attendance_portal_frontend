@@ -10,22 +10,13 @@ import { Text } from './text';
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger';
 
 export type ButtonProps = Omit<PressableProps, 'children' | 'style'> & {
-  /** The words on the button. */
   label: string;
-  /**
-   * primary: the main action (one per area) · secondary: other actions ·
-   * quiet: low-key actions (no border) · danger: delete / discard.
-   */
   variant?: ButtonVariant;
-  /** A quiet button that does something destructive (red text). */
   destructive?: boolean;
   icon?: LucideIcon;
   iconRight?: LucideIcon;
-  /** Shows a spinner, keeps the label, blocks presses. */
   loading?: boolean;
-  /** Stretch to the container's width. */
   fullWidth?: boolean;
-  /** Compact padding (still 44 px tall). */
   compact?: boolean;
   className?: string;
 };
@@ -43,7 +34,6 @@ function contentColor(variant: ButtonVariant, destructive?: boolean): ColorToken
   return variant === 'quiet' ? 'primary' : 'text';
 }
 
-/** A 44 px tall button. Never animates; pressed and hover states only change the colour. */
 export const Button = React.forwardRef<View, ButtonProps>(function Button(
   {
     label,
@@ -99,14 +89,12 @@ export const Button = React.forwardRef<View, ButtonProps>(function Button(
 
 export type IconButtonProps = Omit<PressableProps, 'children' | 'style'> & {
   icon: LucideIcon;
-  /** Read by screen readers (the icon has no words). */
   accessibilityLabel: string;
   color?: ColorToken;
   size?: number;
   className?: string;
 };
 
-/** A 44 × 44 button with only an icon (close, show password, menu). */
 export const IconButton = React.forwardRef<View, IconButtonProps>(function IconButton(
   { icon, accessibilityLabel, color = 'muted', size = 20, disabled, className, ...props },
   ref

@@ -29,7 +29,6 @@ const TABS: TabItem[] = [
   { key: 'reports', label: 'Reports' },
 ];
 
-/** /teacher/courses/[courseInfoId]?tab=attendance|students|history|reports */
 export default function TeacherCourse() {
   const params = useLocalSearchParams<{ courseInfoId: string }>();
   const courseInfoId = param(params.courseInfoId) ?? '';
@@ -44,9 +43,6 @@ export default function TeacherCourse() {
   const course = detail.data?.course;
   const breadcrumb = [{ label: 'My courses', href: '/teacher' as const }, { label: course?.code ?? 'Course' }];
 
-  // While another tab says "Taking attendance now", ask now and then whether the session still
-  // runs (the server saves one whose time is up when asked); once it ended, reload, so the notice
-  // goes and History shows the new date.
   const liveId = course?.live_session_id ?? null;
   const watchLive = !!liveId && tab !== 'attendance';
   useFocusEffect(
@@ -62,7 +58,6 @@ export default function TeacherCourse() {
             if (session?.id === liveId) {
               check(liveCheckDelay(session.time_left));
             } else {
-              // The reload ends these checks (no live session any more); if it fails, check again.
               reloadQuietly();
               check(LIVE_CHECK_MS);
             }

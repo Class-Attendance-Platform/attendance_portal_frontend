@@ -1,11 +1,7 @@
 import { errorFromResponse, getAccessToken, refreshAccessToken, toApiError } from './client';
 
-// Web: downloads a file with the sign-in token and saves it through the browser.
-// (Phones use download.ts.)
-
 export interface DownloadOptions {
   mimeType: string;
-  /** Used when the server sends no file name. */
   fallbackName: string;
 }
 
@@ -18,7 +14,6 @@ export async function downloadFile(url: string, { fallbackName }: DownloadOption
   let response: Response;
   try {
     response = await send();
-    // Expired sign-in: refresh it once, like the other API calls do.
     if (response.status === 401 && (await refreshAccessToken())) response = await send();
   } catch (error) {
     throw toApiError(error);
@@ -30,7 +25,6 @@ export async function downloadFile(url: string, { fallbackName }: DownloadOption
     try {
       body = JSON.parse(text);
     } catch {
-      // not JSON
     }
     throw errorFromResponse(response.status, body);
   }

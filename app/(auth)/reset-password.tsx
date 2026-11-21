@@ -20,7 +20,6 @@ function first(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? '';
 }
 
-/** A finished state: an icon, a title, a line and one action. */
 function Outcome({
   icon,
   tone,
@@ -54,7 +53,6 @@ function Outcome({
   );
 }
 
-/** /reset-password?uid=&token= (the link in the reset email): choose a new password. */
 export default function ResetPasswordScreen() {
   const params = useLocalSearchParams<{ uid?: string; token?: string }>();
   const uid = first(params.uid);
@@ -70,8 +68,6 @@ export default function ResetPasswordScreen() {
   const { user, logout } = useAuth();
   const [leaving, setLeaving] = React.useState(false);
 
-  // This browser may still be signed in to another account (a shared lab PC): sign it out first,
-  // so sign-in (and "Ask for a new link") show their forms instead of that account's pages.
   async function leaveTo(path: '/login' | '/forgot-password') {
     setLeaving(true);
     try {
@@ -83,7 +79,6 @@ export default function ResetPasswordScreen() {
   }
   const backToSignIn = (
     <View className="flex-row justify-center border-t border-border pt-4">
-      {/* A button (it signs out first): on the web a role="link" without an href ignores Enter */}
       <TextLink role="button" label="Back to sign in" disabled={leaving} onPress={() => void leaveTo('/login')} />
     </View>
   );

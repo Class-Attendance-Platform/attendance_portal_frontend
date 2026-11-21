@@ -25,14 +25,12 @@ import { deliveryLabel, liveHref, methodLabel } from './labels';
 import { enterFullScreen } from './live-screen';
 import type { LiveSessionState } from './use-live-session';
 
-/** Lists longer than this show a "Show all" button. */
 const SHORT_LIST = 8;
 
 const errorText = (caught: unknown, fallback: string) => (isApiError(caught) ? caught.message : fallback);
 
 const isTooLong = (caught: unknown) => isApiError(caught) && caught.code === SESSION_ERRORS.tooLong;
 
-/** Shown when the code is too old for the server to accept (no connection for a while). */
 export const CODE_EXPIRED_TEXT = "The code has expired, so students can't check in right now. Trying again…";
 
 export type LivePanelProps = {
@@ -41,13 +39,11 @@ export type LivePanelProps = {
   live: LiveSessionState;
 };
 
-/** The QR, the 6-digit code, time left and the counts, with the session's buttons. */
 export function LivePanel({ session, courseInfoId, live }: LivePanelProps) {
   const confirm = useConfirm();
   const message = useMessage();
   const { isDesktop } = useBreakpoint();
   const [busy, setBusy] = React.useState<'extend' | 'stop' | 'cancel' | null>(null);
-  // The session reached 30 minutes: no more time can be added.
   const [maxed, setMaxed] = React.useState(false);
 
   const delivery: Delivery = live.lists?.delivery ?? session.delivery;
@@ -66,7 +62,6 @@ export function LivePanel({ session, courseInfoId, live }: LivePanelProps) {
         message.error(errorText(caught, 'Could not add time.'));
         return;
       }
-      // Less than 2 minutes are left before the 30-minute limit: add the last minute instead.
       try {
         await live.extend(1);
         setMaxed(true);
@@ -205,7 +200,6 @@ export function LivePanel({ session, courseInfoId, live }: LivePanelProps) {
             loading={busy === 'extend'}
             disabled={ended || !!busy || maxed}
           />
-          {/* On the web the press also turns on the browser's full screen (it must come from a press). */}
           <Link href={liveHref(session.id, courseInfoId)} asChild>
             <Button label="Full screen" icon={Maximize} disabled={ended} onPress={enterFullScreen} />
           </Link>
@@ -239,7 +233,6 @@ function ShowAll({ count, open, onToggle }: { count: number; open: boolean; onTo
   );
 }
 
-/** "Not checked in yet (N)" with Mark present per student. */
 export function WaitingList({ live }: { live: LiveSessionState }) {
   const message = useMessage();
   const [open, setOpen] = React.useState(false);
@@ -306,7 +299,6 @@ export function WaitingList({ live }: { live: LiveSessionState }) {
   );
 }
 
-/** Who checked in, newest first, with how and when. */
 export function CheckedInList({ live }: { live: LiveSessionState }) {
   const [open, setOpen] = React.useState(false);
   const checked = live.lists?.checked_in ?? [];

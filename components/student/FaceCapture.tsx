@@ -31,16 +31,8 @@ type Phase = 'ready' | 'capturing' | 'uploading';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Android otherwise takes the photos at the camera's full size (often several MB each), while the
-// server shrinks them to 640 px. A size the camera lacks falls back to the closest smaller one.
-// The web takes the photo at the size of the video.
 const PICTURE_SIZE = Platform.OS === 'android' ? '1280x960' : undefined;
 
-/**
- * From this window width the camera (440 px) and the steps (240 px at least, 20 px apart) fit
- * side by side next to the 248 px sidebar and the page's 32 px padding. Below it they are stacked
- * and the camera is as wide as the cards under it.
- */
 const SIDE_BY_SIDE_MIN = 248 + 32 * 2 + 440 + 20 + 240;
 const SIDE_BY_SIDE_PUBLIC_MIN = 16 * 2 + 440 + 20 + 240;
 
@@ -82,22 +74,13 @@ function StepRow({ index, label, state }: { index: number; label: string; state:
 }
 
 export type FaceCaptureProps = {
-  /** After the server accepted the 3 photos (used when `onSubmitPhotos` is not provided). */
   onRegistered?: (status: FaceStatus) => void;
-  /** Custom upload handler (e.g. during student sign-up, submitting account + face together). */
   onSubmitPhotos?: (photos: RegisterFacePhotos) => Promise<void>;
-  /** True on public pages without the 248 px sidebar. */
   noSidebar?: boolean;
-  /** Label shown while the 3 photos are being uploaded and checked. */
   uploadingLabel?: string;
-  /** The second button: "Do it later" / "Cancel" / "Back to details". */
   cancel: { label: string; onPress: () => void };
 };
 
-/**
- * The guided capture from the old app, restyled: front camera with an oval guide, 3 photos
- * (straight, left, right) each after a plain 3-2-1 countdown, consent, then the upload.
- */
 export function FaceCapture({
   onRegistered,
   onSubmitPhotos,
@@ -118,14 +101,9 @@ export function FaceCapture({
   const [countdown, setCountdown] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [asking, setAsking] = React.useState(false);
-  // Why the camera may not be used yet (shown under "Allow camera").
   const [permissionProblem, setPermissionProblem] = React.useState<string | null>(null);
-  // The camera itself: ready for photos, or why it did not start.
   const [cameraReady, setCameraReady] = React.useState(false);
   const [cameraProblem, setCameraProblem] = React.useState<string | null>(null);
-  // Every start of the camera has a number (the CameraView's key). "Try again" and showing the page
-  // again start a new one; late calls from an older one are ignored. On the web expo-camera reports
-  // a failed start with onMountError and then still calls onCameraReady, so the failure is kept.
   const cameraRun = React.useRef({ id: 0, failed: false });
   const [cameraKey, setCameraKey] = React.useState(0);
 
@@ -142,7 +120,6 @@ export function FaceCapture({
     },
     []
   );
-  // The camera runs only while this page is shown; leaving it stops a capture.
   useFocusEffect(
     React.useCallback(() => {
       setFocused(true);
@@ -166,13 +143,11 @@ export function FaceCapture({
         setPermissionProblem('Camera access was not allowed. You can allow it in your phone settings.');
         return;
       }
-      // Browsers answer "not allowed" for every camera failure: tell the cases apart.
       const hasCamera = await CameraView.isAvailableAsync().catch(() => true);
       if (window.isSecureContext && !hasCamera) {
         setPermissionProblem(NO_CAMERA_TEXT);
         return;
       }
-      // Allowed, but the camera did not start (e.g. in use by another app): the camera view says why.
       const now = await getPermission().catch(() => null);
       if (now?.granted) return;
       setPermissionProblem(
@@ -197,12 +172,9 @@ export function FaceCapture({
         }
         setCountdown(null);
         if (!active.current) throw new Error('stopped');
-        // JPEG on the web too (expo-camera's web default is a PNG several times larger).
         const picture = await cameraRef.current?.takePictureAsync({ quality: 0.85, imageType: 'jpg' }).catch(() => null);
         if (!picture?.uri) {
-          // Leaving the page just then stops the camera: no error to report.
           if (!active.current) throw new Error('stopped');
-          // The camera stopped (e.g. unplugged): start it again; if it cannot, its notice says why.
           if (picture === null) restartCamera();
           throw new Error(
             picture === null ? 'The camera is not ready. Please try again.' : 'The camera did not return a photo. Please try again.'
@@ -212,7 +184,6 @@ export function FaceCapture({
         setShots(index + 1);
       }
       setPhase('uploading');
-      // The upload finishes even if the student left the page meanwhile: the result is kept.
       if (onSubmitPhotos) {
         await onSubmitPhotos(photos as RegisterFacePhotos);
         setPhase('ready');
@@ -230,7 +201,6 @@ export function FaceCapture({
       if (caught instanceof Error && caught.message === 'stopped') return;
       const reason = toApiError(caught).message;
       setError(reason);
-      // The student left this page while the photos were checked: tell them where they are now.
       if (!active.current) message.error(reason, 'Face registration failed');
     }
   };
@@ -242,7 +212,6 @@ export function FaceCapture({
     if (phase === 'capturing' && index === shots) return 'now';
     return 'waiting';
   };
-  // Why Start cannot be pressed yet (a camera that did not start has its own notice).
   const hint = busy
     ? null
     : !granted
@@ -316,7 +285,6 @@ export function FaceCapture({
         <View pointerEvents="none" style={{ width: 176, height: 228, borderRadius: 114, borderWidth: 3, borderColor: colors.white }} />
         {countdown !== null ? (
           <View pointerEvents="none" style={StyleSheet.absoluteFill} className="items-center justify-center">
-            {/* A solid dark circle keeps the digit readable over any face or background. */}
             <View className="h-20 w-20 items-center justify-center rounded-pill" style={{ backgroundColor: colors.text }}>
               <Text weight="bold" tone="inverse" style={{ fontSize: 48, lineHeight: 56 }}>
                 {String(countdown)}
@@ -339,14 +307,12 @@ export function FaceCapture({
     );
   }
 
-  // Side by side where both fit; on tablets and narrow windows the steps go under the camera.
   return (
     <View className={sideBySide ? 'flex-row items-start gap-5' : isDesktop ? 'gap-5' : 'gap-4'}>
       <Card padded={false} className={sideBySide ? 'w-[440px]' : undefined}>
         {camera}
       </Card>
       <View className={cn('gap-4', sideBySide && 'min-w-[240px] flex-1')}>
-        {/* First, so on phones they show right under the camera without scrolling. */}
         {cameraProblem && granted ? (
           <Notice tone="warn" message={cameraProblem} live>
             <Button label="Try again" icon={RefreshCw} onPress={restartCamera} />

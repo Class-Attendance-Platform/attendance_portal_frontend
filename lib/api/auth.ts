@@ -4,9 +4,6 @@ import { api, bareClient, getTokenOwner, isApiError, MULTIPART, setTokens } from
 import { notifyFaceChange, type RegisterFacePhotos } from './faces';
 import type { Ok, OkMessage, User } from './types';
 
-// Section 1 of the contract: accounts and sign-in.
-
-/** Machine codes the auth endpoints send on errors (`ApiError.code`). */
 export const AUTH_ERRORS = {
   invalidCredentials: 'invalid_credentials',
   pendingApproval: 'pending_approval',
@@ -47,7 +44,6 @@ export interface TeacherRegisterBody {
 
 export type RegisterBody = StudentRegisterBody | TeacherRegisterBody;
 
-/** 201: the account is verified immediately and returns fresh sign-in tokens + user. */
 export interface RegisterResponse extends OkMessage, TokenPair {
   status: 'approved';
   user: User;
@@ -78,20 +74,13 @@ export interface ResetPasswordBody {
 }
 
 export const authApi = {
-  /** POST /auth/login/. Errors: 401 invalid_credentials, 403 pending_approval / account_disabled. */
   login: (email: string, password: string) =>
     api.post<LoginResponse>('/api/auth/login/', { email: email.trim(), password }, { skipAuth: true }),
 
-  /** POST /auth/register/check/: validates sign-up details before opening face capture. */
   checkRegister: (body: RegisterBody) => api.post<Ok>('/api/auth/register/check/', body, { skipAuth: true }),
 
-  /** POST /auth/register/ (teacher JSON sign-up). Duplicate email / employee id → 400 field errors. */
   register: (body: TeacherRegisterBody) => api.post<RegisterResponse>('/api/auth/register/', body, { skipAuth: true }),
 
-  /**
-   * POST /auth/register/ (multipart): creates a verified student account and registers their 3 face
-   * poses in one step, returning sign-in tokens and the user.
-   */
   registerStudent: async (body: StudentRegisterBody, photos: RegisterFacePhotos) => {
     const form = new FormData();
     form.append('role', body.role);
@@ -115,11 +104,6 @@ export const authApi = {
     return result;
   },
 
-  /**
-   * POST /auth/logout/: blacklists the refresh token. Takes the tokens explicitly because the app
-   * forgets them right away. If the access token has expired it gets a fresh pair first, so the
-   * newest refresh token is the one blacklisted. Never throws.
-   */
   logout: async (tokens: { access: string | null; refresh: string | null }) => {
     if (!tokens.refresh) return;
     try {
@@ -132,21 +116,14 @@ export const authApi = {
         });
         await bareClient.post<Ok>('/api/auth/logout/', { refresh: fresh.refresh ?? tokens.refresh }, fresh.access);
       } catch {
-        // The refresh token was already invalid: nothing left to blacklist.
       }
     }
   },
 
-  /** GET /auth/me/ */
   me: () => api.get<MeResponse>('/api/auth/me/'),
 
-  /** PATCH /auth/me/: users may change only their name. */
   updateMe: (body: UpdateMeBody) => api.patch<MeResponse>('/api/auth/me/', body),
 
-  /**
-   * POST /auth/password/change/. 400 wrong_password or field errors. The server signs out other
-   * devices and returns a fresh pair, which is saved here.
-   */
   changePassword: async (body: ChangePasswordBody) => {
     const response = await api.post<ChangePasswordResponse>('/api/auth/password/change/', body);
     setTokens(response.tokens.access, response.tokens.refresh);
@@ -157,11 +134,9 @@ export const authApi = {
     return response;
   },
 
-  /** POST /auth/password/forgot/. 503 email_not_configured when the server has no email set up. */
   forgotPassword: (email: string) =>
     api.post<OkMessage>('/api/auth/password/forgot/', { email: email.trim() }, { skipAuth: true }),
 
-  /** POST /auth/password/reset/ with the uid and token from the email link. 400 invalid_link. */
   resetPassword: (body: ResetPasswordBody) =>
     api.post<OkMessage>('/api/auth/password/reset/', body, { skipAuth: true }),
 };

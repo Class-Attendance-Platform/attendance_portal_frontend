@@ -8,14 +8,11 @@ import { Text } from './text';
 export type StatTileProps = {
   label: string;
   value: string;
-  /** A line under the value, e.g. "of 42 students". */
   hint?: string;
-  /** warn: the number needs attention (e.g. students below 75%); the label says why. */
   tone?: 'default' | 'warn';
   className?: string;
 };
 
-/** One number with a label, for summary rows. */
 export function StatTile({ label, value, hint, tone = 'default', className }: StatTileProps) {
   const { isDesktop } = useBreakpoint();
   const warn = tone === 'warn';

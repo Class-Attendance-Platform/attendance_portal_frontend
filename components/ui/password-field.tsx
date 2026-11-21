@@ -6,11 +6,9 @@ import { IconButton } from './button';
 import { TextField, type TextFieldProps } from './text-field';
 
 export type PasswordFieldProps = Omit<TextFieldProps, 'secureTextEntry' | 'right'> & {
-  /** "current-password" for sign-in, "new-password" when choosing one. */
   autoComplete?: 'current-password' | 'new-password' | 'password';
 };
 
-/** A password input with a show / hide button. */
 export const PasswordField = React.forwardRef<TextInput, PasswordFieldProps>(function PasswordField(
   { autoComplete = 'current-password', ...props },
   ref

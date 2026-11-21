@@ -2,10 +2,6 @@ import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-// A random id per install (phones) or per browser (web). Check-ins send it so one phone cannot
-// check in several students in the same session. It is not tied to the hardware and is kept
-// when the user signs out.
-
 const KEY = 'portal_device_id';
 let cached: string | null = null;
 
@@ -28,11 +24,9 @@ async function write(value: string) {
     if (Platform.OS === 'web') localStorage.setItem(KEY, value);
     else await SecureStore.setItemAsync(KEY, value);
   } catch {
-    // Storage blocked (private window): the id lasts until the app is closed.
   }
 }
 
-/** This install's device id (32 hex characters), created on first use. */
 export async function getDeviceId(): Promise<string> {
   if (cached) return cached;
   const stored = await read();

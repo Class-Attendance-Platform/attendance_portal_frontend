@@ -13,9 +13,7 @@ import { Text } from './text';
 export type SelectOption<T extends string | number> = {
   label: string;
   value: T;
-  /** A second line in the list. */
   description?: string;
-  /** Shown greyed out and cannot be chosen (say why in `description`). */
   disabled?: boolean;
 };
 
@@ -33,10 +31,6 @@ export type SelectProps<T extends string | number> = {
   className?: string;
 };
 
-/**
- * Looks like a text field; opens a dialog with the choices (works the same on web and phones).
- * Keyboard (web): the arrow keys move between the choices, Space or Enter chooses one.
- */
 export function Select<T extends string | number>({
   label,
   hideLabel,
@@ -109,9 +103,7 @@ export function Select<T extends string | number>({
                 aria-checked={isSelected}
                 aria-disabled={off}
                 accessibilityLabel={option.description ? `${option.label}, ${option.description}` : option.label}
-                // A greyed-out choice stays reachable (it says why it cannot be chosen) but does nothing.
                 onPress={() => !off && choose(option)}
-                // Choosing closes the list, so the arrow keys only move (every choice stays a Tab stop).
                 {...radioKeys({
                   index,
                   count: options.length,

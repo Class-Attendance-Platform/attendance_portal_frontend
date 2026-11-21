@@ -14,17 +14,10 @@ import { formatDate } from '@/lib/format';
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; face: FaceStatus };
 
-/**
- * A student's face registration (GET /faces/me/) with a link to /student/face. The account page
- * stays open under the face page, so the card loads again quietly when it is shown again and
- * right after the registration is saved or deleted.
- */
 export function FaceStatusCard() {
   const [state, setState] = React.useState<State>({ kind: 'loading' });
-  // A late answer from an older request never replaces a newer one.
   const latest = React.useRef(0);
 
-  // quiet: no spinner, and a failure keeps the status already shown.
   const load = React.useCallback(async (quiet: boolean) => {
     const id = ++latest.current;
     if (!quiet) setState({ kind: 'loading' });
@@ -45,7 +38,6 @@ export function FaceStatusCard() {
     load(false);
   }, [load]);
 
-  // Back on the account page (the first showing is the first load above).
   const shown = React.useRef(false);
   useFocusEffect(
     React.useCallback(() => {

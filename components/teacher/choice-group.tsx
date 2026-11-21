@@ -13,20 +13,16 @@ export type Choice<T extends string | number> = {
   value: T;
   label: string;
   icon?: LucideIcon;
-  /** Colours when chosen (default: primary green). */
   tone?: 'primary' | 'absent';
 };
 
 export type ChoiceGroupProps<T extends string | number> = {
-  /** Read by screen readers, e.g. "Where is the class". */
   label: string;
   value: T | null;
   choices: Choice<T>[];
   onChange: (value: T) => void;
   disabled?: boolean;
-  /** Shows a spinner on the chosen option (while it saves). */
   busy?: boolean;
-  /** Stretch the options to fill the row. */
   fill?: boolean;
   className?: string;
 };
@@ -36,12 +32,6 @@ const CHOSEN: Record<'primary' | 'absent', { box: string; ink: ColorToken }> = {
   absent: { box: 'border-absent bg-absent-soft', ink: 'absent' },
 };
 
-/**
- * A row of options where one is chosen (radio buttons that look like a segmented control).
- * Each option is at least 44 px tall. No animation. Keyboard (web): the group is one Tab stop (the
- * chosen option, else the first); the arrow keys move to the next or previous option and choose
- * it; Space or Enter chooses the focused one.
- */
 export function ChoiceGroup<T extends string | number>({
   label,
   value,
@@ -115,7 +105,6 @@ const STATUS_CHOICES: Choice<AttendanceStatus>[] = [
 ];
 
 export type AttendanceToggleProps = {
-  /** The student's name: read as "Ayesha Rahman: Present". */
   name: string;
   value: AttendanceStatus | null;
   onChange: (value: AttendanceStatus) => void;
@@ -124,7 +113,6 @@ export type AttendanceToggleProps = {
   className?: string;
 };
 
-/** Present / Absent for one student. */
 export function AttendanceToggle({ name, value, onChange, disabled, busy, className }: AttendanceToggleProps) {
   return (
     <ChoiceGroup

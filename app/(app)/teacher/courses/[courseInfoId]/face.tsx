@@ -55,13 +55,11 @@ const NOTE: Record<FaceReason, string | null> = {
   not_found: 'Not found in the photos',
 };
 
-/** Students without a registered face stay under Unsure; the others follow their switch. */
 const groupOf = (student: RecognizedStudent, present: Marks): Group =>
   student.reason === 'no_face' ? 'unsure' : present[student.id] ? 'present' : 'absent';
 
 const errorText = (caught: unknown, fallback: string) => (isApiError(caught) ? caught.message : fallback);
 
-/** /teacher/courses/[courseInfoId]/face: attendance for today from 1–3 class photos. */
 export default function TeacherFaceAttendance() {
   const params = useLocalSearchParams<{ courseInfoId: string }>();
   const courseInfoId = param(params.courseInfoId) ?? '';
@@ -71,8 +69,6 @@ export default function TeacherFaceAttendance() {
   const today = todayISO();
 
   const course = useLoad(() => teacherApi.course(courseInfoId).then((result) => result.course), [courseInfoId]);
-  // Today's class so far (null = none yet): whether a class photo was already saved today, and
-  // whom a teacher corrected or marked by hand today (a new review starts with those marks).
   const loadToday = async () => (await sessionsApi.history(courseInfoId, { date: today })).history[0] ?? null;
   const todayHistory = useLoad(loadToday, [courseInfoId, today]);
   const savedToday = !!todayHistory.data?.sessions.some((session) => session.mode === 'FACE');
@@ -81,9 +77,7 @@ export default function TeacherFaceAttendance() {
   const [phase, setPhase] = React.useState<'pick' | 'checking' | 'review' | 'saving'>('pick');
   const [result, setResult] = React.useState<RecognizeResult | null>(null);
   const [present, setPresent] = React.useState<Marks>({});
-  // Today's corrections and hand marks the review started with, shown as "Corrected earlier".
   const [corrected, setCorrected] = React.useState<Marks>({});
-  // Today's history could not be loaded for the review, so its corrections are not in the list.
   const [earlierFailed, setEarlierFailed] = React.useState(false);
   const [checkingEarlier, setCheckingEarlier] = React.useState(false);
   const [group, setGroup] = React.useState<Group>('present');
@@ -91,8 +85,6 @@ export default function TeacherFaceAttendance() {
   const [error, setError] = React.useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = React.useState(false);
 
-  // Photos or a reviewed list that are not saved yet. Not while saving: the page then moves on
-  // to History by itself.
   const reviewing = phase === 'review' && !!result;
   useLeaveGuard(
     photos.length > 0 && phase !== 'saving',
@@ -111,7 +103,6 @@ export default function TeacherFaceAttendance() {
         }
   );
 
-  /** Today's history now (null = no class yet today), or undefined when it could not be loaded. */
   async function fetchToday(): Promise<HistoryDay | null | undefined> {
     try {
       const day = await loadToday();
@@ -143,7 +134,6 @@ export default function TeacherFaceAttendance() {
             quality: 0.9,
           });
       if (picked.canceled) return;
-      // Files that can't be used are left out now, not after a long upload.
       const problems: PhotoProblem[] = [];
       const usable = picked.assets.filter((asset) => {
         const problem = photoProblem(asset, Platform.OS === 'web');
@@ -161,7 +151,6 @@ export default function TeacherFaceAttendance() {
       setError(photoProblemText(problems, picked.assets.length));
       if (usable.length > room) message.info(extraPhotosText(room, MAX_PHOTOS));
     } catch {
-      // The browser's picker refuses files that are not pictures; phones show photos only.
       setError(Platform.OS === 'web' ? photoProblemText(['not_photo'], 1) : 'Could not open the photos. Please try again.');
     }
   }
@@ -173,12 +162,10 @@ export default function TeacherFaceAttendance() {
     try {
       const [found, day] = await Promise.all([facesApi.recognize(courseInfoId, photos), fetchToday()]);
       if (found.summary.faces_found === 0) {
-        // Nothing to review. The photos stay, so the teacher can replace them.
         setError(noFacesText(photos.length));
         setPhase('pick');
         return;
       }
-      // Students a teacher corrected or marked by hand today start with that mark.
       const earlier = day ? correctedMarks(day.logs) : {};
       setResult(found);
       setCorrected(earlier);
@@ -188,7 +175,6 @@ export default function TeacherFaceAttendance() {
       setQuery('');
       setPhase('review');
     } catch (caught) {
-      // 413: the upload is over the server's request limit (the photos together).
       const tooLarge = isApiError(caught) && caught.status === 413;
       setError(
         tooLarge
@@ -201,7 +187,6 @@ export default function TeacherFaceAttendance() {
     }
   }
 
-  /** Loads today's corrections again after a failure; students the teacher switched keep the switch. */
   async function checkEarlierAgain() {
     if (!result) return;
     setCheckingEarlier(true);
@@ -243,7 +228,6 @@ export default function TeacherFaceAttendance() {
       const saved = await facesApi.confirm({
         course_info_id: courseInfoId,
         present_student_ids: presentIds(result.students, present),
-        // Present only by the teacher's hand (not found in the photos): saved as "Marked by teacher".
         teacher_marked_ids: teacherMarkedIds(result.students, present),
       });
       const skipped = saved.skipped ?? [];
@@ -278,7 +262,6 @@ export default function TeacherFaceAttendance() {
   );
 
   if (course.loading || course.error || !info) {
-    // Another teacher's course, or one that is gone: trying again can't help.
     const denied = course.error?.status === 403;
     const missing = course.error?.status === 404;
     return (

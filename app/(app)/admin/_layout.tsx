@@ -4,7 +4,6 @@ import * as React from 'react';
 import { RequireAuth } from '@/components/layout/RequireAuth';
 import { colors } from '@/lib/theme';
 
-/** /admin/*: admins only (others go to their own home). */
 export default function AdminLayout() {
   return (
     <RequireAuth roles={['ADMIN']}>

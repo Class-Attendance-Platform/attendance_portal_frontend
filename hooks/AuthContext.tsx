@@ -28,22 +28,12 @@ export type { Role as UserRole, User } from '@/lib/api/types';
 
 interface AuthContextType {
   user: User | null;
-  /** True until the saved login has been read at start-up. */
   isLoading: boolean;
-  /** True after the user signed out on purpose (guards then skip the `?redirect=`). */
   signedOut: boolean;
-  /**
-   * Signs in. Rejects with an ApiError: `code` "invalid_credentials", "pending_approval" (no
-   * tokens until an admin approves) or "account_disabled"; `message` is ready to show.
-   */
   login: (email: string, password: string) => Promise<User>;
-  /** Signs in with tokens + user returned directly (e.g. right after registration). */
   adoptSession: (session: { user: User; access: string; refresh: string }) => User;
-  /** Signs out here and blacklists the refresh token on the server (in the background). */
   logout: () => Promise<void>;
-  /** Reloads the user from GET /auth/me/. */
   refreshUser: () => Promise<User | null>;
-  /** Replaces the user after an update (e.g. PATCH /auth/me/). */
   setUser: (user: User) => void;
 }
 
@@ -51,10 +41,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ROLES: Role[] = ['STUDENT', 'TEACHER', 'ADMIN'];
 
-/** A profile loaded this recently is used again instead of a new GET /auth/me/. */
 const PROFILE_REUSE_MS = 5000;
 
-/** Accepts users saved by older builds too (role case, missing fields). */
 function normaliseUser(raw: any): User | null {
   if (!raw || typeof raw !== 'object' || !raw.id) return null;
   const role = String(raw.role ?? '').toUpperCase() as Role;
@@ -81,14 +69,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const userRef = useRef<User | null>(null);
   userRef.current = user;
 
-  /** Forgets the login on this device (no server call). */
   const forget = useCallback(() => {
     setUserState(null);
     setTokens(null, null);
     return clearSession();
   }, []);
 
-  /** Signs out this tab only; the saved login (another tab's) stays. */
   const leave = useCallback(() => {
     invalidateSession();
     setUserState(null);
@@ -104,25 +90,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return signedIn;
   }, []);
 
-  // One profile request at a time per sign-in, and its answer is used again for a few seconds:
-  // the start-up refresh and the account page's own (opened at start-up) share one request.
   const [askProfile] = useState(() => sharedRequest<User | null>(PROFILE_REUSE_MS));
 
   const refreshUser = useCallback(() => {
     const generation = sessionGeneration();
     return askProfile(generation, async () => {
       const response = await authApi.me();
-      if (generation !== sessionGeneration()) return null; // signed out meanwhile
+      if (generation !== sessionGeneration()) return null;
       const fresh = normaliseUser(response.user);
       if (!fresh) return null;
       setUserState(fresh);
-      // Save only the profile: the tokens may have been refreshed (rotated) meanwhile.
       await updateSession({ user: fresh }, { onlyIfSaved: true, userId: fresh.id });
       return fresh;
     });
   }, [askProfile]);
 
-  // Restore the saved login at start-up, then refresh the profile in the background.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -136,7 +118,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       setTokens(stored.accessToken, stored.refreshToken, savedUser.id);
       setUserState(savedUser);
-      // Open the app now; the profile refresh can be slow on a bad connection.
       setIsLoading(false);
       refreshUser().catch((error) => {
         if (!isApiError(error) || error.status !== 0) console.warn('Could not refresh the profile.', error);
@@ -147,8 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [refreshUser]);
 
-  // The server no longer accepts this login (e.g. not used for a long time, password changed,
-  // account disabled): sign out here.
   useEffect(() => {
     setSessionExpiredHandler((refused, reason) => {
       const current = userRef.current;
@@ -156,34 +135,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const saved = readWebTokens();
       switch (afterRefused(saved, refused, current.id)) {
         case 'adopt':
-          // Another tab saved a newer login of this user: carry on with it.
           setTokens(saved!.access, saved!.refresh, current.id);
           return;
         case 'leave':
-          // Another account signed in in another tab: keep its saved login.
           leave();
           return;
         case 'clear':
           forget();
-          // The server's words when it said why ("Your password was changed. …", "This account
-          // has been disabled. …").
           message.info(reason?.message || 'Your sign-in has expired. Please sign in again.');
       }
     });
     return () => setSessionExpiredHandler(null);
   }, [forget, leave, message]);
 
-  // Web: signing out in another tab signs out this one too; so does signing in there with
-  // another account (that login stays saved; this tab's own is blacklisted).
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== WEB_SESSION_KEY && event.key !== null) return; // null: storage cleared
+      if (event.key !== WEB_SESSION_KEY && event.key !== null) return;
       const saved = readWebTokens();
       const current = userRef.current;
       if (!saved) {
-        // Signed out. Also when no user is shown yet: a start-up profile load or a refresh that
-        // is still running must not sign this tab back in (leave() changes the session generation).
         leave();
         return;
       }
@@ -216,8 +187,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
     setSignedOut(true);
-    // Web: another tab may have rotated the tokens, so blacklist the newest saved pair, read
-    // while no tab is refreshing (a refresh that finishes after this is blacklisted by itself).
     const tokens = await whileNotRefreshing(async () => {
       const newest = newestTokens(readWebTokens(), userRef.current?.id ?? null, {
         access: getAccessToken(),
@@ -226,7 +195,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await forget();
       return newest;
     });
-    // Blacklist the refresh token in the background; signing out here does not wait for it.
     authApi.logout(tokens);
   }, [forget]);
 

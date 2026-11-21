@@ -15,7 +15,6 @@ import { useAuth } from '@/hooks/AuthContext';
 import { fullName, roleLabel } from '@/lib/format';
 import { homeFor, loginHref } from '@/lib/routes';
 
-/** A teacher or admin opened a student's check-in link: say why nothing happens. */
 function NotAStudent() {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -49,11 +48,6 @@ function NotAStudent() {
   );
 }
 
-/**
- * /check-in?s=<session>&c=<code>: the QR link target (the phone camera opens it). Signed out:
- * the (app) guard sends people to /login?redirect=… and back here. Students are checked in once,
- * at once (CheckInFlow draws the header); other roles get an explanation.
- */
 export default function CheckInLinkScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ s?: string; c?: string }>();

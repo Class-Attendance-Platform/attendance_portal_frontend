@@ -2,30 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
- * Design tokens (Campus Green, light only). The same values live in lib/theme.ts for places
- * that need a raw colour (icons, spinners, the navigation theme). Keep both in step.
- * See docs/redesign.md and docs/design-system.md.
- */
 @layer base {
   :root {
-    --color-bg: 245 247 245; /* #F5F7F5 page background */
-    --color-surface: 255 255 255; /* #FFFFFF cards, bars, inputs */
-    --color-border: 220 227 221; /* #DCE3DD 1px borders, dividers */
-    --color-text: 23 32 26; /* #17201A main text */
-    --color-muted: 82 94 85; /* #525E55 secondary text */
-    --color-primary: 10 107 59; /* #0A6B3B buttons, active nav, links */
-    --color-primary-hover: 8 85 47; /* #08552F pressed / hover */
-    --color-primary-soft: 228 241 232; /* #E4F1E8 active nav background, soft pills */
-    --color-present: 21 128 61; /* #15803D Present */
-    --color-absent: 180 35 24; /* #B42318 Absent, destructive */
-    --color-absent-soft: 253 236 234; /* #FDECEA error banners */
-    --color-warn: 154 74 6; /* #9A4A06 below the minimum */
-    --color-warn-ink: 122 59 5; /* #7A3B05 text on warn-soft */
-    --color-warn-soft: 253 241 225; /* #FDF1E1 warning panels */
-    --color-warn-border: 242 211 174; /* #F2D3AE warning borders */
-    --color-info: 3 105 161; /* #0369A1 neutral information */
-    --color-info-soft: 224 242 254; /* #E0F2FE info panels */
-    --color-track: 230 235 231; /* #E6EBE7 progress bar track */
+    --color-bg: 245 247 245;
+    --color-surface: 255 255 255;
+    --color-border: 220 227 221;
+    --color-text: 23 32 26;
+    --color-muted: 82 94 85;
+    --color-primary: 10 107 59;
+    --color-primary-hover: 8 85 47;
+    --color-primary-soft: 228 241 232;
+    --color-present: 21 128 61;
+    --color-absent: 180 35 24;
+    --color-absent-soft: 253 236 234;
+    --color-warn: 154 74 6;
+    --color-warn-ink: 122 59 5;
+    --color-warn-soft: 253 241 225;
+    --color-warn-border: 242 211 174;
+    --color-info: 3 105 161;
+    --color-info-soft: 224 242 254;
+    --color-track: 230 235 231;
   }
 }

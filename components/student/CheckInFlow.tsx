@@ -49,13 +49,10 @@ type QrLink = { sessionId: string; code: string };
 
 type Outcome =
   | { kind: 'success'; course: { code: string; title: string }; time: string }
-  /** `sessionId`: the QR's session (a typed code does not say which class it was for). */
   | { kind: 'problem'; problem: CheckInProblem; via: 'link' | 'code'; sessionId?: string };
 
-/** How long a failed check-in waits for the "Live now" list that explains it. */
 const LIVE_CHECK_MS = 5000;
 
-/** GET /student/live/ to explain a failed check-in; null when it fails or is slow. */
 async function loadLiveSessions(): Promise<StudentLiveSession[] | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const slow = new Promise<null>((resolve) => {
@@ -77,7 +74,6 @@ const RESULT_STYLE: Record<'success' | CheckInProblem['tone'], { icon: LucideIco
   error: { icon: CircleAlert, tint: 'absent', bg: 'bg-absent-soft' },
 };
 
-/** The result of a check-in: a big icon, the title, details and what to do next. */
 function ResultCard({
   tone,
   title,
@@ -120,13 +116,9 @@ function ResultCard({
   );
 }
 
-/** The student's live classes, so they know what they are checking in to. */
 function LiveNow({ sessions, failed }: { sessions: StudentLiveSession[] | null; failed: boolean }) {
   const { isDesktop } = useBreakpoint();
-  // The rows line up with the card title (20 px in on desktop; ListRow has 16).
   const rowClass = isDesktop ? 'px-5' : undefined;
-  // Every state is as tall as one class's row (on phones its title takes up to two lines next to
-  // the pill), so the code field below does not move when the list answers.
   const rowHeight = isDesktop ? 'min-h-[66px]' : 'min-h-[88px]';
   const line = (text: string) => (
     <View className={cn('justify-center px-4 py-3', rowHeight, rowClass)}>
@@ -147,7 +139,6 @@ function LiveNow({ sessions, failed }: { sessions: StudentLiveSession[] | null; 
                   key={session.session_id}
                   title={`${session.course.code} · ${session.course.title}`}
                   titleLines={2}
-                  // "Online" (not "Online class"): one line next to the pill on a 360 px phone.
                   subtitle={`${session.delivery === 'ONLINE' ? 'Online' : 'In class'} · until ${formatTime(session.ends_at)}`}
                   right={
                     session.checked_in ? (
@@ -165,7 +156,6 @@ function LiveNow({ sessions, failed }: { sessions: StudentLiveSession[] | null; 
   );
 }
 
-/** The page header and the content column. The instruction line shows only with the form. */
 function Frame({ meta, children }: { meta?: string; children: React.ReactNode }) {
   return (
     <>
@@ -176,21 +166,12 @@ function Frame({ meta, children }: { meta?: string; children: React.ReactNode })
 }
 
 export type CheckInFlowProps = {
-  /** `?s=`: the session from a QR link or the "Live now" banner. */
   sessionId?: string;
-  /** `?c=`: the code from a QR link. With a valid `sessionId` it is sent once, at once. */
   code?: string;
-  /** Opened from an old-app QR link (those no longer work). */
   oldLink?: boolean;
 };
 
-/**
- * The check-in page below the app shell: its header, then either a QR link (`?s=&c=`) sent once
- * by itself, or the in-app scanner (phones) and the 6-digit code field. Shows a clear result for
- * every outcome.
- */
 export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowProps) {
-  // This screen's own navigation: setParams changes only this page's address.
   const navigation = useNavigation();
   const { isDesktop } = useBreakpoint();
   const live = useLiveSessions();
@@ -202,7 +183,6 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
   const [codeError, setCodeError] = React.useState<string | null>(null);
   const [codeProblem, setCodeProblem] = React.useState<CheckInProblem | null>(null);
   const [scanNote, setScanNote] = React.useState<string | null>(null);
-  /** The QR scanner was asked for (it starts hidden for an online class: those type the code). */
   const [scannerWanted, setScannerWanted] = React.useState(false);
   const busy = React.useRef(false);
   const lastLink = React.useRef<QrLink | null>(null);
@@ -220,8 +200,6 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
         setOutcome({ kind: 'success', course: response.course, time: response.time });
       } catch (caught) {
         const error = toApiError(caught);
-        // A closed QR while another class of the student's is open (e.g. attendance started
-        // again) is not the end: the fresh list tells.
         const fresh = needsLiveList(error, 'link') ? await loadLiveSessions() : null;
         const problem = describeWithLiveList(error, 'link', { sessionId: link.sessionId, fresh });
         setOutcome({ kind: 'problem', problem, via: 'link', sessionId: link.sessionId });
@@ -242,7 +220,6 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
     }
     if (busy.current) return;
     busy.current = true;
-    // What the page showed: which class the student came for.
     const listed = live.sessions;
     setCodeError(null);
     setCodeProblem(null);
@@ -253,8 +230,6 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
       setCode('');
     } catch (caught) {
       const error = toApiError(caught);
-      // A typed code is only matched against the student's own live classes, so "wrong code" can
-      // also mean their class has just closed, or that none of theirs is open: the fresh list tells.
       const fresh = needsLiveList(error, 'code') ? await loadLiveSessions() : null;
       const problem = describeWithLiveList(error, 'code', { sessionId, listed, fresh });
       if (error.code === 'already_checked_in' || problem.final) setOutcome({ kind: 'problem', problem, via: 'code' });
@@ -271,11 +246,9 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
     setCodeProblem(null);
     const input = readCodeField(text);
     if (input.kind === 'check-in') {
-      // A pasted check-in link works too.
       setCode(input.code);
       sendLink({ sessionId: input.sessionId, code: input.code });
     } else if (input.kind === 'note') {
-      // Any other link: its digits are not a code.
       setCode('');
       setCodeError(input.note);
     } else {
@@ -295,8 +268,6 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
     [sendLink]
   );
 
-  // A QR link (?s=&c=): send it once. Then drop the code from the address, so a reload does not
-  // send an expired code again.
   const linkKey = isSessionId(sessionId) && isCode(linkCode) ? `${sessionId}:${linkCode}` : null;
   React.useEffect(() => {
     if (!linkKey || sentLink.current === linkKey) return;
@@ -321,7 +292,6 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
   );
   const anotherClassButton = <Button label="Check in to another class" icon={ScanLine} onPress={startOver} />;
 
-  // A link is being sent (or is about to be: no flash of the form before it starts).
   if (sending === 'link' || (linkKey && sentLink.current !== linkKey)) {
     return (
       <Frame meta="Checking you in to your class.">
@@ -332,7 +302,6 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
     );
   }
 
-  // Classes the student can still check in to.
   const open = (live.sessions ?? []).filter((session) => !session.checked_in);
 
   if (outcome?.kind === 'success') {
@@ -363,10 +332,7 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
 
   if (outcome?.kind === 'problem') {
     const { problem, via } = outcome;
-    // Already checked in, or nothing the student can try again: home is the way on...
     const done = problem.tone === 'info' || !!problem.final;
-    // ...or another open class. A typed code does not say which class failed, so a final problem
-    // there (e.g. this phone was used) offers none: it could be the same class again.
     const others = done && (via === 'link' || !problem.final) ? open.filter((session) => session.session_id !== outcome.sessionId) : [];
     return (
       <Frame>
@@ -389,11 +355,8 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
     );
   }
 
-  // The class from ?s= (banner or QR link), unless the student is checked in to it already.
   const target = open.find((session) => session.session_id === sessionId);
-  // Online classes type the code: the code comes first there and the camera stays off unless asked.
   const onlineOnly = target ? target.delivery === 'ONLINE' : open.length > 0 && open.every((session) => session.delivery === 'ONLINE');
-  // Coming from a banner (?s=) the class is known once the list loads: wait for it.
   const showScanner = HAS_QR_SCANNER && (scannerWanted || (live.sessions === null ? !sessionId : !onlineOnly));
 
   const scannerCard = showScanner ? (
@@ -436,7 +399,6 @@ export function CheckInFlow({ sessionId, code: linkCode, oldLink }: CheckInFlowP
           autoFocus={Platform.OS === 'web' && isDesktop && !linkCode}
           error={codeError}
           hint={`Your teacher shows it in class or shares it in an online class. It changes every 30 seconds.`}
-          // minWidth: at this size a browser input is wider than a phone's card and would stick out.
           inputStyle={{ fontSize: 28, lineHeight: 36, letterSpacing: 8, fontVariant: ['tabular-nums'], minWidth: 0 }}
           className="mt-1"
         />

@@ -55,7 +55,6 @@ function formFrom(student: AdminStudent | null): StudentForm {
   };
 }
 
-/** Two fields side by side on wide screens, one under the other on phones. */
 export function FieldRow({ children }: { children: React.ReactNode }) {
   const { isDesktop } = useBreakpoint();
   return <View className={isDesktop ? 'flex-row gap-3' : 'gap-4'}>{children}</View>;
@@ -66,7 +65,6 @@ export function FieldCell({ children }: { children: React.ReactNode }) {
   return <View className={isDesktop ? 'flex-1' : undefined}>{children}</View>;
 }
 
-/** Add a student (approved at once, with a temporary password) or edit one (partial PATCH). */
 export function StudentFormDialog({
   open,
   student,
@@ -74,7 +72,6 @@ export function StudentFormDialog({
   onSaved,
 }: {
   open: boolean;
-  /** null: add a new student. */
   student: AdminStudent | null;
   onClose: () => void;
   onSaved: (student: AdminStudent, created: boolean) => void;
@@ -169,7 +166,6 @@ export function StudentFormDialog({
             ? undefined
             : 'The account is approved at once. Give the student the temporary password.'
       }
-      // Once the one-time password shows, only Done closes it (a stray tap would lose it).
       dismissable={!saving && !created}
       actions={
         created ? (
@@ -252,7 +248,6 @@ export function StudentFormDialog({
   );
 }
 
-/** One student's details and what an admin can do with the account. */
 export function StudentManageDialog({
   student,
   onClose,
@@ -320,7 +315,6 @@ export function StudentManageDialog({
 const POSE_LABELS: Record<string, string> = { STRAIGHT: 'Straight', LEFT: 'Turned left', RIGHT: 'Turned right' };
 const POSE_ORDER = ['STRAIGHT', 'LEFT', 'RIGHT'];
 
-/** The face photos a student registered (small crops), with a reset. */
 export function FacesDialog({
   student,
   onClose,
@@ -336,7 +330,6 @@ export function FacesDialog({
   const [error, setError] = React.useState<ApiError | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [resetting, setResetting] = React.useState(false);
-  // Only the newest request may show: an answer for a student closed meanwhile is dropped.
   const request = React.useRef(0);
 
   const load = React.useCallback(async () => {
@@ -357,13 +350,12 @@ export function FacesDialog({
   React.useEffect(() => {
     setFaces(null);
     if (student) void load();
-    else request.current += 1; // closed
+    else request.current += 1;
   }, [student, load]);
 
   async function reset() {
     if (!student) return;
     const name = fullName(student);
-    // Asked on top of this dialog, which stays open (its button shows the progress) until done.
     const ok = await confirm({
       title: `Reset ${name}'s face?`,
       message: 'Their face photos are deleted. Face attendance cannot find them until they register again in the app.',

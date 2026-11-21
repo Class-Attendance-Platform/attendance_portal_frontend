@@ -4,13 +4,10 @@ import { Text as RNText, type TextProps as RNTextProps, type TextStyle } from 'r
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { colors, fallbackWeights, fonts, typeScale, type ColorToken, type FontWeightName } from '@/lib/theme';
 
-// Public Sans is loaded in app/_layout.tsx. Until it is ready (or if it fails) text uses the
-// system font with the same weight, so nothing waits for the font.
 const FontsReadyContext = React.createContext(false);
 export const FontsReadyProvider = FontsReadyContext.Provider;
 export const useFontsReady = () => React.useContext(FontsReadyContext);
 
-/** Font family + weight for a weight name (one family per weight: Android needs that). */
 export function useFontStyle(weight: FontWeightName = 'regular'): TextStyle {
   const ready = useFontsReady();
   return ready ? { fontFamily: fonts[weight], fontWeight: 'normal' } : { fontWeight: fallbackWeights[weight] };
@@ -53,21 +50,14 @@ const DEFAULT_WEIGHT: Record<TextVariant, FontWeightName> = {
 };
 
 export type TextProps = RNTextProps & {
-  /** body 15 · small 13 · caption 12 · label 15 medium · section 17 · title 20/26 · stat 26 · code 40 */
   variant?: TextVariant;
   weight?: FontWeightName;
   tone?: TextTone;
-  /** Digits line up (counts, percentages, times). */
   tabular?: boolean;
   align?: 'left' | 'center' | 'right';
   className?: string;
 };
 
-/**
- * All text in the app. Size, weight and colour come from props (not classes), so they work the
- * same on web and Android. Use `className` only for layout (margins, flex).
- * `variant="title"` and `variant="section"` are headings for screen readers.
- */
 export function Text({
   variant = 'body',
   weight,

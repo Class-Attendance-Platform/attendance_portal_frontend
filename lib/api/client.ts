@@ -5,49 +5,23 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 
+import { getServerAddress } from '../server-address';
 import { readWebTokens, sessionGeneration, updateSession, waitForWebSessionChange } from '../session';
 import { refreshTokens, signOutReason, type RefreshEnv, type RefreshResult } from './refresh-core';
 
 declare module 'axios' {
   interface AxiosRequestConfig {
-    /** Public endpoint: send no token and never try a refresh. */
     skipAuth?: boolean;
-    /** Internal: this request was already retried after a refresh. */
     _retry?: boolean;
-    /** Internal: this request was already sent again with tokens renewed meanwhile. */
     _resent?: boolean;
-    /** Internal: the sign-in it was first sent under (lib/session.ts sessionGeneration). */
     _generation?: number;
   }
 }
 
-// Backend address. Set EXPO_PUBLIC_API_URL (e.g. in .env.local) for a deployed backend.
-// No trailing slash: paths are joined as `${API_BASE}/api/...`.
-export const API_BASE = (
-  process.env.EXPO_PUBLIC_API_URL !== undefined
-    ? process.env.EXPO_PUBLIC_API_URL
-    : typeof window !== 'undefined'
-      ? ''
-      : `http://127.0.0.1:${process.env.EXPO_PUBLIC_API_PORT || '8000'}`
-).replace(/\/+$/, '');
-
-// Public address of the web app (EXPO_PUBLIC_WEB_URL). Links people open in a browser (QR
-// check-in links, password reset) point here. Empty in local development.
 export const WEB_BASE = (process.env.EXPO_PUBLIC_WEB_URL || '').replace(/\/+$/, '');
-
-// ---------------------------------------------------------------------------------------------
-// Errors
 
 export type FieldErrors = Record<string, string[]>;
 
-/**
- * Every failed request rejects with an ApiError.
- * - `message`: one readable sentence (the server's `message`, or a plain default).
- * - `code`: the server's machine code (e.g. "pending_approval"), or null.
- * - `fieldErrors`: `{field: ["msg"]}` from a 400, empty otherwise.
- * - `status`: HTTP status; 0 when the server could not be reached.
- * - `body`: the raw JSON body (for extra keys such as `session_id` on a 409).
- */
 export class ApiError extends Error {
   readonly code: string | null;
   readonly fieldErrors: FieldErrors;
@@ -66,7 +40,6 @@ export class ApiError extends Error {
     this.body = options.body ?? {};
   }
 
-  /** The first error for a form field, if the server sent one. */
   field(name: string): string | undefined {
     return this.fieldErrors[name]?.[0];
   }
@@ -113,11 +86,9 @@ function readFieldErrors(source: unknown): FieldErrors {
 
 const META_KEYS = new Set(['success', 'message', 'detail', 'code', 'errors']);
 
-/** Builds an ApiError from an HTTP status and a response body (JSON object, text or nothing). */
 export function errorFromResponse(status: number, data: unknown): ApiError {
   const body = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {};
   let fieldErrors = readFieldErrors(body.errors);
-  // DRF-style `{"field": ["msg"]}` at the top level (no `errors` wrapper).
   if (!Object.keys(fieldErrors).length && status === 400 && typeof body.message !== 'string') {
     fieldErrors = readFieldErrors(Object.fromEntries(Object.entries(body).filter(([key]) => !META_KEYS.has(key))));
   }
@@ -131,7 +102,6 @@ export function errorFromResponse(status: number, data: unknown): ApiError {
   return new ApiError(message, { code, fieldErrors, status, body });
 }
 
-/** Turns anything a request can throw into an ApiError. */
 export function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
   if (axios.isAxiosError(error)) {
@@ -143,18 +113,12 @@ export function toApiError(error: unknown): ApiError {
     return new ApiError(defaultMessage(0), { status: 0, code: 'network_error' });
   }
   if (error instanceof TypeError) {
-    // fetch() network failure
     return new ApiError(defaultMessage(0), { status: 0, code: 'network_error' });
   }
   if (error instanceof Error && error.message) return new ApiError(error.message);
   return new ApiError(defaultMessage(-1));
 }
 
-/**
- * The body of a successful answer. Every API answer is a JSON object, so anything else (an HTML
- * page from a proxy, or the web app's index.html when EXPO_PUBLIC_API_URL points at the wrong
- * host) is an error, never an empty result.
- */
 function jsonBody<T>(response: AxiosResponse<T>): T {
   const data: unknown = response.data;
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -166,18 +130,10 @@ function jsonBody<T>(response: AxiosResponse<T>): T {
   return data as T;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Tokens
-
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
-// Id of the user the tokens belong to: a tab never takes over a saved login of another account.
 let tokenOwner: string | null = null;
 
-/**
- * Sets this tab's tokens. `owner` (the user's id) is kept when left out; signing out (both null)
- * forgets it.
- */
 export function setTokens(access: string | null, refresh: string | null, owner?: string | null) {
   accessToken = access;
   refreshToken = refresh;
@@ -189,28 +145,22 @@ export const getAccessToken = () => accessToken;
 export const getRefreshToken = () => refreshToken;
 export const getTokenOwner = () => tokenOwner;
 
-// Called when the server no longer accepts the saved login (refresh token expired or revoked),
-// with the refresh token it refused and, when the server said why (password changed, account
-// disabled or removed), that 401: its message is ready to show.
 type SessionExpiredHandler = (refused: string, reason: ApiError | null) => void;
 let onSessionExpired: SessionExpiredHandler | null = null;
 export function setSessionExpiredHandler(handler: SessionExpiredHandler | null) {
   onSessionExpired = handler;
 }
 
-// Plain instance for the refresh call itself (no interceptors, so no loops).
-const bare = axios.create({ baseURL: API_BASE, timeout: 30000 });
+const bare = axios.create({ timeout: 30000 });
 
-// Web Locks (every current browser and the desktop app): one tab refreshes at a time.
+bare.interceptors.request.use((config) => {
+  config.baseURL = getServerAddress();
+  return config;
+});
+
 const locks: LockManager | null =
   typeof navigator !== 'undefined' && typeof navigator.locks?.request === 'function' ? navigator.locks : null;
 
-/**
- * Runs `task` while no tab is refreshing (web), so it sees the newest saved pair; sign-out uses it.
- * Waits at most `maxWaitMs` for another tab's refresh, then runs anyway: signing out must not hang
- * on a slow network (a refresh that finishes after the sign-out throws its result away).
- * Elsewhere it just runs the task.
- */
 export function whileNotRefreshing<T>(task: () => Promise<T>, maxWaitMs = 3000): Promise<T> {
   if (!locks || typeof AbortController === 'undefined') return task();
   const controller = new AbortController();
@@ -225,12 +175,11 @@ export function whileNotRefreshing<T>(task: () => Promise<T>, maxWaitMs = 3000):
   return locked.catch((error) => {
     if (started) throw error;
     clearTimeout(timer);
-    return task(); // waited too long (or no lock): go ahead without it
+    return task();
   });
 }
 
 function withRefreshLock<T>(manager: LockManager, task: () => Promise<T>): Promise<T> {
-  // The browser waits for the task's promise (the DOM types say Promise<Promise<T>>).
   return manager.request('portal-refresh', task) as unknown as Promise<T>;
 }
 
@@ -254,17 +203,13 @@ const refreshEnv: RefreshEnv = {
 };
 
 let refreshing: Promise<RefreshResult> | null = null;
-// The first 401 waiting for this refresh that said why the login ended (password changed,
-// account disabled): the user is told so if the server refuses the refresh too.
 let endedBecause: ApiError | null = null;
 
-/** Several callers in a tab share one refresh; `failure` is the 401 that asked for it. */
 function refreshOnce(failure?: ApiError): Promise<RefreshResult> {
   endedBecause = signOutReason(endedBecause, failure);
   if (!refreshing) {
     refreshing = refreshTokens(refreshEnv)
       .then((result) => {
-        // Network errors are not the end of the login: the user stays signed in and can retry.
         if (!result.ok && result.expired) {
           const refusal = result.error ? toApiError(result.error) : null;
           onSessionExpired?.(result.expired, signOutReason(refusal, endedBecause));
@@ -280,20 +225,10 @@ function refreshOnce(failure?: ApiError): Promise<RefreshResult> {
   return refreshing;
 }
 
-/**
- * Gets a new access token with the refresh token. The backend rotates refresh tokens (the old
- * one stops working), so the new pair is saved; on the web the tabs take turns and share the
- * newest pair (lib/api/refresh-core.ts). Several callers in a tab share one refresh.
- * Returns false if it failed; when the server refused the login the expiry handler runs.
- */
 export function refreshAccessToken(): Promise<boolean> {
   return refreshOnce().then((result) => result.ok);
 }
 
-// ---------------------------------------------------------------------------------------------
-// The axios instance
-
-/** Django needs the trailing slash: `/api/auth/me` → `/api/auth/me/` (query string kept). */
 function withTrailingSlash(path: string): string {
   const split = path.search(/[?#]/);
   const base = split === -1 ? path : path.slice(0, split);
@@ -301,9 +236,10 @@ function withTrailingSlash(path: string): string {
   return base.endsWith('/') ? path : `${base}/${rest}`;
 }
 
-const http = axios.create({ baseURL: API_BASE, timeout: 30000 });
+const http = axios.create({ timeout: 30000 });
 
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  config.baseURL = getServerAddress();
   if (config.url) config.url = withTrailingSlash(config.url);
   if (accessToken && !config.skipAuth) config.headers.set('Authorization', `Bearer ${accessToken}`);
   if (config._generation === undefined) config._generation = sessionGeneration();
@@ -315,7 +251,6 @@ http.interceptors.response.use(
   async (error: AxiosError) => {
     const failure = toApiError(error);
     const config = error.config;
-    // Only within the sign-in it was sent under: never sent again with a later login's tokens.
     if (
       failure.status === 401 &&
       config &&
@@ -323,8 +258,6 @@ http.interceptors.response.use(
       refreshToken &&
       config._generation === sessionGeneration()
     ) {
-      // The tokens were renewed after it went out (another request's refresh): send it again
-      // with the new access token instead of refreshing (rotating) them once more.
       if (!config._resent && accessToken && config.headers.get('Authorization') !== `Bearer ${accessToken}`) {
         config._resent = true;
         return http.request(config);
@@ -332,9 +265,7 @@ http.interceptors.response.use(
       if (!config._retry) {
         config._retry = true;
         const refreshed = await refreshOnce(failure);
-        if (refreshed.ok) return http.request(config); // with the new token (request interceptor)
-        // The refresh call failed (no network, server error) but the login is still good: say
-        // that rather than this 401's "Please sign in again".
+        if (refreshed.ok) return http.request(config);
         if (!refreshed.expired && refreshed.error) throw toApiError(refreshed.error);
       }
     }
@@ -350,7 +281,6 @@ async function request<T>(config: AxiosRequestConfig): Promise<T> {
   }
 }
 
-/** Query parameters: empty values (undefined, null, '') are left out. */
 export type Query = Record<string, string | number | boolean | null | undefined>;
 
 function cleanQuery(query?: Query) {
@@ -358,10 +288,6 @@ function cleanQuery(query?: Query) {
   return Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined && value !== null && value !== ''));
 }
 
-/**
- * Typed helpers. Paths start with `/api/`. They resolve to the JSON body and reject with an
- * ApiError. Screens should call the area modules (`lib/api/auth.ts`, ...), not these directly.
- */
 export const api = {
   get: <T>(path: string, query?: Query, config?: AxiosRequestConfig) =>
     request<T>({ ...config, method: 'GET', url: path, params: cleanQuery(query) }),
@@ -374,18 +300,15 @@ export const api = {
   delete: <T>(path: string, config?: AxiosRequestConfig) => request<T>({ ...config, method: 'DELETE', url: path }),
 };
 
-/** Multipart uploads (FormData). */
 export const MULTIPART: AxiosRequestConfig = { headers: { 'Content-Type': 'multipart/form-data' } };
 
-/** Full URL for a path, with the query string (for downloads). */
 export function apiUrl(path: string, query?: Query): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(cleanQuery(query) ?? {})) params.set(key, String(value));
   const search = params.toString();
-  return `${API_BASE}${withTrailingSlash(path)}${search ? `?${search}` : ''}`;
+  return `${getServerAddress()}${withTrailingSlash(path)}${search ? `?${search}` : ''}`;
 }
 
-/** Calls without the interceptors, with a token given by the caller (sign-out uses this). */
 export const bareClient = {
   post: async <T>(path: string, body: unknown, token?: string | null): Promise<T> => {
     try {

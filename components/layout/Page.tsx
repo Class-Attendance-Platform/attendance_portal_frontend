@@ -8,26 +8,15 @@ import { cn } from '@/lib/utils';
 
 export type PageProps = {
   children: React.ReactNode;
-  /** false: no scroll view (the page manages its own scrolling). */
   scroll?: boolean;
   refreshControl?: ScrollViewProps['refreshControl'];
-  /**
-   * Pull down to load again (the Android app: the platform's own spinner while it runs). Not on
-   * the web, where pulling does nothing.
-   */
   onRefresh?: () => Promise<unknown>;
   className?: string;
-  /** The page's scroll view (e.g. to show a notice at the top: scrollTo without animation). */
   scrollRef?: React.Ref<ScrollView>;
 };
 
-/**
- * The content area of a signed-in page: scrolls, max width 1200 px, padding 24/32 on desktop and
- * 16/20 on phones, 20 px between sections. Start it with a PageHeader.
- */
 export function Page({ children, scroll = true, refreshControl, onRefresh, className, scrollRef }: PageProps) {
   const { isDesktop } = useBreakpoint();
-  // Phones: room for the on-screen keyboard (see useKeyboardOverlap).
   const frame = React.useRef<View>(null);
   const keyboard = useKeyboardOverlap(frame);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -37,7 +26,6 @@ export function Page({ children, scroll = true, refreshControl, onRefresh, class
     try {
       await onRefresh();
     } catch {
-      // The screen reports its own errors.
     } finally {
       setRefreshing(false);
     }

@@ -33,7 +33,6 @@ function changedText(log: { changed_by: string | null; changed_at: string | null
 
 function sessionKind(session: HistoryDay['sessions'][number]): string {
   if (session.mode === 'FACE') return 'Class photo';
-  // Old fingerprint-device classes: their rows say "Device" too (lib/methods.ts).
   if (session.mode === 'FINGERPRINT') return 'Device';
   return `Live session (${deliveryLabel(session.delivery).toLowerCase()})`;
 }
@@ -43,7 +42,6 @@ function daySessionsText(day: HistoryDay): string {
   return Array.from(new Set(day.sessions.map(sessionKind))).join(' + ');
 }
 
-/** "28 Aug 2026 to 15 Dec 2026", "from 28 Aug 2026" or "until 15 Dec 2026" (as the server says it). */
 function rangeText({ start, end }: SemesterRange): string {
   if (start && end) return `${formatDate(start)} to ${formatDate(end)}`;
   return start ? `from ${formatDate(start)}` : `until ${formatDate(end)}`;
@@ -52,27 +50,22 @@ function rangeText({ start, end }: SemesterRange): string {
 type DayRecordsProps = {
   courseInfoId: UUID;
   date: string;
-  /** The course's class dates include this date. */
   hasClass: boolean;
   range?: SemesterRange;
   onChanged: () => void;
   onDeleted: () => void;
 };
 
-/** One date's records with a Present/Absent switch per student and "Delete this date". */
 function DayRecords({ courseInfoId, date, hasClass, range, onChanged, onDeleted }: DayRecordsProps) {
   const { width, isDesktop } = useBreakpoint();
-  // A table when there is room for the name next to the four other columns.
   const wide = width >= 1024;
   const confirm = useConfirm();
   const message = useMessage();
   const [deleting, setDeleting] = React.useState(false);
-  // refreshOnFocus: coming Back from a roll call for this date shows what it saved.
   const day = useLoad(async () => (await sessionsApi.history(courseInfoId, { date })).history[0] ?? null, [courseInfoId, date], {
     refreshOnFocus: true,
   });
 
-  // The course's dates gained or lost this date meanwhile (e.g. a live session was saved): load it again.
   const reloadDay = day.reload;
   const knownClass = React.useRef(hasClass);
   React.useEffect(() => {
@@ -148,7 +141,6 @@ function DayRecords({ courseInfoId, date, hasClass, range, onChanged, onDeleted 
   }
   if (!day.data) {
     const future = isFutureDate(date);
-    // A class cannot be added outside the course's semester (the roll call refuses it).
     const outside = !future && !!range && !inRange(date, range);
     return (
       <Card title={title}>
@@ -259,7 +251,6 @@ function DayRecords({ courseInfoId, date, hasClass, range, onChanged, onDeleted 
   );
 }
 
-/** Shorter than this, the whole list shows. */
 const SHORT_DATES = 7;
 
 function DateList({ dates, selected, onSelect }: { dates: ClassDate[]; selected: string | null; onSelect: (date: string) => void }) {
@@ -322,15 +313,11 @@ function DateList({ dates, selected, onSelect }: { dates: ClassDate[]; selected:
 
 export type HistoryTabProps = {
   courseInfoId: UUID;
-  /** The course's class dates, newest first. */
   dates: ClassDate[];
-  /** The dates a class can be added on (the semester's dates); no limit when left out. */
   range?: SemesterRange;
-  /** Reload the course (numbers and dates). */
   onChanged: () => void;
 };
 
-/** ?tab=history&date=: calendar and list of class dates; one date's records with corrections. */
 export function HistoryTab({ courseInfoId, dates, range, onChanged }: HistoryTabProps) {
   const { width, isDesktop } = useBreakpoint();
   const twoColumns = isDesktop && width >= 1100;

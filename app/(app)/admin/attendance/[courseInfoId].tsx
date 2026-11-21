@@ -52,11 +52,9 @@ function membershipLine(student: { joined_at: string | null; left_at: string | n
   return parts.length ? parts.join(' · ') : null;
 }
 
-/** One student's days in the course (read-only). */
 function StudentDaysDialog({ courseInfoId, student, onClose }: { courseInfoId: UUID; student: CourseStudent | null; onClose: () => void }) {
   const [detail, setDetail] = React.useState<CourseStudentDetail | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  // Only the newest request may show: an answer for a student closed meanwhile is dropped.
   const request = React.useRef(0);
 
   const load = React.useCallback(() => {
@@ -122,7 +120,6 @@ function StudentDaysDialog({ courseInfoId, student, onClose }: { courseInfoId: U
   );
 }
 
-/** /admin/attendance/[courseInfoId]: read-only numbers, students, class dates, exports. */
 export default function AdminCourseAttendance() {
   const params = useLocalSearchParams<{ courseInfoId: string }>();
   const courseInfoId = Array.isArray(params.courseInfoId) ? params.courseInfoId[0] : params.courseInfoId;
@@ -132,12 +129,10 @@ export default function AdminCourseAttendance() {
   const [exporting, setExporting] = React.useState(false);
   const [student, setStudent] = React.useState<CourseStudent | null>(null);
 
-  // The teacher name last shown, kept when a later lookup fails (a refresh on return).
   const shownTeacher = React.useRef<{ courseInfoId: string; name: string | null } | null>(null);
   const detail = useLoad(
     async (): Promise<TeacherCourseDetail & { teacherName: string | null }> => {
       const course = await teacherApi.course(courseInfoId);
-      // The teacher's name is only in the admin list (this semester's courses only); the page works without it.
       const infos = await adminApi.courseInfos({ semesterId: course.course.semester.id }).catch(() => null);
       const shown = shownTeacher.current;
       if (!infos && shown && shown.courseInfoId === courseInfoId) return { ...course, teacherName: shown.name };
@@ -283,7 +278,6 @@ export default function AdminCourseAttendance() {
                         pageSize={15}
                         pageSizeOptions={[15, 30, 50]}
                         itemLabel="students"
-                        // Phones read only this label, so it says what the row shows.
                         rowLabel={(row) =>
                           rowWords(
                             `${row.name}, ${row.student_id}: attended ${row.attended} of ${plural(row.held, 'class', 'classes')}, ${formatPercent(row.percent)}`,

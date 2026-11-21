@@ -17,7 +17,6 @@ import { cn } from '@/lib/utils';
 
 function CourseGrid({ courses, minPercent }: { courses: TeacherCourse[]; minPercent: number }) {
   const { width, isDesktop } = useBreakpoint();
-  // Two cards side by side when the content column is wide enough (sidebar is 248 px).
   const columns = isDesktop && width - 248 >= 860 ? 2 : 1;
   const rows: TeacherCourse[][] = [];
   for (let i = 0; i < courses.length; i += columns) rows.push(courses.slice(i, i + columns));
@@ -37,7 +36,6 @@ function CourseGrid({ courses, minPercent }: { courses: TeacherCourse[]; minPerc
   );
 }
 
-/** /teacher: the teacher's courses this semester and in earlier (finished) semesters. */
 export default function TeacherCourses() {
   const { user } = useAuth();
   const minPercent = useMinPercent();

@@ -16,17 +16,14 @@ import { useAuth } from '@/hooks/AuthContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { cn } from '@/lib/utils';
 
-/** Two columns only where both have room next to the sidebar. */
 const TWO_COLUMNS_FROM = 1024;
 
-/** /account (every role): profile and name, password, face registration (students), sign out. */
 export default function AccountScreen() {
   const { user, logout, refreshUser } = useAuth();
   const message = useMessage();
   const { width, isDesktop } = useBreakpoint();
   const [signingOut, setSigningOut] = React.useState(false);
 
-  // Show what the server has now (an admin may have changed the level or term); quietly.
   React.useEffect(() => {
     refreshUser().catch(() => {});
   }, [refreshUser]);

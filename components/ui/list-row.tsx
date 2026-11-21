@@ -8,25 +8,17 @@ import { Text } from './text';
 
 export type ListRowProps = {
   title: string;
-  /** At most this many lines of title (the rest ends in "…"). Default: all of it. */
   titleLines?: number;
-  /** Second line, e.g. the student id. */
   subtitle?: string;
-  /** Extra content under the subtitle (a progress bar, a warning). */
   children?: React.ReactNode;
-  /** Right side: a pill, a percentage, a button. */
   right?: React.ReactNode;
   onPress?: () => void;
-  /** Read by screen readers when pressable (default: the title). */
   accessibilityLabel?: string;
-  /** Shows a chevron when pressable (default true). */
   chevron?: boolean;
-  /** Draw the divider above (all rows but the first in a list). */
   divider?: boolean;
   className?: string;
 };
 
-/** One row of a list (phones, or short lists anywhere). Put rows in a Card with `padded={false}`. */
 export function ListRow({
   title,
   titleLines,

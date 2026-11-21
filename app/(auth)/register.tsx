@@ -60,10 +60,8 @@ const EMPTY: Values = {
   confirm: '',
 };
 
-/** Text fields in screen order (the first one with an error gets the focus). */
 const FOCUS_ORDER: FieldName[] = ['first_name', 'last_name', 'email', 'student_id', 'employee_id', 'password', 'confirm'];
 
-/** Fields the server may report errors for (the rest go in the notice above the button). */
 const SERVER_FIELDS: FieldName[] = [
   'first_name',
   'last_name',
@@ -78,7 +76,6 @@ const SERVER_FIELDS: FieldName[] = [
 const MAX_STUDENT_ID = 2147483647;
 
 function roleFromParam(raw: string | string[] | undefined): SignUpRole | null {
-  // A link with ?role= twice gives an array
   const value = String((Array.isArray(raw) ? raw[0] : raw) ?? '').toLowerCase();
   if (value === 'student') return 'STUDENT';
   if (value === 'teacher') return 'TEACHER';
@@ -132,10 +129,6 @@ function bodyFor(role: SignUpRole, values: Values): RegisterBody {
   return role === 'STUDENT' ? studentBodyFor(values) : teacherBodyFor(values);
 }
 
-/**
- * /register: Student or Teacher first, then the details. Students complete mandatory 3-photo face
- * registration right here as Step 2; accounts are verified and signed in immediately.
- */
 export default function RegisterScreen() {
   const params = useLocalSearchParams<{ role?: string }>();
   const role = roleFromParam(params.role);
@@ -168,7 +161,6 @@ export default function RegisterScreen() {
 
   const set = (name: FieldName) => (value: string) => {
     setValues((current) => ({ ...current, [name]: value }));
-    // An edited field's old error no longer applies.
     if (errors[name]) setErrors((current) => ({ ...current, [name]: undefined }));
   };
 
@@ -194,7 +186,6 @@ export default function RegisterScreen() {
     for (const name of SERVER_FIELDS) fromServer[name] = error.field(name);
     const known = Object.values(fromServer).some(Boolean);
     setErrors(fromServer);
-    // Errors without a field here (e.g. too many tries) go in the notice above the button.
     if (!known) setProblem(error.message);
     else if (Object.keys(error.fieldErrors).some((key) => !SERVER_FIELDS.includes(key as FieldName))) {
       setProblem(error.message);

@@ -3,33 +3,25 @@ import * as SecureStore from 'expo-secure-store';
 
 import type { User } from './api/types';
 
-/** The saved login: user profile plus the two tokens. */
 export type StoredSession = {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
 };
 
-// Web: one localStorage entry (shared by tabs). Phones: the encrypted secure store,
-// one key per part because each value must stay under 2 KB.
 export const WEB_SESSION_KEY = 'portal_user';
 const NATIVE_KEYS = { user: 'portal_user', accessToken: 'portal_access', refreshToken: 'portal_refresh' } as const;
 
 const isWeb = Platform.OS === 'web';
 
-// Saves and deletes run one at a time, so a logout never interleaves with a save that started
-// before it (phones write each key separately and asynchronously).
 let queue: Promise<void> = Promise.resolve();
 function inOrder(task: () => Promise<void>, failure: string): Promise<void> {
   queue = queue.then(task).catch((e) => console.error(failure, e));
   return queue;
 }
 
-// Changes on every sign-out (here or, on the web, in another tab), so slow work that started
-// before it can tell and drop its result.
 let generation = 0;
 export const sessionGeneration = () => generation;
-/** Marks the end of this tab's login without touching the saved one (sign-out in another tab). */
 export function invalidateSession() {
   generation += 1;
 }
@@ -54,19 +46,16 @@ export async function loadSession(): Promise<StoredSession | null> {
     return user ? { user: JSON.parse(user), accessToken, refreshToken } : null;
   } catch (e) {
     console.error('Failed to load the saved login.', e);
-    // Web: a damaged entry is no login; drop it so the next sign-in starts clean.
     if (isWeb) {
       try {
         localStorage.removeItem(WEB_SESSION_KEY);
       } catch {
-        // storage not available
       }
     }
     return null;
   }
 }
 
-/** Web: the saved entry as an object; {} when there is none or it is damaged (it is replaced). */
 function readWebEntry(): Record<string, unknown> {
   try {
     const parsed = JSON.parse(localStorage.getItem(WEB_SESSION_KEY) || '{}');
@@ -76,10 +65,6 @@ function readWebEntry(): Record<string, unknown> {
   }
 }
 
-/**
- * Web only: the saved login's tokens and user id, as the newest tab left them (another tab may
- * have rotated the tokens or signed in as someone else). Phones have one app instance: null there.
- */
 export function readWebTokens(): { userId: string | null; access: string | null; refresh: string | null } | null {
   if (!isWeb) return null;
   try {
@@ -96,7 +81,6 @@ export function readWebTokens(): { userId: string | null; access: string | null;
   }
 }
 
-/** Web only: resolves when another tab changes the saved login, or after `ms`. Phones: at once. */
 export function waitForWebSessionChange(ms: number): Promise<void> {
   if (!isWeb || typeof window === 'undefined') return Promise.resolve();
   return new Promise((resolve) => {
@@ -113,11 +97,6 @@ export function waitForWebSessionChange(ms: number): Promise<void> {
   });
 }
 
-/**
- * Saves the parts given and keeps the rest (e.g. new tokens after a refresh).
- * `onlyIfSaved`: skip it when no login is saved any more (the user logged out meanwhile).
- * `userId`: skip it when the saved login is another user's (web: signed in in another tab).
- */
 export function updateSession(
   changes: Partial<StoredSession>,
   { onlyIfSaved = false, userId }: { onlyIfSaved?: boolean; userId?: string | null } = {}

@@ -2,6 +2,8 @@
   "name": "class-attendance-portal",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "description": "Class attendance for the Department of Computer Science and Engineering, HSTU.",
+  "author": "Inan Ahammad <user.grinch@gmail.com>",
   "expo": {
     "entry": "expo-router/entry"
   },
@@ -13,8 +15,10 @@
     "clean": "rm -rf .expo node_modules",
     "vercel-build": "expo export --platform web",
     "build:web": "expo export --clear --platform web --output-dir web-build",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/*.test.mjs\"",
-    "build": "expo export --clear --platform web --output-dir web-build"
+    "build": "expo export --clear --platform web --output-dir web-build",
+    "desktop": "electron desktop/main.js",
+    "desktop:dev": "PORTAL_DEV_URL=http://localhost:8081 electron desktop/main.js",
+    "dist:linux": "npm run build && electron-builder --linux AppImage"
   },
   "dependencies": {
     "@expo-google-fonts/public-sans": "^0.4.2",
@@ -62,10 +66,36 @@
     "@react-native/metro-config": "^0.86.0",
     "@types/react": "~19.2.10",
     "babel-preset-expo": "~55.0.23",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
     "patch-package": "^8.0.1",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "build": {
+    "appId": "com.grinch.classattendanceportal",
+    "productName": "HSTU Attendance Portal",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "web-build/**/*",
+      "package.json",
+      "!node_modules/**/*",
+      "!**/*.map"
+    ],
+    "extraMetadata": {
+      "main": "desktop/main.js"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Education",
+      "icon": "assets/images/icon.png"
+    }
+  }
 }

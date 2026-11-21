@@ -8,27 +8,13 @@ import { toApiError, type ApiError } from '@/lib/api/client';
 export type LoadState<T> = {
   data: T | undefined;
   error: ApiError | undefined;
-  /** First load (nothing to show yet). */
   loading: boolean;
-  /** "Try again" after an error is running. */
   retrying: boolean;
-  /** Loads again, showing the retry spinner on an error screen. */
   reload: () => void;
-  /** Loads again quietly (keeps what is on screen; errors are ignored while data is shown). */
   refresh: () => Promise<void>;
-  /**
-   * Pull to refresh (phones): loads again quietly and says so in the message bar when that fails
-   * while the old data stays on screen (an error screen shows the new error itself).
-   */
   pull: () => Promise<void>;
 };
 
-/**
- * Loads data for a screen: loading → data or error (with retry). It loads again quietly when the
- * screen comes back into focus (back from another page) and when the student comes back to the
- * app, browser tab or window while it shows; a screen that failed tries again then too. A late
- * answer from an older request never replaces a newer one.
- */
 export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList): LoadState<T> {
   const message = useMessage();
   const [data, setData] = React.useState<T | undefined>(undefined);
@@ -37,12 +23,9 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList): 
   const [retrying, setRetrying] = React.useState(false);
   const latest = React.useRef(0);
   const hasData = React.useRef(false);
-  // The last load failed with nothing to show (an error screen).
   const failed = React.useRef(false);
-  // The loader changes only when `deps` change (the caller's inputs).
   const loader = React.useCallback(load, deps); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Resolves to the error of a quiet load that failed while the data stayed on screen.
   const run = React.useCallback(
     async (mode: 'first' | 'retry' | 'quiet'): Promise<ApiError | undefined> => {
       const id = ++latest.current;
@@ -57,7 +40,6 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList): 
         setError(undefined);
       } catch (caught) {
         if (id !== latest.current) return undefined;
-        // A quiet refresh keeps the data on screen when it fails.
         if (mode === 'quiet' && hasData.current) {
           kept = toApiError(caught);
         } else {
@@ -75,7 +57,6 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList): 
     [loader]
   );
 
-  // New inputs (e.g. another course id): start over.
   React.useEffect(() => {
     hasData.current = false;
     failed.current = false;
@@ -85,8 +66,6 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList): 
     run('first');
   }, [run]);
 
-  // Back on this screen: refresh quietly (the first focus is the first load). While it shows,
-  // also when the student comes back to the app or the browser tab.
   const focusedOnce = React.useRef(false);
   useFocusEffect(
     React.useCallback(() => {

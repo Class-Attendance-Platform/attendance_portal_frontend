@@ -40,7 +40,6 @@ export function CourseStats({ course, minPercent }: { course: TeacherCourse; min
   );
 }
 
-/** The live session: QR and code, the lists, and what happens when it ends. */
 function LiveArea({
   session,
   course,
@@ -50,8 +49,6 @@ function LiveArea({
   course: TeacherCourse;
   onEnded: (sessionId: UUID, summary: string, saved: boolean) => void;
 }) {
-  // A course page stays open under the full-screen page: only the page in view asks the server
-  // (and shows the end), and keeps the screen on.
   const focused = useIsFocused();
   const live = useLiveSession(session.id, { paused: !focused });
   useKeepScreenOn(focused && !!live.lists && !live.end);
@@ -65,7 +62,6 @@ function LiveArea({
     onEnded(session.id, endSummary(live.end), live.end.saved);
   }, [live.end, onEnded, session.id]);
 
-  // 403 (no longer this teacher's course) is final: no "Try again".
   if (live.error && (live.error.status === 403 || !live.lists)) {
     return (
       <Card>
@@ -94,11 +90,9 @@ function LiveArea({
 export type AttendanceTabProps = {
   course: TeacherCourse;
   minPercent: number;
-  /** Reload the course numbers (after a session is saved). */
   onChanged: () => void;
 };
 
-/** ?tab=attendance: start a session, or the running one (also after a reload). */
 export function AttendanceTab({ course, minPercent, onChanged }: AttendanceTabProps) {
   const message = useMessage();
   const courseInfoId: UUID = course.course_info_id;
@@ -106,16 +100,13 @@ export function AttendanceTab({ course, minPercent, onChanged }: AttendanceTabPr
   const [running, setRunning] = React.useState<Running | null>(null);
   const [lastResult, setLastResult] = React.useState<string | null>(null);
 
-  // Sessions that ended here: a slower reload must not reopen them.
   const endedIds = React.useRef(new Set<UUID>());
 
-  // Reopen a running session after a reload (or one started on another device).
   const lookup = useLoad(() => teacherApi.liveSession(courseInfoId), [courseInfoId]);
   React.useEffect(() => {
     const session = lookup.data?.session;
     if (session && !endedIds.current.has(session.id)) setRunning(session);
   }, [lookup.data]);
-  // The course reloads when the page comes back into view: pick up a session started meanwhile.
   React.useEffect(() => {
     const id = course.live_session_id;
     if (id && !endedIds.current.has(id)) setRunning((current) => current ?? { id, delivery: 'IN_CLASS' });

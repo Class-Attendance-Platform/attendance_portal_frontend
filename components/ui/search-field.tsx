@@ -11,10 +11,6 @@ export type SearchFieldProps = Omit<TextFieldProps, 'left' | 'right' | 'value' |
   onChangeText: (text: string) => void;
 };
 
-/**
- * A search box with a clear button. The label is hidden by default (the placeholder and the
- * screen reader label say what it searches); pass `hideLabel={false}` to show it.
- */
 export const SearchField = React.forwardRef<TextInput, SearchFieldProps>(function SearchField(
   { value, onChangeText, hideLabel = true, placeholder, label, ...props },
   ref

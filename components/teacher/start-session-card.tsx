@@ -17,11 +17,9 @@ const LENGTHS: SessionMinutes[] = [2, 5, 10, 15];
 
 export type StartSessionCardProps = {
   courseInfoId: UUID;
-  /** Called with the new session, or with the one already running (409). */
   onStarted: (session: LiveSession | { id: UUID }) => void;
 };
 
-/** Where and how long, then Start. Also links to roll call and the class photo. */
 export function StartSessionCard({ courseInfoId, onStarted }: StartSessionCardProps) {
   const [delivery, setDelivery] = React.useState<Delivery>('IN_CLASS');
   const [minutes, setMinutes] = React.useState<SessionMinutes>(5);
@@ -35,7 +33,6 @@ export function StartSessionCard({ courseInfoId, onStarted }: StartSessionCardPr
       const result = await sessionsApi.start({ course_info_id: courseInfoId, delivery, duration_minutes: minutes });
       onStarted(result.session);
     } catch (caught) {
-      // Another tab or device already started one: open it.
       if (isApiError(caught) && caught.code === SESSION_ERRORS.sessionRunning && typeof caught.body.session_id === 'string') {
         onStarted({ id: caught.body.session_id });
         return;

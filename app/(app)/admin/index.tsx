@@ -17,7 +17,6 @@ type SessionRow = Overview['recent_sessions'][number];
 const deliveryLabel = (row: SessionRow) =>
   `${row.delivery === 'ONLINE' ? 'Online' : 'In class'}${row.mode === 'FACE' ? ' · face photo' : ''}`;
 
-/** /admin: counts, active semesters, recent sessions. */
 export default function AdminOverview() {
   const router = useRouter();
   const config = useAppConfig();
@@ -110,7 +109,6 @@ export default function AdminOverview() {
                     rowKey={(row) => row.id}
                     columns={semesterColumns}
                     onRowPress={(row) => router.push(`/admin/semesters/${row.id}` as Href)}
-                    // Phones read only this label, so it says what the row shows.
                     rowLabel={(row) =>
                       rowWords(
                         `${row.label}: ${plural(row.student_count, 'student')}, ${plural(row.course_count, 'course')}, average ${formatPercent(row.average_percent)}`,

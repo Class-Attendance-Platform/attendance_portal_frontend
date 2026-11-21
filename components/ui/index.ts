@@ -1,4 +1,3 @@
-// Building blocks (docs/design-system.md). Import from '@/components/ui'.
 export { Avatar } from './avatar';
 export { Button, IconButton } from './button';
 export type { ButtonProps, ButtonVariant } from './button';

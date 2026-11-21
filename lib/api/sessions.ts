@@ -12,21 +12,14 @@ import type {
   UUID,
 } from './types';
 
-// Section 5 of the contract: live attendance sessions with a rotating 6-digit code,
-// plus the course history list from section 6.
-
-/** Machine codes on errors (`ApiError.code`). */
 export const SESSION_ERRORS = {
-  /** 409 on start; `error.body.session_id` is the running session. */
   sessionRunning: 'session_running',
   codeInvalid: 'code_invalid',
   notEnrolled: 'not_enrolled',
   alreadyCheckedIn: 'already_checked_in',
   deviceUsed: 'device_used',
   sessionEnded: 'session_ended',
-  /** 400 on start (and on face recognize/confirm): the course's semester is finished. */
   semesterFinished: 'semester_finished',
-  /** 400 on extend: the session would last more than 30 minutes. */
   tooLong: 'too_long',
 } as const;
 
@@ -39,9 +32,7 @@ export interface LiveSession {
   date: ISODate;
   started_at: ISODateTime;
   ends_at: ISODateTime;
-  /** Seconds left. */
   time_left: number;
-  /** Seconds between code changes (30). */
   code_period: number;
 }
 
@@ -56,11 +47,8 @@ export interface StartSessionResponse extends Ok {
 }
 
 export interface SessionCode extends Ok {
-  /** 6 digits, zero-padded, e.g. "482913". */
   code: string;
-  /** `{WEB_URL}/check-in?s=<session_id>&c=<code>`: show it as the QR. */
   check_in_url: string;
-  /** Seconds until the code changes. */
   expires_in: number;
   period: number;
 }
@@ -113,7 +101,6 @@ export interface StopResponse extends Ok {
 
 export interface CheckInBody {
   code: string;
-  /** From the QR link; leave out for a typed code (the server finds the session). */
   session_id?: UUID;
 }
 
@@ -127,7 +114,6 @@ export interface HistoryLog {
   student_id: number;
   name: string;
   status: AttendanceStatus;
-  /** How the student was marked; null when absent in a live or face session. */
   method: LogMethod | null;
   changed_by: string | null;
   changed_at: ISODateTime | null;
@@ -145,9 +131,7 @@ export interface HistoryResponse extends Ok {
 }
 
 export interface HistoryFilter {
-  /** Only this date (`YYYY-MM-DD`). */
   date?: ISODate;
-  /** Only this student (profile id). */
   profileId?: UUID;
 }
 
@@ -156,38 +140,26 @@ export interface MarkResponse extends OkMessage {
 }
 
 export const sessionsApi = {
-  /** POST /sessions/start/. 409 session_running (see SESSION_ERRORS). */
   start: (body: StartSessionBody) => api.post<StartSessionResponse>('/api/sessions/start/', body),
 
-  /** GET /sessions/<id>/code/: the current code. Poll every few seconds. */
   code: (sessionId: UUID) => api.get<SessionCode>(`/api/sessions/${sessionId}/code/`),
 
-  /** GET /sessions/<id>/status/: live lists, or the saved result once it ended. */
   status: (sessionId: UUID) => api.get<SessionStatus>(`/api/sessions/${sessionId}/status/`),
 
-  /** POST /sessions/<id>/extend/ (max 30 minutes in total; beyond it 400 too_long). */
   extend: (sessionId: UUID, minutes = 2) => api.post<ExtendResponse>(`/api/sessions/${sessionId}/extend/`, { minutes }),
 
-  /** POST /sessions/<id>/mark/: the teacher checks a student in while the session is live. */
   mark: (sessionId: UUID, profileId: UUID) =>
     api.post<MarkResponse>(`/api/sessions/${sessionId}/mark/`, { profile_id: profileId }),
 
-  /** POST /sessions/<id>/stop/: ends and saves now. */
   stop: (sessionId: UUID) => api.post<StopResponse>(`/api/sessions/${sessionId}/stop/`),
 
-  /** POST /sessions/<id>/cancel/: discards the session; nothing is saved. */
   cancel: (sessionId: UUID) => api.post<Ok & { message?: string }>(`/api/sessions/${sessionId}/cancel/`),
 
-  /**
-   * POST /sessions/check-in/ (student). Adds this install's `device_id`. Errors: 400 code_invalid,
-   * 403 not_enrolled, 409 already_checked_in / device_used, 410 session_ended.
-   */
   checkIn: async (body: CheckInBody) => {
     const device_id = await getDeviceId();
     return api.post<CheckInResponse>('/api/sessions/check-in/', { ...body, code: body.code.replace(/\s+/g, ''), device_id });
   },
 
-  /** GET /sessions/course-info/<id>/history/: every class date with its logs (newest first). */
   history: (courseInfoId: UUID, { date, profileId }: HistoryFilter = {}) =>
     api.get<HistoryResponse>(`/api/sessions/course-info/${courseInfoId}/history/`, { date, student_id: profileId }),
 };

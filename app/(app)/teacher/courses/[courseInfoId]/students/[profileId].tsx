@@ -32,7 +32,6 @@ function changedText(day: StudentDay): string {
   return `${day.changed_by ?? 'Someone'}${day.changed_at ? `, ${formatDateTime(day.changed_at)}` : ''}`;
 }
 
-/** Which classes count for a student who joined late and/or left (`leftAt` = first day not counted). */
 function countedText(joinedAt: string | null, leftAt: string | null): string {
   if (joinedAt && leftAt) {
     return `Only classes from ${formatDate(joinedAt)} to ${formatDate(addDays(leftAt, -1))} count for this student.`;
@@ -41,19 +40,15 @@ function countedText(joinedAt: string | null, leftAt: string | null): string {
   return `Classes from ${formatDate(leftAt)} on do not count for this student.`;
 }
 
-/** /teacher/courses/[courseInfoId]/students/[profileId]: one student's days in the course, with corrections. */
 export default function TeacherCourseStudent() {
   const params = useLocalSearchParams<{ courseInfoId: string; profileId: string }>();
   const courseInfoId = param(params.courseInfoId) ?? '';
   const profileId = param(params.profileId) ?? '';
   const { width, isDesktop } = useBreakpoint();
-  // A table only when its columns fit next to the sidebar (as in History); rows below that.
   const wide = width >= 1024;
   const minPercent = useMinPercent();
 
-  // refreshOnFocus: Back to this page after a change elsewhere (History, a roll call) shows it.
   const detail = useLoad(() => teacherApi.student(courseInfoId, profileId), [courseInfoId, profileId], { refreshOnFocus: true });
-  // The course's code and title for the breadcrumb (not needed for the page to work).
   const course = useLoad(() => teacherApi.course(courseInfoId).then((result) => result.course), [courseInfoId]);
 
   const reloadDetail = detail.reload;
@@ -67,7 +62,6 @@ export default function TeacherCourseStudent() {
             }
           : current
       );
-      // The numbers (attended, percent) change too. Also when nothing changed: the page was out of date.
       void reloadDetail({ quiet: true });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,7 +77,6 @@ export default function TeacherCourseStudent() {
   ];
 
   if (!detail.data) {
-    // A 404 is about the student unless the course itself is gone: the course's answer tells.
     const waiting = !detail.error || detail.loading || (detail.error.status === 404 && course.loading);
     return (
       <Page>
@@ -118,8 +111,6 @@ export default function TeacherCourseStudent() {
 
   const { student, days } = detail.data;
   const low = student.percent !== null && student.percent < minPercent;
-  // In a finished semester "Left" only when a class was held from that day on (`days` has every
-  // class date, newest first); until the course has loaded, the semester counts as finished.
   const newestClass = days[0]?.date;
   const semesterActive = !!course.data?.semester.is_active;
   const note = membershipNote(student, newestClass, semesterActive);
@@ -182,7 +173,6 @@ export default function TeacherCourseStudent() {
           </View>
         </View>
         <View className={cn('flex-row flex-wrap', isDesktop ? 'gap-4' : 'gap-2')}>
-          {/* Three in a row on phones too. */}
           <StatTile label="Classes held" value={String(student.held)} hint={student.joined_at ? 'since joining' : undefined} className={tile} />
           <StatTile label="Present" value={String(student.attended)} className={tile} />
           <StatTile label="Absent" value={String(Math.max(0, student.held - student.attended))} className={tile} />

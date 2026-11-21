@@ -20,11 +20,6 @@ import { formatDate, formatPercent, plural } from '@/lib/format';
 import { studentHref } from './labels';
 import { shownLeftAt } from './rules';
 
-/**
- * "Joined 18 Sep 2026" / "Left 01 Oct 2026" for students who were not there all semester. In a
- * finished semester "Left" only when a class was held from that day on (`newestClass`, the
- * course's newest class date): a promotion after the semester's last class is not leaving.
- */
 export function membershipNote(
   student: { joined_at: string | null; left_at: string | null },
   newestClass: string | null | undefined,
@@ -37,7 +32,6 @@ export function membershipNote(
   return parts.length ? parts.join(' · ') : null;
 }
 
-/** What a screen reader says for a row that opens the student (it does not read the row's own text). */
 function rowLabel(student: CourseStudent, minPercent: number, note: string | null): string {
   const low = student.percent !== null && student.percent < minPercent;
   const numbers =
@@ -73,15 +67,12 @@ export type StudentsTabProps = {
   courseInfoId: UUID;
   students: CourseStudent[];
   minPercent: number;
-  /** The course's newest class date and whether its semester runs (for the "Left" notes). */
   newestClass: string | null | undefined;
   semesterActive: boolean;
 };
 
-/** ?tab=students: the class list with each student's numbers; a row opens the student. */
 export function StudentsTab({ courseInfoId, students, minPercent, newestClass, semesterActive }: StudentsTabProps) {
   const { width } = useBreakpoint();
-  // A table only when its columns fit next to the sidebar (as in History); rows below that.
   const wide = width >= 1024;
   const [search, setSearch] = React.useState('');
   const [belowOnly, setBelowOnly] = React.useState(false);

@@ -16,16 +16,11 @@ import { updateStatus, type UpdateStatus } from './version';
 
 const LOGO = require('@/assets/images/hstu.png');
 
-/**
- * The installed app's version. Android builds take it from the release tag (versionName, read
- * with expo-application); app.json's version (expo-constants) is the fallback and the web's.
- */
 export function appVersion(): string {
   const native = Platform.OS !== 'web' ? Application.nativeApplicationVersion : null;
   return native || Constants.expoConfig?.version || '1.0.0';
 }
 
-/** Only the installed apps check their version: the web app (and the desktop app) update themselves. */
 const CHECKS_VERSION = Platform.OS !== 'web';
 
 export type AppUpdate = {
@@ -34,14 +29,8 @@ export type AppUpdate = {
   config: AppConfig;
 };
 
-/** How often the gate asks the server again when the app comes back to the front. */
 const RECHECK_MS = 5 * 60 * 1000;
 
-/**
- * GET /config/app/ (once per app start, shared) compared with this app's version. Native only.
- * `recheck` (the gate): ask again when the app comes back to the front (Android keeps apps alive
- * for days), at once if the first try could not reach the server, else every 5 minutes at most.
- */
 export function useAppUpdate({ recheck = false }: { recheck?: boolean } = {}): AppUpdate {
   const [config, setConfig] = React.useState<AppConfig | null>(null);
   const configRef = React.useRef(config);
@@ -68,7 +57,7 @@ export function useAppUpdate({ recheck = false }: { recheck?: boolean } = {}): A
         .then((value) => {
           if (active) setConfig(value);
         })
-        .catch(() => undefined); // offline: keep what we have, try again next time
+        .catch(() => undefined);
     });
     return () => {
       active = false;
@@ -87,10 +76,8 @@ function useOpenDownload(url: string) {
   }, [message, url]);
 }
 
-// "Not now" lasts until the app is closed, for that latest version.
 let dismissedVersion: string | null = null;
 
-/** A notice that a newer app version is ready (Account page). Native only. */
 export function UpdateNotice() {
   const { status, installed, config } = useAppUpdate();
   const [dismissed, setDismissed] = React.useState(dismissedVersion);
@@ -128,12 +115,10 @@ export function UpdateAvailableNotice({
   );
 }
 
-/** The blocking "Please update" screen, shown over everything when the app is too old. */
 export function UpdateRequiredScreen({ installed, minimum, downloadUrl }: { installed: string; minimum: string; downloadUrl: string }) {
   const insets = useSafeAreaInsets();
   const openDownload = useOpenDownload(downloadUrl);
   return (
-    // zIndex only: elevation would draw a shadow on Android.
     <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, zIndex: 100 }]} role="alert" accessibilityViewIsModal>
       <ScrollView
         overScrollMode="never"
@@ -177,16 +162,11 @@ export function UpdateRequiredScreen({ installed, minimum, downloadUrl }: { inst
   );
 }
 
-/**
- * Wraps the app (app/_layout.tsx). On phones it checks the version once at start; below the
- * minimum the "Please update" screen covers everything. The web app never checks.
- */
 export function AppVersionGate({ children }: { children: React.ReactNode }) {
   const { status, installed, config } = useAppUpdate({ recheck: true });
   const blocked = status === 'required';
   return (
     <View style={{ flex: 1 }}>
-      {/* While blocked, screen readers can't reach the app under the "Please update" screen. */}
       <View style={{ flex: 1 }} importantForAccessibility={blocked ? 'no-hide-descendants' : 'auto'} aria-hidden={blocked || undefined}>
         {children}
       </View>

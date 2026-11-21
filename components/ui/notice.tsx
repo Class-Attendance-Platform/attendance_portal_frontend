@@ -20,14 +20,11 @@ export type NoticeProps = {
   tone?: NoticeTone;
   title?: string;
   message: string;
-  /** Buttons or links under the message. */
   children?: React.ReactNode;
-  /** Announce it when it appears (form errors). */
   live?: boolean;
   className?: string;
 };
 
-/** An inline panel inside a page or form: info, warning, error or success, always with words. */
 export function Notice({ tone = 'info', title, message, children, live, className }: NoticeProps) {
   const style = TONES[tone];
   return (

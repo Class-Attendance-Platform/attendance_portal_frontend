@@ -19,7 +19,6 @@ import { configApi, DEFAULT_APP_CONFIG } from '@/lib/api/config';
 
 type Problem = Pick<NoticeProps, 'tone' | 'title' | 'message'>;
 
-/** /forgot-password: asks the server to email a reset link. Email may be off: then an admin helps. */
 export default function ForgotPasswordScreen() {
   const redirect = useRedirectParam();
   const [email, setEmail] = React.useState('');
@@ -27,8 +26,6 @@ export default function ForgotPasswordScreen() {
   const [problem, setProblem] = React.useState<Problem | null>(null);
   const [sent, setSent] = React.useState<{ email: string; message: string } | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  // The server says email reset is off: say so at once instead of a form that cannot work. (The
-  // defaults also say "off", so only a real answer counts; the 503 below stays as a fallback.)
   const [emailOff, setEmailOff] = React.useState(false);
   React.useEffect(() => {
     let alive = true;

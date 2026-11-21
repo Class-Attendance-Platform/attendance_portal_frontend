@@ -12,15 +12,12 @@ export type CheckboxProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
-  /** A second line under the label. */
   description?: string;
-  /** Hide the label visually (e.g. in a table row that already shows the name). */
   hideLabel?: boolean;
   disabled?: boolean;
   className?: string;
 };
 
-/** A 22 px box with its label; the whole row (at least 44 px tall) is the target. Space ticks it too. */
 export function Checkbox({ checked, onChange, label, description, hideLabel, disabled, className }: CheckboxProps) {
   const descriptionId = React.useId();
   const showDescription = !!description && !hideLabel;
@@ -29,7 +26,6 @@ export function Checkbox({ checked, onChange, label, description, hideLabel, dis
       role="checkbox"
       accessibilityLabel={label}
       accessibilityHint={description}
-      // Web: screen readers read the label only (the hint is for phones), so point at the second line.
       {...describedBy(descriptionId, showDescription)}
       accessibilityState={{ checked, disabled: !!disabled }}
       aria-checked={checked}

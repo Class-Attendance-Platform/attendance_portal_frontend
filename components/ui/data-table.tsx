@@ -7,12 +7,9 @@ import { Text } from './text';
 export type Column<T> = {
   key: string;
   title: string;
-  /** Share of the free width (default 1). */
   flex?: number;
-  /** Fixed width in px (overrides flex). */
   width?: DimensionValue;
   align?: 'left' | 'right' | 'center';
-  /** Cell content; default: `String(row[key])`. Return a string for plain text. */
   render?: (row: T) => React.ReactNode;
 };
 
@@ -20,13 +17,9 @@ export type DataTableProps<T> = {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
-  /** Makes rows pressable (e.g. open the student). */
   onRowPress?: (row: T) => void;
-  /** Read by screen readers for pressable rows, e.g. (row) => `Open ${row.name}`. */
   rowLabel?: (row: T) => string;
-  /** Shown instead of rows when there are none. */
   empty?: React.ReactNode;
-  /** Read by screen readers, e.g. "Students". */
   label: string;
 };
 
@@ -36,10 +29,6 @@ function cellStyle<T>(column: Column<T>) {
 
 const justify = { left: 'flex-start', right: 'flex-end', center: 'center' } as const;
 
-/**
- * A plain table for desktop widths (≥ 768 px). On phones show the same rows as ListRows.
- * Put it in a Card with `padded={false}`.
- */
 export function DataTable<T>({ columns, rows, rowKey, onRowPress, rowLabel, empty, label }: DataTableProps<T>) {
   return (
     <View role="table" accessibilityLabel={label}>

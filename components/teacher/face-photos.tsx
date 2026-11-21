@@ -13,7 +13,6 @@ import { cn, FOCUS_RING } from '@/lib/utils';
 
 export type ClassPhoto = PhotoFile & { width?: number; height?: number };
 
-/** A chosen class photo with a remove button (44 px target). */
 export function PhotoThumb({ photo, index, onRemove }: { photo: ClassPhoto; index: number; onRemove?: () => void }) {
   return (
     <View className="overflow-hidden rounded-control border border-border bg-bg" style={{ width: 156, height: 117 }}>
@@ -41,7 +40,6 @@ export function PhotoThumb({ photo, index, onRemove }: { photo: ClassPhoto; inde
 
 type Box = { box: [number, number, number, number]; label: string; matched: boolean };
 
-/** The class photos with a box on every face: green = matched, orange = check or not matched. */
 export function PhotoViewer({
   open,
   onClose,
@@ -54,7 +52,6 @@ export function PhotoViewer({
   result: RecognizeResult;
 }) {
   const [widths, setWidths] = React.useState<Record<number, number>>({});
-  // The server keeps one face per student, so in the other photos that person has no box.
   const once = result.photos.length > 1 ? ' A person seen in two photos is marked once.' : '';
   return (
     <Dialog

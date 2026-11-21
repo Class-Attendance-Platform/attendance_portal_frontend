@@ -11,7 +11,6 @@ import { Card, EmptyState, PageHeader, Pill, ProgressBar, Select, Text, type Col
 import { adminApi, type AdminCourseInfo } from '@/lib/api';
 import { formatPercent, plural } from '@/lib/format';
 
-/** /admin/attendance: every taught course with its numbers; open one to see it read-only. */
 export default function AdminAttendance() {
   const router = useRouter();
   const config = useAppConfig();
@@ -24,7 +23,6 @@ export default function AdminAttendance() {
     { refreshOnFocus: true }
   );
 
-  // A semester deleted elsewhere leaves the list: show all semesters again.
   React.useEffect(() => {
     const offered = semesters.data?.map((row) => row.id);
     if (offered) setSemesterId((current) => keepChoice(current, offered, ''));
@@ -115,7 +113,6 @@ export default function AdminAttendance() {
                 pageSize={15}
                 pageSizeOptions={[15, 30, 50]}
                 itemLabel="courses"
-                // Phones read only this label, so it says what the row shows.
                 rowLabel={(row) =>
                   rowWords(
                     `${row.course.code} ${row.course.title}, ${row.semester.label}${row.semester.is_active ? '' : ' (finished)'}`,

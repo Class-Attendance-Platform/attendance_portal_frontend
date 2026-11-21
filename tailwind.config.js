@@ -1,12 +1,6 @@
-// Campus Green design tokens (light only). Colours come from the CSS variables in global.css;
-// lib/theme.ts has the same values as hex for code that needs raw colours.
-// No animation plugin, no shadows: see docs/redesign.md.
 const color = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
 
-/** @type {import('tailwindcss').Config} */
 module.exports = {
-  // 'class' keeps the app light-only (no .dark class is ever set) and avoids
-  // react-native-css-interop's dev-mode crash when its MutationObserver calls colorScheme.set().
   darkMode: 'class',
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}', './hooks/**/*.{ts,tsx}'],
   presets: [require('nativewind/preset')],
@@ -40,7 +34,6 @@ module.exports = {
         },
         track: color('track'),
       },
-      // Text sizes are set by the Text component (components/ui/Text.tsx); these match it.
       fontSize: {
         caption: ['12px', '16px'],
         small: ['13px', '18px'],
@@ -50,8 +43,6 @@ module.exports = {
         title: ['26px', '32px'],
         code: ['40px', '48px'],
       },
-      // No font family / weight classes here: Public Sans needs one family name per weight on
-      // Android, so the Text component picks the font (use its `weight` prop).
       borderRadius: {
         control: '8px',
         card: '10px',

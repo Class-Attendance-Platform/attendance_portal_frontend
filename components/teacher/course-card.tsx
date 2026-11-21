@@ -17,7 +17,6 @@ import { enterFullScreen } from './live-screen';
 
 function Figure({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    // justify-between: when a label wraps ("Faces registered"), its value stays level with the others.
     <View className="min-w-[96px] flex-1 justify-between gap-0.5">
       <Text variant="small" tone={warn ? 'warnInk' : 'muted'}>
         {label}
@@ -29,13 +28,11 @@ function Figure({ label, value, warn }: { label: string; value: string; warn?: b
   );
 }
 
-/** One course on /teacher: numbers at a glance; the whole card opens the course. */
 export function CourseCard({ course, minPercent }: { course: TeacherCourse; minPercent: number }) {
   const { isDesktop } = useBreakpoint();
   const live = !!course.live_session_id;
   const finished = !course.semester.is_active;
   const below = course.below_min_count;
-  // On Android the label replaces what the card shows, so it says all of it.
   const label = [
     `${course.code}, ${course.title}`,
     live ? 'Live now' : null,

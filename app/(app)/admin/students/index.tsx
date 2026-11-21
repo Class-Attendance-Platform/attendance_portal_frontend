@@ -31,7 +31,6 @@ const STATUS_OPTIONS: { label: string; value: PersonStatus }[] = [
   { label: 'Deleted', value: 'deleted' },
 ];
 
-/** /admin/students: search, filters, add, edit, reset password, faces, delete and restore. */
 export default function AdminStudents() {
   const config = useAppConfig();
   const confirm = useConfirm();
@@ -85,7 +84,6 @@ export default function AdminStudents() {
       const result = await adminApi.restoreStudent(student.id);
       drop(student);
       setSelected(null);
-      // A rejected sign-up comes back still waiting for approval.
       message.success(
         result.student?.is_verified !== false
           ? `${fullName(student)} was restored and can sign in again.`
@@ -181,7 +179,6 @@ export default function AdminStudents() {
             hideLabel
             value={status}
             options={STATUS_OPTIONS}
-            // The other view's rows go at once (the count would name them wrongly until it loads).
             onChange={(value) => {
               if (value !== status) list.setData(null);
               setStatus(value);
@@ -228,7 +225,6 @@ export default function AdminStudents() {
                 pageSize={15}
                 pageSizeOptions={[15, 30, 50]}
                 itemLabel="students"
-                // Phones read only this label (TalkBack groups a row's parts), so it says what the row shows.
                 rowLabel={(row) =>
                   rowWords(
                     `${fullName(row)}, ${row.student_id}, ${levelTermLabel(row.current_level, row.current_semester)}`,
@@ -251,7 +247,6 @@ export default function AdminStudents() {
                       <Text variant="small" tone="muted">
                         Last sign-in {row.last_login ? formatDate(row.last_login) : 'never'}
                       </Text>
-                      {/* The table's Semester column */}
                       {row.semester ? (
                         <Text variant="small" tone="muted">
                           In {row.semester.label}

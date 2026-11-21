@@ -13,7 +13,6 @@ export type PillTone = 'neutral' | 'primary' | 'present' | 'absent' | 'warn' | '
 const TONES: Record<PillTone, { bg: string; ink: ColorToken; border?: string }> = {
   neutral: { bg: 'bg-bg', ink: 'muted', border: 'border-border' },
   primary: { bg: 'bg-primary-soft', ink: 'primary' },
-  // Present text uses the darker primary green on the soft background (AA contrast).
   present: { bg: 'bg-primary-soft', ink: 'primary' },
   absent: { bg: 'bg-absent-soft', ink: 'absent' },
   warn: { bg: 'bg-warn-soft', ink: 'warnInk', border: 'border-warn-border' },
@@ -23,13 +22,11 @@ const TONES: Record<PillTone, { bg: string; ink: ColorToken; border?: string }> 
 export type PillProps = {
   label: string;
   tone?: PillTone;
-  /** A small dot before the label (e.g. "Live"). */
   dot?: boolean;
   icon?: LucideIcon;
   className?: string;
 };
 
-/** A small rounded label. Always has words: colour is never the only signal. */
 export function Pill({ label, tone = 'neutral', dot, icon, className }: PillProps) {
   const style = TONES[tone];
   return (
@@ -51,14 +48,11 @@ export function Pill({ label, tone = 'neutral', dot, icon, className }: PillProp
 }
 
 export type StatusPillProps = {
-  /** PRESENT, ABSENT, or null (not enrolled yet / no record). */
   status: AttendanceStatus | null | undefined;
-  /** Text for null. Default "Not enrolled". */
   emptyLabel?: string;
   className?: string;
 };
 
-/** Present / Absent with an icon and a word. */
 export function StatusPill({ status, emptyLabel = 'Not enrolled', className }: StatusPillProps) {
   if (status === 'PRESENT') return <Pill label="Present" tone="present" icon={Check} className={className} />;
   if (status === 'ABSENT') return <Pill label="Absent" tone="absent" icon={X} className={className} />;

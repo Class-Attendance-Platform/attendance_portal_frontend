@@ -71,16 +71,12 @@ function SemesterTable({
   );
 }
 
-/** /admin/semesters: active and finished semesters; create, finish, reopen, delete, restore. */
 export default function AdminSemesters() {
-  // Tables from 1100 px; below, the phone rows (next to the sidebar the columns would squeeze names away).
   const { isWide } = useBreakpoint();
   const [show, setShow] = React.useState<Show>('all');
   const [creating, setCreating] = React.useState(false);
   const list = useLoad(() => adminApi.semesters(show).then((r) => r.semesters), [show], { refreshOnFocus: true });
   const actions = useSemesterActions();
-  // A refused reopen's notice sits under the header, while Reopen is lower down (the Finished
-  // card): bring the notice into view (no animation).
   const scrollRef = React.useRef<ScrollView>(null);
   const clashShown = actions.clashNotice !== null;
   React.useEffect(() => {
@@ -91,11 +87,9 @@ export default function AdminSemesters() {
     if (!changed) return;
     list.setData((rows) => {
       if (!rows) return rows;
-      // Deleted ones leave the main view; restored ones leave the deleted view.
       if (changed.deleted !== (show === 'deleted')) return rows.filter((row) => row.id !== changed.id);
       return rows.map((row) => (row.id === changed.id ? changed : row));
     });
-    // Order (active first) may change: fetch the list again quietly.
     void list.reload();
   };
 

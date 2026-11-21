@@ -6,42 +6,25 @@ import type { UUID } from '@/lib/api/types';
 import { codeValidUntil } from './live-rules';
 import { CODE_MAX_WAIT_MS, codeRefetchDelay } from './rules';
 
-// One live session, polled: the code (refetched when it changes, at least every 5 s), the
-// status lists (every 5 s) and the time left (counted down every second, text only).
-
-/** Poll the lists this often. */
 const STATUS_EVERY_MS = 5000;
 
 export type LiveLists = LiveStatus['session'];
 
 export type SessionEnd = {
-  /** How it ended here: saved by "End and save" or the timer, cancelled, or gone (404). */
   how: 'saved' | 'cancelled' | 'gone' | 'ended';
   saved: boolean;
   totalPresent: number | null;
-  /** Students enrolled (last known), for "10 of 12 present". */
   total: number | null;
 };
 
 export type LiveSessionState = {
   code: SessionCode | null;
-  /**
-   * No new code came for so long that the server no longer accepts the one on screen (no
-   * connection for 30-60 s): hide it, students can't use it.
-   */
   codeExpired: boolean;
   lists: LiveLists | null;
-  /** Seconds left, counted down locally from the server's time_left. */
   timeLeft: number | null;
   end: SessionEnd | null;
-  /**
-   * The first status load failed (nothing to show yet). A 403 (not this teacher's course) is
-   * final: asking again can't help, so the polling stops.
-   */
   error: ApiError | null;
-  /** A later poll failed: the numbers on screen may be old. */
   connectionProblem: boolean;
-  /** Load again after an error. */
   retry: () => void;
   extend: (minutes?: number) => Promise<void>;
   mark: (profileId: UUID) => Promise<CheckedInStudent>;
@@ -50,11 +33,6 @@ export type LiveSessionState = {
 };
 
 export type LiveSessionOptions = {
-  /**
-   * Stop asking the server, e.g. while the screen is hidden under the full-screen page. The lists
-   * are kept (the code is dropped: it is not refreshed meanwhile); it asks again at once when
-   * unpaused.
-   */
   paused?: boolean;
 };
 
@@ -71,13 +49,9 @@ export function useLiveSession(
   const [connectionProblem, setConnectionProblem] = React.useState(false);
   const [attempt, setAttempt] = React.useState(0);
 
-  // The session being polled: null while paused. Answers that come back for anything else
-  // (paused meanwhile, another session) are dropped.
   const polling = sessionId && !paused ? sessionId : null;
   const pollingRef = React.useRef<UUID | null>(null);
-  // Local clock time when the session ends (from the server's time_left: no clock skew).
   const endsAt = React.useRef<number | null>(null);
-  // Local clock time until which the server still accepts the code on screen.
   const codeUntil = React.useRef<number | null>(null);
   const endRef = React.useRef<SessionEnd | null>(null);
   const totalRef = React.useRef<number | null>(null);
@@ -97,7 +71,6 @@ export function useLiveSession(
     setTimeLeft(Math.max(0, Math.round(seconds)));
   };
 
-  // 403: not this teacher's session (or no longer). Asking again can't help, so polling stops.
   const stopForbidden = React.useCallback((apiError: ApiError) => {
     forbidden.current = true;
     setError(apiError);
@@ -140,12 +113,10 @@ export function useLiveSession(
     }
   }, [sessionId, finish, stopForbidden]);
 
-  // Before the effects below: they read it.
   React.useEffect(() => {
     pollingRef.current = polling;
   }, [polling]);
 
-  // Reset when the session changes.
   React.useEffect(() => {
     endRef.current = null;
     endsAt.current = null;
@@ -161,7 +132,6 @@ export function useLiveSession(
     setConnectionProblem(false);
   }, [sessionId]);
 
-  // Paused: the code is not refreshed meanwhile, so drop it (an old code never shows on return).
   React.useEffect(() => {
     if (!paused) return;
     codeUntil.current = null;
@@ -169,7 +139,6 @@ export function useLiveSession(
     setCodeExpired(false);
   }, [paused]);
 
-  // Status: now, then every 5 s.
   React.useEffect(() => {
     if (!polling) return;
     void fetchStatus();
@@ -177,7 +146,6 @@ export function useLiveSession(
     return () => clearInterval(id);
   }, [polling, fetchStatus, attempt]);
 
-  // The code: refetch when it changes, and at least every 5 s.
   React.useEffect(() => {
     if (!polling) return;
     let alive = true;
@@ -215,8 +183,6 @@ export function useLiveSession(
     };
   }, [polling, fetchStatus, stopForbidden, attempt]);
 
-  // Every second: the time left (at zero ask the server: it saves the session), and whether the
-  // code on screen is still accepted.
   React.useEffect(() => {
     if (!polling) return;
     const id = setInterval(() => {
@@ -287,7 +253,6 @@ export function useLiveSession(
   return { code, codeExpired, lists, timeLeft, end, error, connectionProblem, retry, extend, mark, stop, cancel };
 }
 
-/** "Saved: 10 of 12 present." for a finished session. */
 export function endSummary(end: SessionEnd): string {
   if (end.how === 'cancelled') return 'Session cancelled. Nothing was saved.';
   if (end.how === 'gone') return 'This session was cancelled or does not exist. Nothing was saved.';

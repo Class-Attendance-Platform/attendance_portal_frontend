@@ -32,7 +32,6 @@ const STATUS_OPTIONS: { label: string; value: PersonStatus }[] = [
 
 type CourseForm = { code: string; title: string; credits: string; content: string };
 
-/** The credit values from the server (GET /config/credits/), or the usual ones. */
 function useCredits(): string[] {
   const [credits, setCredits] = React.useState(DEFAULT_CREDITS);
   React.useEffect(() => {
@@ -59,7 +58,6 @@ function CourseDialog({
   onDelete,
 }: {
   open: boolean;
-  /** null: add a course. */
   course: Course | null;
   onClose: () => void;
   onSaved: (course: Course, created: boolean) => void;
@@ -176,7 +174,6 @@ function CourseDialog({
   );
 }
 
-/** /admin/courses: the department's courses; add, edit, delete and restore. */
 export default function AdminCourses() {
   const confirm = useConfirm();
   const message = useMessage();
@@ -192,7 +189,6 @@ export default function AdminCourses() {
   );
 
   async function remove(course: Course) {
-    // Asked on top of the open dialog: Cancel goes back to it with any changes still there.
     const ok = await confirm({
       title: `Delete ${course.code}?`,
       message: `${course.title} is hidden from teachers, students and every semester. Its attendance is kept, and you can restore it later.`,
@@ -259,7 +255,6 @@ export default function AdminCourses() {
             hideLabel
             value={status}
             options={STATUS_OPTIONS}
-            // The other view's rows go at once (they would get this view's buttons until it loads).
             onChange={(value) => {
               if (value !== status) list.setData(null);
               setStatus(value);

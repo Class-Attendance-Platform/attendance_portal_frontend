@@ -10,27 +10,18 @@ import { Text } from '@/components/ui/text';
 import { colors } from '@/lib/theme';
 import { useCameraPermission } from './use-camera-permission';
 
-/** The in-app scanner runs on phones (Android); on the web the phone's own camera opens the link. */
 export const HAS_QR_SCANNER = Platform.OS !== 'web';
 
 export type QrScannerProps = {
-  /** Called with the text of each new QR code seen (the same code again is ignored for 3 s). */
   onScan: (data: string) => void;
-  /** Stops reading codes (e.g. while a check-in is being sent). */
   paused?: boolean;
 };
 
-/**
- * A back-camera QR scanner (expo-camera). Asks for the camera first, saying why; when the camera
- * was refused for good, points to the phone settings (and starts once access is turned on there).
- * No animation: a plain frame shows where to hold the QR.
- */
 export function QrScanner({ onScan, paused }: QrScannerProps) {
   const [permission, requestPermission] = useCameraPermission();
   const [asking, setAsking] = React.useState(false);
   const [failed, setFailed] = React.useState<string | null>(null);
   const last = React.useRef<{ data: string; at: number } | null>(null);
-  // The camera runs only while this screen is shown (screens stay mounted under others).
   const [focused, setFocused] = React.useState(true);
   useFocusEffect(
     React.useCallback(() => {

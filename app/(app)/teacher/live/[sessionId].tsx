@@ -25,7 +25,6 @@ import { colors } from '@/lib/theme';
 
 type Size = { width: number; height: number };
 
-/** /teacher/live/[sessionId]?course=<courseInfoId>: the QR and code for a projector (no shell). */
 export default function TeacherLiveScreen() {
   const params = useLocalSearchParams<{ sessionId: string; course?: string }>();
   const sessionId = param(params.sessionId) ?? '';
@@ -34,14 +33,11 @@ export default function TeacherLiveScreen() {
   const { width, height } = useWindowDimensions();
   const live = useLiveSession(sessionId);
   const [course, setCourse] = React.useState<TeacherCourse | null>(null);
-  // Measured: the space under the header, and the words under the QR (stacked layout).
   const [area, setArea] = React.useState<Size | null>(null);
   const [infoHeight, setInfoHeight] = React.useState<number | null>(null);
 
   useKeepScreenOn(!!live.lists && !live.end);
-  // However the page is left (Exit, a link, the browser's back), the browser's full screen ends too.
   React.useEffect(() => leaveFullScreen, []);
-  // The class sees this page: a message from the course page (e.g. a student's name) closes.
   const { hide: hideMessage } = useMessage();
   React.useEffect(() => {
     hideMessage();
@@ -54,7 +50,6 @@ export default function TeacherLiveScreen() {
       .course(courseInfoId)
       .then((result) => alive && setCourse(result.course))
       .catch(() => {
-        // The title is a nice-to-have: the code still works without it.
       });
     return () => {
       alive = false;
@@ -77,7 +72,6 @@ export default function TeacherLiveScreen() {
     setInfoHeight(Math.ceil(event.nativeEvent.layout.height));
   }, []);
 
-  // Until measured: the window less the padding and a usual header (taller on phones: it wraps).
   const narrow = width < 600;
   const { wide, small, qrSize, codeSize, infoWidth } = projectorLayout({
     width,
@@ -108,7 +102,6 @@ export default function TeacherLiveScreen() {
       </Card>
     );
   } else if (live.error?.status === 403) {
-    // Not this teacher's course: trying again can't help.
     body = (
       <Card className="w-full max-w-[560px] items-center self-center pb-8">
         <ErrorState title="Couldn't open the live session" message={live.error.message} className="pb-4" />
@@ -126,7 +119,6 @@ export default function TeacherLiveScreen() {
   } else if (!live.lists || !live.code) {
     body = <LoadingState label="Loading the code…" />;
   } else if (live.codeExpired) {
-    // The server no longer takes the last code: don't let students copy it.
     body = (
       <View
         role="alert"
@@ -229,7 +221,6 @@ export default function TeacherLiveScreen() {
           <Button label="Exit" icon={LogOut} onPress={exit} accessibilityLabel="Exit full screen" />
         </View>
       </View>
-      {/* Scrolls when the window is too small, so nothing is cut off or covers the header. */}
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 16 }}

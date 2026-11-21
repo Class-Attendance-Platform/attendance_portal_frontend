@@ -40,7 +40,6 @@ function teacherOptions(teachers: AdminTeacher[]): SelectOption<string>[] {
   ];
 }
 
-/** Choose a course (and teacher) to teach in the semester, or change a course's teacher. */
 function CourseAssignDialog({
   open,
   semester,
@@ -51,7 +50,6 @@ function CourseAssignDialog({
 }: {
   open: boolean;
   semester: Semester;
-  /** Set: change this course's teacher. Null: add a course. */
   editing: SemesterCourse | null;
   taughtCourseIds: Set<UUID>;
   onClose: () => void;
@@ -79,7 +77,6 @@ function CourseAssignDialog({
   React.useEffect(() => {
     if (!open) return;
     setCourseId(null);
-    // A deleted teacher is not among the choices: start from "No teacher yet".
     setTeacherId(editing?.teacher && !editing.teacher.deleted ? editing.teacher.id : NO_TEACHER);
     setMissing(null);
     setError(null);
@@ -136,7 +133,6 @@ function CourseAssignDialog({
             variant="primary"
             icon={editing ? Check : BookPlus}
             loading={saving}
-            // Every course is taught here already: the notice says so, there is nothing to add.
             disabled={!choices.data || (!editing && courseOptions.length === 0)}
             onPress={save}
           />
@@ -174,7 +170,6 @@ function CourseAssignDialog({
   );
 }
 
-/** The courses taught in a semester: add one (with a teacher), change the teacher, remove. */
 export function SemesterCourses({ semester, onChanged }: { semester: Semester; onChanged: () => void }) {
   const { isDesktop } = useBreakpoint();
   const confirm = useConfirm();
@@ -212,7 +207,6 @@ export function SemesterCourses({ semester, onChanged }: { semester: Semester; o
     !row.teacher ? (
       <Pill label="No teacher yet" tone="warn" />
     ) : row.teacher.deleted ? (
-      // Nobody can take this course's attendance until another teacher is chosen.
       <View className="items-start gap-1">
         <Text>{prefix ? `Teacher: ${row.teacher.name}` : row.teacher.name}</Text>
         <Pill label="Deleted: choose another" tone="warn" />

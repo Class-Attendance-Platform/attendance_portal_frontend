@@ -14,20 +14,13 @@ export type MonthCalendarProps = {
   year: number;
   month: number;
   onMonthChange: (next: { year: number; month: number }) => void;
-  /** Class dates of the course (a date = a class). */
   classes: Map<string, ClassDate>;
   selected: string | null;
   onSelect: (date: string) => void;
-  /** `YYYY-MM-DD`: days without a class before it are off (before the semester started). */
   minDate?: string | null;
-  /** `YYYY-MM-DD`: days without a class after it are off (after a finished semester ended). */
   maxDate?: string | null;
 };
 
-/**
- * A month grid (Sunday first) that marks the class dates. No animation. Future days are off, and
- * so are days without a class outside `minDate`–`maxDate` (a class there still opens).
- */
 export function MonthCalendar({ year, month, onMonthChange, classes, selected, onSelect, minDate, maxDate }: MonthCalendarProps) {
   const today = todayISO();
   const weeks = monthGrid(year, month);

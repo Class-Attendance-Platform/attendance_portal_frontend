@@ -1,13 +1,12 @@
 import '@/global.css';
 
-// One import per weight, so only these four font files go into the app (not all 18).
 import { PublicSans_400Regular } from '@expo-google-fonts/public-sans/400Regular';
 import { PublicSans_500Medium } from '@expo-google-fonts/public-sans/500Medium';
 import { PublicSans_600SemiBold } from '@expo-google-fonts/public-sans/600SemiBold';
 import { PublicSans_700Bold } from '@expo-google-fonts/public-sans/700Bold';
 import { ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack, type ErrorBoundaryProps } from 'expo-router';
+import { router, Stack, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -22,11 +21,8 @@ import { AuthProvider } from '@/hooks/AuthContext';
 import { watchBrowserHistory } from '@/hooks/useLeaveGuard';
 import { colors, NAV_THEME } from '@/lib/theme';
 
-// Web: the browser's Back button asks before unsaved work is dropped (useLeaveGuard). Set up as
-// the app loads, before expo-router starts listening to the browser history.
 watchBrowserHistory();
 
-/** Shown instead of a screen that crashed. */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
     <View className="flex-1 items-center justify-center bg-bg p-4">
@@ -40,13 +36,17 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 export default function RootLayout() {
-  // Public Sans for every weight we use. Until it loads (or if it fails) the system font is used.
   const [fontsLoaded, fontError] = useFonts({
     PublicSans_400Regular,
     PublicSans_500Medium,
     PublicSans_600SemiBold,
     PublicSans_700Bold,
   });
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    return window.desktop?.onOpenServerSettings(() => router.push('/server'));
+  }, []);
 
   return (
     <SafeAreaProvider style={{ backgroundColor: colors.bg }}>
@@ -56,7 +56,6 @@ export default function RootLayout() {
             <ConfirmProvider>
               <AuthProvider>
                 <StatusBar style="dark" />
-                {/* Phones: "Please update" over everything when the app is below the minimum version. */}
                 <AppVersionGate>
                   <Stack
                     screenOptions={{

@@ -24,13 +24,8 @@ import { facesApi, onFaceChange } from '@/lib/api/faces';
 import { studentApi, type StudentSemester } from '@/lib/api/student';
 import { firstName, formatPercent, levelTermLabel, plural } from '@/lib/format';
 
-/**
- * The first time, the page waits at most this long for "Live now" once its own data is in: a
- * banner arriving later would push the page down while the student reads or taps.
- */
 const LIVE_WAIT_MS = 2000;
 
-/** Phone: the mockup's "Overall this term" card. */
 function OverallCard({ semester, min }: { semester: StudentSemester; min: number }) {
   const percent = semester.overall_percent;
   const low = percent !== null && percent < min;
@@ -75,7 +70,6 @@ function OverallCard({ semester, min }: { semester: StudentSemester; min: number
   );
 }
 
-/** Desktop: the same numbers as tiles. */
 function OverallTiles({ semester, min }: { semester: StudentSemester; min: number }) {
   const percent = semester.overall_percent;
   const low = percent !== null && percent < min;
@@ -99,7 +93,6 @@ function OverallTiles({ semester, min }: { semester: StudentSemester; min: numbe
   );
 }
 
-/** /student: greeting, "Live now", overall attendance and the courses of this term. */
 export default function StudentHome() {
   const { user } = useAuth();
   const { isDesktop } = useBreakpoint();
@@ -109,19 +102,15 @@ export default function StudentHome() {
   const { data, error, loading, retrying, reload, refresh, pull } = useLoad(async () => {
     const [semesters, face, config] = await Promise.all([
       studentApi.semesters(userId),
-      // The reminder is optional: the page works without the face status.
       facesApi.mine().catch(() => null),
       configApi.appCached(),
     ]);
     return { semesters: semesters.semesters ?? [], face, min: config.attendance_min_percent };
   }, [userId]);
 
-  // A live class that ended is saved now: show the new numbers.
   useRefreshAfterLive(live.sessions, refresh);
-  // Face registered or deleted on the face page (this page stays open under it): update the reminder.
   React.useEffect(() => onFaceChange(() => void refresh()), [refresh]);
 
-  // The first view shows the page together with "Live now" (see LIVE_WAIT_MS).
   const liveKnown = live.sessions !== null;
   const [liveWaitOver, setLiveWaitOver] = React.useState(false);
   React.useEffect(() => {

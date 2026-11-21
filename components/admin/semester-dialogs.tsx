@@ -12,7 +12,6 @@ import { cleanSession, currentSession, levelOptions, termOptions } from './optio
 import { fieldError, FormError, SemesterClashNotice } from './parts';
 import { FieldCell, FieldRow } from './student-dialogs';
 
-/** "24 Aug 2026 – 16 Dec 2026", "From 24 Aug 2026", "No dates set". */
 export function semesterDates(semester: { start_date: ISODate | null; end_date: ISODate | null }): string {
   const { start_date: start, end_date: end } = semester;
   if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
@@ -21,7 +20,6 @@ export function semesterDates(semester: { start_date: ISODate | null; end_date: 
   return 'No dates set';
 }
 
-/** A date that may stay empty, with a "Clear" button. */
 export function OptionalDateField({
   label,
   value,
@@ -49,7 +47,6 @@ export function OptionalDateField({
   );
 }
 
-/** The "Level 3 already has an active semester" problem, said plainly. */
 export function LevelTakenNotice({ error, level }: { error: ApiError; level: string }) {
   return (
     <Notice
@@ -63,7 +60,6 @@ export function LevelTakenNotice({ error, level }: { error: ApiError; level: str
 
 type Form = { level: string; semester: string; session: string; start_date: ISODate | null; end_date: ISODate | null };
 
-/** Create a semester, or edit one's session and dates (level and term never change). */
 export function SemesterFormDialog({
   open,
   semester,
@@ -71,7 +67,6 @@ export function SemesterFormDialog({
   onSaved,
 }: {
   open: boolean;
-  /** null: create. */
   semester: Semester | null;
   onClose: () => void;
   onSaved: (semester: Semester, created: boolean) => void;
@@ -83,8 +78,6 @@ export function SemesterFormDialog({
   const [error, setError] = React.useState<ApiError | null>(null);
   const [saving, setSaving] = React.useState(false);
 
-  // Filled in when the dialog opens. Not again while it is open: the page reloading the semester
-  // (a refresh on return) would replace what the admin is typing.
   React.useEffect(() => {
     if (!open) return;
     setForm(
@@ -206,16 +199,10 @@ export function SemesterFormDialog({
   );
 }
 
-/**
- * Finish, reopen, delete and restore with the questions and messages around them. Returns the
- * updated semester (or null when nothing happened).
- */
 export function useSemesterActions() {
   const confirm = useConfirm();
   const message = useMessage();
   const [busy, setBusy] = React.useState<string | null>(null);
-  // A reopen refused because students of its class list are in another active semester now: the
-  // page shows them all in a notice that stays (the message bar names only a few, for 5 s).
   const [clash, setClash] = React.useState<{ semester: Semester; error: ApiError } | null>(null);
 
   async function run(key: string, action: () => Promise<Semester | null>, semester?: Semester) {
@@ -227,7 +214,7 @@ export function useSemesterActions() {
       const error = toApiError(caught);
       message.error(
         error.code === ADMIN_ERRORS.levelHasActiveSemester
-          ? // "Level 3 already has an active semester. Finish it first." → say which one to finish
+          ?
             `${error.message.replace(/\s*Finish it first\.?\s*$/, '')} Finish that one first, then reopen this one.`
           : error.message
       );
@@ -301,7 +288,6 @@ export function useSemesterActions() {
   return { busy, finish, reopen, remove, restore, clashNotice };
 }
 
-/** Small "Active" / "Finished" / "Deleted" pill text. */
 export function semesterState(semester: Pick<Semester, 'is_active' | 'deleted'>): { label: string; tone: 'present' | 'neutral' | 'absent' } {
   if (semester.deleted) return { label: 'Deleted', tone: 'absent' };
   return semester.is_active ? { label: 'Active', tone: 'present' } : { label: 'Finished', tone: 'neutral' };

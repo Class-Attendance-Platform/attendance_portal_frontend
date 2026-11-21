@@ -20,7 +20,6 @@ const TABS: TabItem[] = [
   { key: 'promote', label: 'Promote' },
 ];
 
-/** /admin/semesters/[id]?tab=students|courses|promote */
 export default function AdminSemester() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;

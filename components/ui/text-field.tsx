@@ -13,17 +13,14 @@ export type TextFieldProps = Omit<TextInputProps, 'style' | 'editable'> & {
   error?: string | null;
   required?: boolean;
   disabled?: boolean;
-  /** Shown inside the box on the left / right (icons, buttons). */
   left?: React.ReactNode;
   right?: React.ReactNode;
   className?: string;
   inputStyle?: TextStyle;
 };
 
-// The browser's own focus outline is replaced by the 2 px green border.
 const WEB_INPUT_RESET = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
 
-/** A labelled text input with a hint or an error below it. */
 export const TextField = React.forwardRef<TextInput, TextFieldProps>(function TextField(
   { label, hideLabel, hint, error, required, disabled, left, right, className, inputStyle, onFocus, onBlur, accessibilityLabel, ...props },
   forwardedRef

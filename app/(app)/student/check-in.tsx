@@ -5,10 +5,6 @@ import { Page } from '@/components/layout/Page';
 import { CheckInFlow } from '@/components/student/CheckInFlow';
 import { firstParam } from '@/components/student/logic';
 
-/**
- * /student/check-in: the scanner (phones) and the 6-digit code. `?s=` (from the "Live now"
- * banner) names the class; `?s=&c=` (a QR link) checks in at once. CheckInFlow draws the header.
- */
 export default function StudentCheckIn() {
   const params = useLocalSearchParams<{ s?: string; c?: string; old?: string }>();
   return (

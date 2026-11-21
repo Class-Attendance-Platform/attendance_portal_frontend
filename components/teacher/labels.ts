@@ -5,9 +5,6 @@ import type { CheckInMethod, Delivery, ISODate, LogMethod, UUID } from '@/lib/ap
 import { plural } from '@/lib/format';
 import { methodLabel as plainMethodLabel } from '@/lib/methods';
 
-// Words and links shared by the teacher screens.
-
-/** "QR scan", "Typed code", "Class photo", "Marked by teacher" (lib/methods.ts); none → "—". */
 export function methodLabel(method: LogMethod | CheckInMethod | null | undefined): string {
   return plainMethodLabel(method) || '—';
 }
@@ -16,12 +13,10 @@ export function deliveryLabel(delivery: Delivery): string {
   return delivery === 'ONLINE' ? 'Online' : 'In class';
 }
 
-/** "CSE301 · Level 3 · Term I · 2025-26 · 12 students" */
 export function courseMeta(course: TeacherCourse): string {
   return [course.code, course.semester.label, plural(course.student_count, 'student')].filter(Boolean).join(' · ');
 }
 
-/** The finished semester's courses: corrections and roll call only (no live or face sessions). */
 export const isFinished = (course: TeacherCourse) => !course.semester.is_active;
 
 export { enrolledOn } from './rules';
@@ -47,7 +42,6 @@ export const studentHref = (courseInfoId: UUID, profileId: UUID): Href =>
 export const liveHref = (sessionId: UUID, courseInfoId?: UUID | null): Href =>
   `/teacher/live/${sessionId}${courseInfoId ? `?course=${courseInfoId}` : ''}` as Href;
 
-/** First value of a route param. */
 export function param(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }

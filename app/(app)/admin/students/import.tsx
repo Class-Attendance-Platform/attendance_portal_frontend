@@ -47,7 +47,6 @@ const SAMPLE = [
 
 type ChosenFile = { blob: Blob; name: string; size: number };
 
-/** Web: opens the browser's file chooser for one .csv or .xlsx file. */
 function chooseFile(): Promise<ChosenFile | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
@@ -80,7 +79,6 @@ function StatusCell({ row }: { row: ImportRow }) {
       ) : (
         <Pill label="Error" tone="absent" />
       )}
-      {/* An "exists" row may carry a note (its account is deleted: restore it), not an error */}
       {row.errors.map((error) => (
         <Text key={error} variant="small" tone={row.status === 'exists' ? 'muted' : 'absent'}>
           {error}
@@ -186,10 +184,6 @@ function PreviewRowsList({
   );
 }
 
-/**
- * Chrome (and so the desktop app) refuses to send a file that changed after it was chosen, which
- * looks like no connection: say what to do instead.
- */
 function fileProblem(problem: ApiError): ApiError {
   if (problem.code !== 'network_error') return problem;
   return new ApiError("Couldn't send the file. If you changed it after choosing it, choose it again; otherwise check your connection.", {
@@ -198,10 +192,7 @@ function fileProblem(problem: ApiError): ApiError {
   });
 }
 
-/** /admin/students/import: a .csv / .xlsx file → dry run → apply → temporary passwords once. */
 export default function AdminStudentImport() {
-  // Tables and the two-column layout from 1100 px; below, phone rows and one column (next to the
-  // sidebar they would be squeezed).
   const { isWide } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
@@ -211,8 +202,6 @@ export default function AdminStudentImport() {
   const [preview, setPreview] = React.useState<ImportResult | null>(null);
   const [applied, setApplied] = React.useState<ImportResult | null>(null);
 
-  // A semester finished or deleted elsewhere leaves the list: before the import, drop it as the
-  // choice too, and say so (silently falling back to "Don't add" would add the students to none).
   const chosenLabel = React.useRef<string | null>(null);
   chosenLabel.current = semesters.data?.find((row) => row.id === semesterId)?.label ?? chosenLabel.current;
   const [semesterGone, setSemesterGone] = React.useState<string | null>(null);
@@ -227,8 +216,6 @@ export default function AdminStudentImport() {
     setSemesterId(id);
   };
 
-  // apply() waits for the confirm, which lives above the pages: browser Back while it is open
-  // closes this page, and an import sent then would have nowhere to show the passwords.
   const mounted = React.useRef(true);
   React.useEffect(() => {
     mounted.current = true;
@@ -240,15 +227,11 @@ export default function AdminStudentImport() {
   const [applying, setApplying] = React.useState(false);
   const [error, setError] = React.useState<ApiError | null>(null);
   const [applyError, setApplyError] = React.useState<ApiError | null>(null);
-  // The semester sent with the import (its name stays even if the list changes later).
   const [appliedSemester, setAppliedSemester] = React.useState<string | null>(null);
   const [downloaded, setDownloaded] = React.useState(false);
   const web = Platform.OS === 'web';
-  // While a check or the import runs, the file and the semester stay as they were sent.
   const busy = checking || applying;
 
-  // The temporary passwords are shown only once: ask before they are lost. While the import runs
-  // they are on their way; after "Download as CSV" the save may still have been cancelled.
   const keepPasswords = applying || !!applied?.created?.length;
   const discardPasswords = applying
     ? {
@@ -327,8 +310,6 @@ export default function AdminStudentImport() {
         message.error(problem.message);
         void check();
       } else {
-        // Shown next to the Add button. The semester choice stays: a retry is refused again until
-        // it is reopened (then the students join it), or the admin picks another one.
         setApplyError(problem);
       }
     } finally {

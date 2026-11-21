@@ -8,18 +8,11 @@ import { ApiError, toApiError } from '@/lib/api/client';
 export type Loaded<T> = {
   data: T | null;
   error: ApiError | null;
-  /** True while the first load (or a retry after an error) runs. */
   loading: boolean;
-  /** Loads again. `quiet`: keep showing the current data (no spinner). */
   reload: (options?: { quiet?: boolean }) => Promise<void>;
   setData: React.Dispatch<React.SetStateAction<T | null>>;
 };
 
-/**
- * Loads data for a screen: loading, error (an ApiError with a readable message) and reload.
- * `refreshOnFocus`: load again quietly when the screen comes back into view (e.g. after "Back")
- * and when the teacher comes back to the browser tab, window or app while it shows.
- */
 export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList, { refreshOnFocus = false } = {}): Loaded<T> {
   const [data, setData] = React.useState<T | null>(null);
   const [error, setError] = React.useState<ApiError | null>(null);
@@ -41,7 +34,6 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList, {
       setError(null);
     } catch (caught) {
       if (id !== request.current) return;
-      // A quiet refresh keeps what is on screen; only a visible load shows the error.
       if (!quiet) setError(toApiError(caught));
     } finally {
       if (id === request.current) setLoading(false);
@@ -72,7 +64,6 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList, {
   return { data, error, loading, reload, setData };
 }
 
-/** The attendance minimum from GET /config/app/ (75 until it answers). */
 export function useMinPercent(): number {
   return useAppConfig().attendance_min_percent;
 }

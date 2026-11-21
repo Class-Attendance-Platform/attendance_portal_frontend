@@ -34,7 +34,6 @@ function PrivacyCard() {
   );
 }
 
-/** /student/face: register your face for face attendance (3 photos, with consent), or delete it. */
 export default function StudentFace() {
   const router = useRouter();
   const confirm = useConfirm();
@@ -45,7 +44,6 @@ export default function StudentFace() {
   const [justRegistered, setJustRegistered] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
 
-  // The latest status: from the server, or from our own register / delete.
   React.useEffect(() => {
     if (data) setStatus({ registered: data.registered, registered_at: data.registered_at, poses: data.poses });
   }, [data]);

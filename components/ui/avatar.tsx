@@ -6,14 +6,11 @@ import { cn } from '@/lib/utils';
 import { Text } from './text';
 
 export type AvatarProps = {
-  /** Full name; the avatar shows its initials ("AR"). */
   name: string;
-  /** px, default 44. */
   size?: number;
   className?: string;
 };
 
-/** A circle with initials (no photos). Decorative: the name is shown or read elsewhere. */
 export function Avatar({ name, size = 44, className }: AvatarProps) {
   return (
     <View

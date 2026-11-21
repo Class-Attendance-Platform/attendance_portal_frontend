@@ -14,12 +14,9 @@ import { Text } from './text';
 export type DateFieldProps = {
   label: string;
   hideLabel?: boolean;
-  /** `YYYY-MM-DD` or null. */
   value: string | null | undefined;
   onChange: (value: string) => void;
-  /** Days after today (Dhaka) cannot be picked. */
   noFuture?: boolean;
-  /** `YYYY-MM-DD` limits. */
   minDate?: string;
   maxDate?: string;
   placeholder?: string;
@@ -30,7 +27,6 @@ export type DateFieldProps = {
   className?: string;
 };
 
-/** Shows "05 Oct 2026"; opens a month calendar (Sunday first). */
 export function DateField({
   label,
   hideLabel,

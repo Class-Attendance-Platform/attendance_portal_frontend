@@ -8,10 +8,6 @@ import { teacherApi, type SetAttendanceResponse } from '@/lib/api/teacher';
 import type { AttendanceStatus, ISODate, UUID } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 
-/**
- * Changes one student on one date (PUT /teacher/course-info/<id>/attendance/) and reports the
- * result with a message. `busy` holds the "date|profile" keys being saved.
- */
 export function useCorrection(courseInfoId: UUID, onSaved: (result: SetAttendanceResponse, profileId: UUID) => void) {
   const message = useMessage();
   const [busy, setBusy] = React.useState<Set<string>>(new Set());
@@ -54,7 +50,6 @@ export type FlipButtonProps = {
   onFlip: (next: AttendanceStatus) => void;
 };
 
-/** "Mark absent" for a present day, "Mark present" for an absent one. */
 export function FlipButton({ status, name, date, busy, disabled, onFlip }: FlipButtonProps) {
   const next: AttendanceStatus = status === 'PRESENT' ? 'ABSENT' : 'PRESENT';
   const word = next === 'PRESENT' ? 'present' : 'absent';

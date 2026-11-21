@@ -11,11 +11,9 @@ import { formatTime } from '@/lib/format';
 import { colors } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
-// The banner is green, so its button's keyboard outline is white.
 const WHITE_FOCUS_RING =
   'web:outline-none web:focus-visible:outline web:focus-visible:outline-2 web:focus-visible:outline-offset-2 web:focus-visible:outline-white';
 
-/** "Live now": a course of the student is taking attendance. Check in, or "Checked in". */
 export function LiveBanner({ session }: { session: StudentLiveSession }) {
   const { isDesktop } = useBreakpoint();
   const { course } = session;

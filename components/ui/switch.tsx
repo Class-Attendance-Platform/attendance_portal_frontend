@@ -10,7 +10,6 @@ export type SwitchProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
-  /** A second line under the label. */
   description?: string;
   disabled?: boolean;
   accessibilityLabel?: string;
@@ -18,7 +17,6 @@ export type SwitchProps = {
   className?: string;
 };
 
-/** An accessible toggle switch. Works standalone or with an optional label and description. */
 export function Switch({
   checked,
   onChange,

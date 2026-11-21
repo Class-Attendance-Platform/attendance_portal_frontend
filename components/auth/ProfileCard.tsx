@@ -47,14 +47,12 @@ function profileRows(user: User): { label: string; value: string }[] {
   return rows;
 }
 
-/** Who changes the rest (admins edit students and teachers on their pages). */
 const OTHER_CHANGES: Record<User['role'], string | null> = {
   STUDENT: 'To change your email, student ID, level or term, ask an admin.',
   TEACHER: 'To change your email or employee ID, ask an admin.',
   ADMIN: null,
 };
 
-/** Who is signed in. Only the name can be changed here (PATCH /auth/me/). */
 export function ProfileCard({ user }: { user: User }) {
   const [editing, setEditing] = React.useState(false);
   const name = fullName(user);

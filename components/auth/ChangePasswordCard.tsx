@@ -13,10 +13,6 @@ import { confirmProblem, newPasswordProblem, PASSWORD_RULES } from './forms';
 
 type Errors = { current?: string; next?: string; confirm?: string };
 
-/**
- * POST /auth/password/change/. The server signs out the other devices and sends a new token pair,
- * which authApi.changePassword saves, so this device stays signed in.
- */
 export function ChangePasswordCard() {
   const message = useMessage();
   const [current, setCurrent] = React.useState('');

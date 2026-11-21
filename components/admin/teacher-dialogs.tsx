@@ -15,7 +15,6 @@ type TeacherForm = { first_name: string; last_name: string; email: string; emplo
 
 const EMPTY_FORM: TeacherForm = { first_name: '', last_name: '', email: '', employee_id: '', password: '' };
 
-/** Add a teacher (approved at once, with a temporary password) or edit one (partial PATCH). */
 export function TeacherFormDialog({
   open,
   teacher,
@@ -110,7 +109,6 @@ export function TeacherFormDialog({
             ? undefined
             : 'The account is approved at once. Give the teacher the temporary password.'
       }
-      // Once the one-time password shows, only Done closes it (a stray tap would lose it).
       dismissable={!saving && !created}
       actions={
         created ? (
@@ -170,7 +168,6 @@ export function TeacherFormDialog({
   );
 }
 
-/** One teacher's details and what an admin can do with the account. */
 export function TeacherManageDialog({
   teacher,
   onClose,

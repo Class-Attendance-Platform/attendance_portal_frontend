@@ -20,7 +20,6 @@ import { homeFor } from '@/lib/routes';
 
 type Problem = Pick<NoticeProps, 'tone' | 'title' | 'message'>;
 
-/** What to show for a failed sign-in. The server's message is already readable. */
 function problemFor(error: unknown): Problem {
   if (!isApiError(error)) return { tone: 'error', message: 'Could not sign in. Please try again.' };
   switch (error.code) {
@@ -49,7 +48,6 @@ export default function LoginScreen() {
   const passwordRef = React.useRef<TextInput>(null);
 
   if (isLoading) return <LoadingState fullScreen />;
-  // Signed in (already, or just now): go on to where the user was going.
   if (user) return <Redirect href={(redirect ?? homeFor(user.role)) as Href} />;
 
   async function submit() {
@@ -64,11 +62,9 @@ export default function LoginScreen() {
     setSubmitting(true);
     try {
       await login(trimmed, password);
-      // The redirect above runs on the next render.
     } catch (error) {
       setSubmitting(false);
       if (isApiError(error) && error.code === AUTH_ERRORS.pendingApproval) {
-        // Right password, not approved yet: explain what happens next.
         setPassword('');
         router.push(authHref('/pending', redirect, { email: trimmed }));
       } else if (isApiError(error) && (error.field('email') || error.field('password'))) {
@@ -82,7 +78,7 @@ export default function LoginScreen() {
   const checkingIn = redirect?.startsWith('/check-in') || redirect?.startsWith('/student/check-in');
 
   return (
-    <PublicPage title="Sign in">
+    <PublicPage title="Sign in" footerLinks={[{ label: 'Server address', href: '/server' }]}>
       <Card className="gap-5">
         <FormHeading title="Sign in" lead="Use the email address of your portal account." />
 
@@ -107,7 +103,6 @@ export default function LoginScreen() {
             onSubmitEditing={() => passwordRef.current?.focus()}
             disabled={submitting}
           />
-          {/* 14 px: the link's 44 px touch area must not reach into the password box. */}
           <View className="gap-3.5">
             <PasswordField
               ref={passwordRef}

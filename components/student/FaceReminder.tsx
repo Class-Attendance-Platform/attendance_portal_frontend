@@ -10,7 +10,6 @@ import { Text } from '@/components/ui/text';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { cn } from '@/lib/utils';
 
-/** Shown on the home page while the student has not registered a face. */
 export function FaceReminder() {
   const { isDesktop } = useBreakpoint();
   return (

@@ -17,7 +17,6 @@ const STATUS_OPTIONS: { label: string; value: PersonStatus }[] = [
   { label: 'Deleted', value: 'deleted' },
 ];
 
-/** /admin/teachers: search, add, edit, reset password, delete and restore. */
 export default function AdminTeachers() {
   const confirm = useConfirm();
   const message = useMessage();
@@ -65,7 +64,6 @@ export default function AdminTeachers() {
       const result = await adminApi.restoreTeacher(teacher.id);
       drop(teacher);
       setSelected(null);
-      // A rejected sign-up comes back still waiting for approval.
       message.success(
         result.teacher?.is_verified !== false
           ? `${fullName(teacher)} was restored and can sign in again.`
@@ -123,7 +121,6 @@ export default function AdminTeachers() {
             hideLabel
             value={status}
             options={STATUS_OPTIONS}
-            // The other view's rows go at once (the count would name them wrongly until it loads).
             onChange={(value) => {
               if (value !== status) list.setData(null);
               setStatus(value);
@@ -162,7 +159,6 @@ export default function AdminTeachers() {
                 pageSize={15}
                 pageSizeOptions={[15, 30, 50]}
                 itemLabel="teachers"
-                // Phones read only this label (TalkBack groups a row's parts), so it says what the row shows.
                 rowLabel={(row) =>
                   rowWords(
                     `${fullName(row)}, ${row.employee_id || 'no employee ID'}, ${plural(row.course_count, 'course')}`,

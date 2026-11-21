@@ -17,30 +17,22 @@ import type { Role } from '@/lib/api/types';
 
 export type NavItem = {
   label: string;
-  /** Shorter label for the phone tab bar. */
   shortLabel?: string;
   href: string;
   icon: LucideIcon;
-  /** Active only on this exact path (role homes); otherwise also on sub-pages. */
   exact?: boolean;
-  /** Other pages that belong to this item (exact paths), e.g. the QR link page for "Check in". */
   also?: string[];
-  /** In the phone tab bar. Other items go under "More", unless `phoneHidden`. */
   tab?: boolean;
-  /** Not in the phone navigation at all (the page links to it elsewhere). */
   phoneHidden?: boolean;
 };
 
 const ACCOUNT: NavItem = { label: 'Account', href: '/account', icon: CircleUserRound, tab: true };
 
-/** The navigation for each role: the sidebar shows all items, the phone tab bar those with `tab`. */
 export const NAV: Record<Role, NavItem[]> = {
   STUDENT: [
     { label: 'Home', href: '/student', icon: House, exact: true, tab: true },
-    // /check-in is where a teacher's QR code leads (the phone camera opens it).
     { label: 'Check in', href: '/student/check-in', icon: ScanLine, tab: true, also: ['/check-in'] },
     { label: 'Courses', href: '/student/courses', icon: BookOpen, tab: true },
-    // On phones the home page and the account page link to face registration.
     { label: 'Face registration', shortLabel: 'Face', href: '/student/face', icon: ScanFace, phoneHidden: true },
     ACCOUNT,
   ],
@@ -63,7 +55,6 @@ export function isActive(item: NavItem, pathname: string): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-/** The nav item for the current page (the most specific match). */
 export function activeItem(items: NavItem[], pathname: string): NavItem | undefined {
   return items
     .filter((item) => isActive(item, pathname))

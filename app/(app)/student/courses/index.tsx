@@ -24,9 +24,6 @@ function SemesterCard({ semester, min }: { semester: StudentSemester; min: numbe
   const { isDesktop } = useBreakpoint();
   const overall = semester.overall_percent;
   const low = overall !== null && overall < min;
-  // open: the student is in it now (current). finished: the semester is over. left: the student
-  // moved out of it (promoted or removed). left_at is the first day that no longer counts (the
-  // day after, when they left after a class), so the last counted day is the day before it.
   const state = catchUpState(semester.is_active, semester.left_at);
   const status =
     state === 'open' ? (
@@ -81,7 +78,6 @@ function SemesterCard({ semester, min }: { semester: StudentSemester; min: numbe
   );
 }
 
-/** /student/courses: every semester (the current one first), each with its courses. */
 export default function StudentCourses() {
   const { user } = useAuth();
   const userId = user?.id ?? '';
@@ -90,7 +86,6 @@ export default function StudentCourses() {
     const [semesters, config] = await Promise.all([studentApi.semesters(userId), configApi.appCached()]);
     return { semesters: semesters.semesters ?? [], min: config.attendance_min_percent };
   }, [userId]);
-  // A live class that ended is saved now: show the new numbers.
   useRefreshAfterLive(live.sessions, refresh);
 
   let body: React.ReactNode;

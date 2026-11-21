@@ -7,11 +7,8 @@ import { radioKeys } from '@/components/ui/keys';
 import { Text } from '@/components/ui/text';
 import { cn, FOCUS_RING } from '@/lib/utils';
 
-// Shared pieces of the sign-in, sign-up and password forms.
-
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** The rules the server checks (Django's validators), shown under every "new password" field. */
 export const PASSWORD_RULES = 'At least 8 characters, not only numbers, and not a common password.';
 
 export function emailProblem(email: string): string | undefined {
@@ -21,7 +18,6 @@ export function emailProblem(email: string): string | undefined {
   return undefined;
 }
 
-/** The rules that can be checked here; the server also refuses common passwords. */
 export function newPasswordProblem(password: string): string | undefined {
   if (!password) return 'Choose a password.';
   if (password.length < 8) return 'Use at least 8 characters.';
@@ -42,10 +38,6 @@ const ROLE_CHOICES: { value: SignUpRole; label: string; note: string; icon: Luci
   { value: 'TEACHER', label: 'Teacher', note: 'I teach courses', icon: Presentation },
 ];
 
-/**
- * Sign-up's first question: two big choices, side by side. Keyboard (web): one Tab stop, the arrow
- * keys move and choose, Space chooses.
- */
 export function RoleChoice({ value, onChange }: { value: SignUpRole | null; onChange: (role: SignUpRole) => void }) {
   const refs = React.useRef<(View | null)[]>([]);
   const chosenIndex = ROLE_CHOICES.findIndex((choice) => choice.value === value);
@@ -101,7 +93,6 @@ export function RoleChoice({ value, onChange }: { value: SignUpRole | null; onCh
   );
 }
 
-/** A label and a fixed value that cannot be changed here (e.g. the department). */
 export function FixedField({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <View className="gap-1.5">
@@ -118,7 +109,6 @@ export function FixedField({ label, value, note }: { label: string; value: strin
   );
 }
 
-/** The heading of a sign-in page's card: title and one muted line. */
 export function FormHeading({ title, lead }: { title: string; lead?: string }) {
   return (
     <View className="gap-1">

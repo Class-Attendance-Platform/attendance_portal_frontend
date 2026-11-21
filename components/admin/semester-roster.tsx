@@ -28,7 +28,6 @@ import { FormError, LoadBlock, ResponsiveList, TwoLines } from './parts';
 
 const joinedText = (member: RosterMember) => (member.joined_at ? formatDate(member.joined_at) : 'From the start');
 
-/** Search students and pick several to add to the semester. */
 function AddStudentsDialog({
   open,
   semester,
@@ -64,8 +63,6 @@ function AddStudentsDialog({
     () => (open ? adminApi.students({ search: query, level: level || undefined, status: 'active' }).then((r) => r.students) : Promise.resolve([])),
     [open, query, level]
   );
-  // Former members of this semester ({profile id: left_at}): adding one back re-opens their old
-  // membership, so classes held while they were away count as absent.
   const former = useLoad(
     () =>
       open
@@ -102,12 +99,8 @@ function AddStudentsDialog({
       onClose();
     } catch (caught) {
       const problem = toApiError(caught);
-      // The message bar shows it at once (the notice under a long list can be out of view); the
-      // notice keeps it.
       setError(problem);
       message.error(problem.message);
-      // Added to another semester meanwhile (nothing was added): let go of them and show where
-      // they are now. The message names them.
       const clashing = new Set(semesterClashes(problem).map((clash) => clash.profile_id));
       if (clashing.size) {
         setPicked((current) => new Map([...current].filter(([id]) => !clashing.has(id))));
@@ -118,7 +111,6 @@ function AddStudentsDialog({
     }
   }
 
-  // Current members are left out: there is nothing to add for them.
   const found = results.data ?? [];
   const rows = found.filter((student) => !currentIds.has(student.id));
   const hidden = found.length - rows.length;
@@ -191,11 +183,9 @@ function AddStudentsDialog({
           <View role="list" accessibilityLabel="Students to add" className="rounded-control border border-border">
             {rows.map((student, index) => {
               const left = leftOn.get(student.id);
-              // A student is a current member of one active semester only: they leave the other one
-              // first (the server refuses otherwise).
               const elsewhere = student.semester && student.semester.id !== semester.id ? student.semester : null;
               const where = elsewhere
-                ? null // said in the note under the row
+                ? null
                 : left
                   ? `Left this semester ${formatDate(left)}`
                   : student.semester
@@ -219,7 +209,6 @@ function AddStudentsDialog({
                     className="py-1.5"
                   />
                   {elsewhere ? (
-                    // Full contrast (the row itself is dimmed), lined up with the name.
                     <Text variant="small" tone="warn" className="pb-2.5 pl-[34px]">
                       {`Already in ${elsewhere.label}. Remove them from that semester first.`}
                     </Text>
@@ -235,13 +224,10 @@ function AddStudentsDialog({
   );
 }
 
-/** The semester's students: joined and left dates, add, remove, former members. */
 export function SemesterRoster({ semester, onChanged }: { semester: Semester; onChanged: () => void }) {
   const { isDesktop } = useBreakpoint();
   const confirm = useConfirm();
   const message = useMessage();
-  // A finished semester's class list is everyone who was in it: show former members there. The box
-  // follows Finish and Reopen until the admin sets it themselves.
   const [includeLeft, setIncludeLeft] = React.useState(!semester.is_active);
   const leftChosen = React.useRef(false);
   React.useEffect(() => {

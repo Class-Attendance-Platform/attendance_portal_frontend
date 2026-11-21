@@ -32,16 +32,12 @@ const idLabel = (user: PendingUser) =>
       ? `Employee ID ${user.employee_id}`
       : 'No employee ID';
 
-/** A student just approved: approving does not put them in a semester, so say where to add them. */
 type Approved = { id: string; name: string; semester: { id: string; label: string } | null };
 
-/** /admin/approvals: sign-ups waiting for approval, approve or reject each. */
 export default function AdminApprovals() {
   const confirm = useConfirm();
   const message = useMessage();
   const list = useLoad(() => adminApi.pendingUsers().then((r) => r.users), [], { refreshOnFocus: true });
-  // Active semesters, to point at the one matching an approved student's level and term (none
-  // while they cannot load: the notice then links to Semesters).
   const semesters = useLoad(() => adminApi.semesters('active').then((r) => r.semesters), [], { refreshOnFocus: true });
   const autoApproval = useLoad(() => adminApi.autoApprovalSettings().then((r) => r.settings), [], { refreshOnFocus: true });
   const [updatingRole, setUpdatingRole] = React.useState<'admin' | 'teacher' | 'student' | null>(null);
@@ -85,7 +81,6 @@ export default function AdminApprovals() {
     } catch (caught) {
       const problem = toApiError(caught);
       if (problem.status === 404) {
-        // Rejected or removed meanwhile (another admin or tab): it is not waiting any more.
         drop(user);
         message.error(`${fullName(user)}'s sign-up is no longer waiting: it was rejected or removed meanwhile.`);
       } else {
@@ -112,7 +107,6 @@ export default function AdminApprovals() {
       message.success(`${name}'s sign-up was rejected.`);
     } catch (caught) {
       const problem = toApiError(caught);
-      // Approved, rejected or removed meanwhile (another admin or tab): it is not waiting any more.
       if (problem.code === ADMIN_ERRORS.alreadyApproved || problem.status === 404) drop(user);
       message.error(
         problem.status === 404 ? `${name}'s sign-up is no longer waiting: it was rejected or removed meanwhile.` : problem.message
@@ -203,7 +197,6 @@ export default function AdminApprovals() {
           Control whether new registrations are approved automatically or require manual review.
         </Text>
         <View className="divide-y divide-border">
-          {/* Admin Toggle */}
           <View className="flex-row items-center justify-between py-3">
             <View className="flex-1 pr-4">
               <View className="flex-row items-center gap-2">
@@ -228,7 +221,6 @@ export default function AdminApprovals() {
             />
           </View>
 
-          {/* Teacher Toggle */}
           <View className="flex-row items-center justify-between py-3">
             <View className="flex-1 pr-4">
               <View className="flex-row items-center gap-2">
@@ -253,7 +245,6 @@ export default function AdminApprovals() {
             />
           </View>
 
-          {/* Student Toggle */}
           <View className="flex-row items-center justify-between py-3">
             <View className="flex-1 pr-4">
               <View className="flex-row items-center gap-2">

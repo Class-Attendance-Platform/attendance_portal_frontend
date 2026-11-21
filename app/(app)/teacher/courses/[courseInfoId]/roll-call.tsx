@@ -38,12 +38,10 @@ import { cn } from '@/lib/utils';
 
 type Marks = Record<UUID, Mark>;
 
-/** /teacher/courses/[courseInfoId]/roll-call?date=: mark each student for a date (adds or corrects that class). */
 export default function TeacherRollCall() {
   const params = useLocalSearchParams<{ courseInfoId: string; date?: string }>();
   const courseInfoId = param(params.courseInfoId) ?? '';
   const asked = param(params.date);
-  // Exactly YYYY-MM-DD (a time part would reach the server as it is) and not in the future.
   const badDate = !!asked && (!isDateParam(asked) || isFutureDate(asked));
 
   const { isDesktop } = useBreakpoint();
@@ -52,31 +50,23 @@ export default function TeacherRollCall() {
   const navigation = useNavigation();
 
   const course = useLoad(() => teacherApi.course(courseInfoId), [courseInfoId], { refreshOnFocus: true });
-  // The semester's dates: the date field offers only those (the server refuses others).
   const range = course.data ? rollCallRange(course.data.course.semester) : null;
-  // Without a date: today, or for a finished semester its newest class (nobody is enrolled today).
   const today = todayISO();
   const fallback =
     course.data && range
       ? defaultRollCallDate(isFinished(course.data.course), course.data.dates.map((item) => item.date), range, today)
       : today;
   const date = asked && !badDate ? asked : fallback;
-  // For the "Left" notes (students who left since this date).
   const newestClass = course.data?.dates[0]?.date;
   const semesterActive = !!course.data?.course.semester.is_active;
-  // Who the roll call covers on that date (students who left since too), with what was saved.
-  // Reloaded when the page comes back into view, so a session or correction made meanwhile shows.
   const list = useLoad(() => teacherApi.rollCallList(courseInfoId, date), [courseInfoId, date], { refreshOnFocus: true });
 
   const [marks, setMarks] = React.useState<Marks>({});
   const [initial, setInitial] = React.useState<Marks>({});
   const [saving, setSaving] = React.useState(false);
-  // The last save's summary and its date: the notice shows only on that date.
   const [saved, setSaved] = React.useState<{ text: string; date: string } | null>(null);
   const [problem, setProblem] = React.useState<string | null>(null);
 
-  // Start from what is saved. When the list loads again (Back to this page, or after a refused
-  // save), students the teacher already switched keep the switch; the others show the new status.
   const marksRef = React.useRef({ marks, initial });
   marksRef.current = { marks, initial };
   React.useEffect(() => {
@@ -85,7 +75,6 @@ export default function TeacherRollCall() {
     setMarks(keepSwitches(fresh, marksRef.current.marks, marksRef.current.initial));
   }, [list.data]);
 
-  // A new date starts clean.
   React.useEffect(() => {
     setMarks({});
     setInitial({});
@@ -97,8 +86,6 @@ export default function TeacherRollCall() {
   const liveSessionId = list.data?.live_session_id ?? null;
   const presentCount = rows.filter((row) => marks[row.profile_id] === 'PRESENT').length;
   const absentCount = rows.filter((row) => marks[row.profile_id] === 'ABSENT').length;
-  // On a date that has a class, students with no mark yet (e.g. who joined after it) stay so
-  // unless the teacher picks Present or Absent for them.
   const unmarkedCount = rows.filter((row) => marks[row.profile_id] === null).length;
   const unmarkedSaved = hasClass ? rows.filter((row) => row.status === null).length : 0;
   const changes = rows.filter((row) => marks[row.profile_id] !== initial[row.profile_id]).length;
@@ -111,7 +98,6 @@ export default function TeacherRollCall() {
   });
 
   async function changeDate(next: string) {
-    // The date stays while a save runs: its result belongs to this date.
     if (saving || next === date) return;
     if (changes > 0) {
       const ok = await confirm({
@@ -135,24 +121,18 @@ export default function TeacherRollCall() {
     try {
       const result = await teacherApi.rollCall(courseInfoId, {
         date,
-        // Students with no mark are in neither list: the server leaves them as they are.
         ...rollCallIds(rows, marks),
-        // The server refuses if the date changed since this list was loaded (nothing is overwritten).
         version: list.data.version,
       });
       const summary = `Saved ${formatDate(result.date)}: ${result.present} present, ${result.absent} absent${
         result.changed ? ` (${result.changed} changed)` : ''
       }.${result.unmarked ? ` ${plural(result.unmarked, 'student has', 'students have')} no mark yet.` : ''}`;
-      // What was sent is saved now (the switches are off while saving), even if the reload
-      // below fails: nothing is left to save and leaving does not ask.
       setInitial(marks);
       message.success(summary);
       setSaved({ text: summary, date: result.date });
       await Promise.all([list.reload({ quiet: true }), course.reload({ quiet: true })]);
     } catch (caught) {
       if (isApiError(caught) && (caught.code === TEACHER_ERRORS.dateChanged || caught.code === TEACHER_ERRORS.sessionRunning)) {
-        // Show what is saved now; the teacher's own switches stay. The message bar says it where
-        // the teacher is (by the Save button); the notice at the top keeps it.
         setProblem(caught.message);
         message.error(caught.message);
         await list.reload({ quiet: true });
@@ -164,8 +144,6 @@ export default function TeacherRollCall() {
     }
   }
 
-  // Back to the course page underneath as it was left (its tab and date), asking first when
-  // there are changes. Opened another way (a link, another page): to the course page.
   function backToCourse() {
     const state = navigation.getState();
     const below = state && state.index > 0 ? state.routes[state.index - 1] : undefined;
@@ -181,7 +159,6 @@ export default function TeacherRollCall() {
     { label: 'Roll call' },
   ];
 
-  // Another teacher's course or a missing one: nothing on this page can help (no date, no retry).
   const finalError = isFinalError(list.error) ? list.error : isFinalError(course.error) ? course.error : null;
   if (finalError) {
     return (
@@ -193,7 +170,6 @@ export default function TeacherRollCall() {
   }
 
   const loadError = list.error ?? course.error;
-  // A date the server refuses (outside the semester, or in the future): pick another one above.
   const dateError = list.error?.status === 400 ? list.error : null;
   const loading = list.loading || (course.loading && !asked);
   const ready = !loading && !loadError;
@@ -232,7 +208,6 @@ export default function TeacherRollCall() {
               title="A live session is running on this date"
               message="Mark students present in the session instead. Their statuses show here after the session is saved, and you can correct them then."
             >
-              {/* The course page's Attendance tab has the session's lists and Mark present. */}
               <Link href={courseHref(courseInfoId)} dismissTo asChild>
                 <Button label="Go to the live session" icon={Radio} compact />
               </Link>

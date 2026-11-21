@@ -8,23 +8,16 @@ import { Card } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/states';
 import type { ApiError } from '@/lib/api/client';
 
-/** Another teacher's course (403) or one that does not exist (404): "Try again" cannot help. */
 export const isFinalError = (error: ApiError | null | undefined): error is ApiError =>
   error?.status === 403 || error?.status === 404;
 
 export type CourseLoadErrorProps = {
   error: ApiError;
-  /** Title for other errors (no connection, server error), e.g. "Couldn't open this course". */
   title: string;
   onRetry: () => void;
-  /** A 404 of the page's own item (a student not in the course) instead of "Course not found". */
   missing?: { title: string; message: string; backLabel: string; backHref: Href };
 };
 
-/**
- * A teacher page that could not load, in a card. Another teacher's course and a missing one get
- * a plain reason and a way back; only other errors offer "Try again".
- */
 export function CourseLoadError({ error, title, onRetry, missing }: CourseLoadErrorProps) {
   const denied = error.status === 403;
   const notFound = error.status === 404;

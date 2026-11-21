@@ -11,11 +11,6 @@ import { formatPercent, plural } from '@/lib/format';
 import { cn, FOCUS_RING } from '@/lib/utils';
 import { belowMinText, noClassesText, type CatchUpState } from './logic';
 
-/**
- * From this window width the row puts its numbers in a 340 px column next to the name. Below it
- * (phones, tablets, a narrow window: the 248 px sidebar starts at 768 px) the numbers go under
- * the name, or the name would get only a few pixels.
- */
 const SIDE_BY_SIDE_MIN = 1024;
 
 export type CourseRowProps = {
@@ -25,19 +20,14 @@ export type CourseRowProps = {
   teacher?: string | null;
   attended: number;
   held: number;
-  /** null: no class held yet. */
   percent: number | null;
   classesNeeded: number | null;
   belowMin: boolean;
-  /** The minimum percentage (75). */
   min: number;
-  /** Whether more classes can still count (no catch-up advice for a finished or left semester). */
   catchUp?: CatchUpState;
-  /** Draw the divider above (all rows but the first). */
   divider?: boolean;
 };
 
-/** The warning under a course below the minimum (words, not colour alone). */
 export function BelowMinNote({ text }: { text: string }) {
   return (
     <View className="self-stretch rounded-control border border-warn-border bg-warn-soft px-2 py-1.5">
@@ -48,10 +38,6 @@ export function BelowMinNote({ text }: { text: string }) {
   );
 }
 
-/**
- * One course with its attendance: "CSE301 · Software Engineering", the percentage, a plain bar,
- * "9 of 10 classes" and, below the minimum, how many classes to attend. Opens the course page.
- */
 export function CourseRow({
   courseInfoId,
   code,
@@ -134,7 +120,6 @@ export function CourseRow({
         ) : (
           <>
             <View className="flex-row items-baseline justify-between gap-2">
-              {/* min-w-0: a very long word wraps instead of pushing the percentage off the screen. */}
               <Text weight="semibold" className="min-w-0 flex-shrink">
                 {name}
               </Text>

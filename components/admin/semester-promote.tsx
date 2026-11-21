@@ -18,7 +18,6 @@ import { FieldCell, FieldRow } from './student-dialogs';
 
 type Target = 'new' | 'existing';
 
-/** Move students on to the next semester; the source is finished, its history kept. */
 export function SemesterPromote({ semester }: { semester: Semester }) {
   const router = useRouter();
   const config = useAppConfig();
@@ -51,7 +50,6 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
   const [error, setError] = React.useState<ApiError | null>(null);
   const [saving, setSaving] = React.useState(false);
 
-  // Defaults once the config (levels, terms) is known.
   React.useEffect(() => {
     const value = nextLevelTerm(config, semester.level, semester.semester, semester.session);
     setLevel(value?.level ?? '');
@@ -59,8 +57,6 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
     setSession(value?.session ?? semester.session);
   }, [config, semester.level, semester.semester, semester.session]);
 
-  // Everyone is chosen until the admin changes the ticks; a refresh then keeps their ticks (minus
-  // students who left). `ticksFor`: the semester whose ticks the admin changed.
   const ticksFor = React.useRef<UUID | null>(null);
   const changeTicks = (change: React.SetStateAction<Set<UUID> | null>) => {
     ticksFor.current = semester.id;
@@ -70,7 +66,6 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
     if (!data.data) return;
     const ids = data.data.members.map((member) => member.profile_id);
     setChosen((current) => chosenAfterLoad(ids, current, ticksFor.current === semester.id));
-    // A target finished or deleted elsewhere can no longer be chosen.
     const offered = data.data.others.filter((other) => other.is_active).map((other) => other.id);
     setExistingId((current) => keepChoice(current, offered, null));
   }, [data.data, semester.id]);
@@ -133,8 +128,6 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
           });
           if (!ok) return;
 
-          // Exactly the students ticked here, even when that is everyone: without the list the server
-          // would also move students added after this page loaded.
           const body: PromoteBody =
             target === 'new'
               ? {
@@ -152,12 +145,8 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
           } catch (caught) {
             const problem = toApiError(caught);
             setError(problem);
-            // Students now in another active semester (nothing moved): untick them, the notice names them all.
             const clashing = new Set(semesterClashes(problem).map((clash) => clash.profile_id));
             if (clashing.size) changeTicks((current) => new Set([...(current ?? [])].filter((id) => !clashing.has(id))));
-            // Someone left the class list, or the chosen semester was finished or deleted, meanwhile:
-            // load it again (the ticks stay, minus who left; a target that can no longer be chosen
-            // is dropped and shows greyed out).
             if (problem.field('profile_ids') || problem.field('target_semester_id') || problem.code === 'semester_finished') {
               void data.reload();
             }
@@ -166,7 +155,6 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
           }
         }
 
-        // The new semester's field errors come nested under `target`.
         const targetError = (key: string) => {
           const nested = (error?.body.errors as { target?: Record<string, unknown> } | undefined)?.target?.[key];
           return Array.isArray(nested) && typeof nested[0] === 'string' ? nested[0] : undefined;
@@ -176,7 +164,6 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
         const existingOptions = others.map((other) => ({
           label: other.label,
           value: other.id,
-          // Students moved into a finished semester would have no active one (the API refuses it).
           description: other.is_active
             ? `Active · ${plural(other.student_count, 'student')}`
             : `Finished · reopen it first · ${plural(other.student_count, 'student')}`,
@@ -279,7 +266,6 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
                     variant="quiet"
                     compact
                     onPress={() => {
-                      // Everyone again, as at the start: students who join later are ticked too.
                       ticksFor.current = null;
                       setChosen(new Set(members.map((member) => member.profile_id)));
                     }}
@@ -327,7 +313,6 @@ export function SemesterPromote({ semester }: { semester: Semester }) {
                 variant="primary"
                 icon={GraduationCap}
                 loading={saving}
-                // Nothing to move them to: the only semesters there are finished (greyed out above).
                 disabled={!picked.size || (target === 'existing' && !existingOptions.some((option) => !option.disabled))}
                 onPress={promote}
               />

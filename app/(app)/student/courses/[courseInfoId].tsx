@@ -34,24 +34,13 @@ import { cn } from '@/lib/utils';
 
 type DayRow = StudentCourseDay & { how: string };
 
-/**
- * From this window width the class days are a table (Date, Status, How, Note). Below it the
- * columns are too narrow for the pills (the 248 px sidebar starts at 768 px): the phone list.
- */
 const TABLE_MIN = 1024;
 
-/**
- * Below this width (in text units: large text needs more room) the phone numbers card puts two
- * numbers in its first row and the third under them: three side by side would break
- * "Attendance" and "100%" in the middle.
- */
 const THREE_NUMBERS_MIN = 360;
 
-/** How a day was marked, or why it does not count or is absent. */
 function howText(day: StudentCourseDay, detail: StudentCourseDetail, index: number): string {
   if (!day.status) return outsideReason(detail.days, index, detail);
   if (day.status === 'ABSENT') {
-    // Older servers send no absent_reason: tell what the day itself says.
     const guess = day.changed ? 'changed' : day.method === 'TEACHER' ? 'roll_call' : 'not_checked_in';
     return absentReasonText(day.absent_reason) || absentReasonText(guess);
   }
@@ -62,7 +51,6 @@ const ChangedPill = () => <Pill label="Changed by teacher" tone="info" icon={Pen
 
 type NumberItem = { label: string; value: string; hint: string; tone?: 'default' | 'warn' };
 
-/** Phones: the three numbers in one card (tiles would wrap); on a narrow screen 2 + 1. */
 function PhoneNumbers({ numbers }: { numbers: NumberItem[] }) {
   const { width, fontScale } = useWindowDimensions();
   const narrow = width / (fontScale || 1) < THREE_NUMBERS_MIN;
@@ -94,7 +82,6 @@ function PhoneNumbers({ numbers }: { numbers: NumberItem[] }) {
   );
 }
 
-/** /student/courses/[courseInfoId]: one course with each class day, newest first. */
 export default function StudentCourse() {
   const params = useLocalSearchParams<{ courseInfoId: string }>();
   const courseInfoId = firstParam(params.courseInfoId) ?? '';
@@ -105,7 +92,6 @@ export default function StudentCourse() {
     const [detail, config] = await Promise.all([studentApi.course(courseInfoId), configApi.appCached()]);
     return { detail, min: config.attendance_min_percent };
   }, [courseInfoId]);
-  // A live class of this course ended (saved now): show its day.
   useRefreshAfterLive(live.sessions, refresh, courseInfoId);
 
   const course = data?.detail.course;
@@ -155,10 +141,8 @@ export default function StudentCourse() {
   const noClasses = detail.held === 0 || detail.percent === null;
   const low = !noClasses && (detail.percent ?? 0) < min;
   const needed = detail.classes_needed;
-  // More classes can count only in a semester that is running and that the student is still in.
   const state = catchUpState(course.semester.is_active, detail.left_at);
   const closedHint = state === 'finished' ? 'Semester finished' : 'You left this semester';
-  // "No classes yet" while classes can still come; "No classes held" once the semester is over.
   const noClassesHint = noClassesText(state);
   const rows: DayRow[] = detail.days.map((day, index) => ({ ...day, how: howText(day, detail, index) }));
   const meta = `${course.code} · ${course.teacher_name || 'No teacher yet'}\n${course.semester.label}`;
@@ -171,7 +155,6 @@ export default function StudentCourse() {
     },
     { label: 'Attended', value: String(detail.attended), hint: `of ${plural(detail.held, 'class', 'classes')}` },
     {
-      // "Needed" on phones: three numbers share one row there.
       label: isDesktop ? 'Classes needed' : 'Needed',
       value: noClasses || (low && state !== 'open') ? '—' : needed === null ? '—' : needed === 0 ? 'None' : String(needed),
       hint: noClasses
@@ -190,8 +173,6 @@ export default function StudentCourse() {
 
   const { page, setPage, pageSize, setPageSize, totalPages, pagedItems } = usePagination(rows, { pageSize: 15 });
 
-  // Status and Note hold one pill each: fixed widths keep "Not counted" and "Changed by teacher"
-  // on one line.
   const columns: Column<DayRow>[] = [
     { key: 'date', title: 'Date', flex: 1.4, render: (row) => <Text weight="medium">{formatDateWithWeekday(row.date)}</Text> },
     { key: 'status', title: 'Status', width: 128, render: (row) => <StatusPill status={row.status} emptyLabel="Not counted" /> },

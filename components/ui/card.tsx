@@ -6,18 +6,13 @@ import { cn } from '@/lib/utils';
 import { Text } from './text';
 
 export type CardProps = ViewProps & {
-  /** A section heading inside the card. */
   title?: string;
-  /** Small text next to the title, e.g. "(11)". */
   titleNote?: string;
-  /** Buttons or links on the right of the title. */
   actions?: React.ReactNode;
-  /** false: no inner padding (for lists that run edge to edge). */
   padded?: boolean;
   className?: string;
 };
 
-/** White box with a 1 px border: radius 10 (12 on phones), padding 20 (16 on phones). No shadow. */
 export function Card({ title, titleNote, actions, padded = true, className, children, ...props }: CardProps) {
   const { isDesktop } = useBreakpoint();
   return (
