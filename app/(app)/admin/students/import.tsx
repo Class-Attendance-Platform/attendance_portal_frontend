@@ -25,7 +25,6 @@ import {
   type Column,
 } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { adminApi, ApiError, type ImportResult, type ImportRow } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { todayISO } from '@/lib/dates';
@@ -253,7 +252,6 @@ export default function AdminStudentImport() {
           confirmLabel: 'Leave anyway',
           cancelLabel: 'Stay',
         };
-  useLeaveGuard(keepPasswords, discardPasswords);
 
   async function pick() {
     const chosen = await chooseFile();

@@ -9,7 +9,7 @@ import { cn, FOCUS_RING } from '@/lib/utils';
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const PASSWORD_RULES = 'At least 8 characters, not only numbers, and not a common password.';
+export const PASSWORD_RULES = 'At least 8 characters.';
 
 export function emailProblem(email: string): string | undefined {
   const trimmed = email.trim();
@@ -21,7 +21,6 @@ export function emailProblem(email: string): string | undefined {
 export function newPasswordProblem(password: string): string | undefined {
   if (!password) return 'Choose a password.';
   if (password.length < 8) return 'Use at least 8 characters.';
-  if (/^\d+$/.test(password)) return 'Use letters or symbols too, not only numbers.';
   return undefined;
 }
 

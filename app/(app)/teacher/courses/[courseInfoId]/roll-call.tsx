@@ -28,7 +28,6 @@ import {
 import { membershipNote } from '@/components/teacher/students-tab';
 import { useLoad } from '@/components/teacher/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { isApiError } from '@/lib/api/client';
 import { TEACHER_ERRORS, teacherApi, type RollCallStudent } from '@/lib/api/teacher';
 import type { UUID } from '@/lib/api/types';
@@ -89,13 +88,6 @@ export default function TeacherRollCall() {
   const unmarkedCount = rows.filter((row) => marks[row.profile_id] === null).length;
   const unmarkedSaved = hasClass ? rows.filter((row) => row.status === null).length : 0;
   const changes = rows.filter((row) => marks[row.profile_id] !== initial[row.profile_id]).length;
-
-  useLeaveGuard(changes > 0 && !saving, {
-    title: 'Discard your changes?',
-    message: `You changed ${changes} ${changes === 1 ? 'student' : 'students'} on ${formatDate(date)} without saving.`,
-    confirmLabel: 'Discard',
-    cancelLabel: 'Keep editing',
-  });
 
   async function changeDate(next: string) {
     if (saving || next === date) return;

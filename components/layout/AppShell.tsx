@@ -15,6 +15,7 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 import type { User } from '@/lib/api/types';
 import { fullName, roleLabel } from '@/lib/format';
 import { homeFor } from '@/lib/routes';
+import { colors } from '@/lib/theme';
 import { cn, FOCUS_RING } from '@/lib/utils';
 import { activeItem, isActive, NAV, type NavItem } from './nav';
 
@@ -55,8 +56,10 @@ function Brand({ size, home, back }: { size: number; home: Href; back: boolean }
       >
         <Image source={LOGO} style={{ width: size, height: size }} resizeMode="contain" accessibilityIgnoresInvertColors />
         <View>
-          <Text weight="bold">HSTU Attendance</Text>
-          <Text variant="caption" tone="muted">
+          <Text weight="bold" style={{ color: colors.sidebarText }}>
+            HSTU Attendance
+          </Text>
+          <Text variant="caption" style={{ color: colors.sidebarMuted }}>
             Portal
           </Text>
         </View>
@@ -73,7 +76,7 @@ function Sidebar({ user, items, pathname }: { user: User; items: NavItem[]; path
     <View
       role="navigation"
       accessibilityLabel="Main"
-      className="w-[248px] border-r border-border bg-surface"
+      className="w-[248px] border-r border-sidebar-border bg-sidebar-bg"
       style={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 16, paddingLeft: insets.left + 14, paddingRight: 14 }}
     >
       <View className="px-2">
@@ -90,12 +93,15 @@ function Sidebar({ user, items, pathname }: { user: User; items: NavItem[]; path
                 accessibilityState={{ selected: active }}
                 className={cn(
                   'min-h-[44px] flex-row items-center gap-2.5 rounded-control px-3 py-2.5',
-                  active ? 'bg-primary-soft' : 'active:bg-bg web:hover:bg-bg',
+                  active ? 'bg-sidebar-btn-active-bg' : 'active:bg-sidebar-btn-hover web:hover:bg-sidebar-btn-hover',
                   FOCUS_RING
                 )}
               >
-                <Icon as={item.icon} size={20} color={active ? 'primary' : 'text'} />
-                <Text weight={active ? 'semibold' : 'medium'} tone={active ? 'primary' : 'default'}>
+                <Icon as={item.icon} size={20} color={active ? 'sidebarActiveText' : 'sidebarText'} />
+                <Text
+                  weight={active ? 'semibold' : 'medium'}
+                  style={{ color: active ? colors.sidebarActiveText : colors.sidebarText }}
+                >
                   {item.label}
                 </Text>
               </Pressable>
@@ -103,19 +109,22 @@ function Sidebar({ user, items, pathname }: { user: User; items: NavItem[]; path
           );
         })}
       </View>
-      <View className="mt-4 border-t border-border pt-3">
+      <View className="mt-4 border-t border-sidebar-border pt-3">
         <Link href="/account" asChild>
           <Pressable
             role="link"
             accessibilityLabel={`Account: ${fullName(user)}, ${userLine(user)}`}
-            className={cn('min-h-[44px] flex-row items-center gap-3 rounded-control px-2 py-1.5 active:bg-bg web:hover:bg-bg', FOCUS_RING)}
+            className={cn(
+              'min-h-[44px] flex-row items-center gap-3 rounded-control px-2 py-1.5 active:bg-sidebar-btn-hover web:hover:bg-sidebar-btn-hover',
+              FOCUS_RING
+            )}
           >
             <Avatar name={fullName(user)} size={36} />
             <View className="flex-1">
-              <Text weight="semibold" numberOfLines={1}>
+              <Text weight="semibold" numberOfLines={1} style={{ color: colors.sidebarText }}>
                 {fullName(user)}
               </Text>
-              <Text variant="small" tone="muted" numberOfLines={1}>
+              <Text variant="small" numberOfLines={1} style={{ color: colors.sidebarMuted }}>
                 {userLine(user)}
               </Text>
             </View>

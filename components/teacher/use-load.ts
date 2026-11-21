@@ -1,7 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import * as React from 'react';
 
-import { onComeBack } from '@/hooks/onComeBack';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { ApiError, toApiError } from '@/lib/api/client';
 
@@ -54,10 +53,6 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList, {
       } else if (refreshOnFocus) {
         void reload({ quiet: true });
       }
-      if (!refreshOnFocus) return undefined;
-      return onComeBack(() => {
-        void reload({ quiet: true });
-      });
     }, [refreshOnFocus, reload])
   );
 

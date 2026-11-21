@@ -34,7 +34,6 @@ import {
 import { courseHref, isFinished, param, rollCallHref } from '@/components/teacher/labels';
 import { useLoad } from '@/components/teacher/use-load';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { isApiError } from '@/lib/api/client';
 import { facesApi, type FaceReason, type RecognizeResult, type RecognizedStudent } from '@/lib/api/faces';
 import { sessionsApi, type HistoryDay } from '@/lib/api/sessions';
@@ -86,22 +85,6 @@ export default function TeacherFaceAttendance() {
   const [viewerOpen, setViewerOpen] = React.useState(false);
 
   const reviewing = phase === 'review' && !!result;
-  useLeaveGuard(
-    photos.length > 0 && phase !== 'saving',
-    reviewing
-      ? {
-          title: 'Leave without saving?',
-          message: 'The class photo result and your changes are not saved yet.',
-          confirmLabel: 'Leave',
-          cancelLabel: 'Keep reviewing',
-        }
-      : {
-          title: 'Leave without saving?',
-          message: 'Your class photos will be cleared. Nothing has been saved.',
-          confirmLabel: 'Leave',
-          cancelLabel: 'Stay',
-        }
-  );
 
   async function fetchToday(): Promise<HistoryDay | null | undefined> {
     try {

@@ -22,7 +22,6 @@ import {
   updateSession,
   WEB_SESSION_KEY,
 } from '@/lib/session';
-import { sharedRequest } from '@/lib/shared-request';
 
 export type { Role as UserRole, User } from '@/lib/api/types';
 
@@ -40,8 +39,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ROLES: Role[] = ['STUDENT', 'TEACHER', 'ADMIN'];
-
-const PROFILE_REUSE_MS = 5000;
 
 function normaliseUser(raw: any): User | null {
   if (!raw || typeof raw !== 'object' || !raw.id) return null;
@@ -90,20 +87,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return signedIn;
   }, []);
 
-  const [askProfile] = useState(() => sharedRequest<User | null>(PROFILE_REUSE_MS));
-
-  const refreshUser = useCallback(() => {
+  const refreshUser = useCallback(async () => {
     const generation = sessionGeneration();
-    return askProfile(generation, async () => {
-      const response = await authApi.me();
-      if (generation !== sessionGeneration()) return null;
-      const fresh = normaliseUser(response.user);
-      if (!fresh) return null;
-      setUserState(fresh);
-      await updateSession({ user: fresh }, { onlyIfSaved: true, userId: fresh.id });
-      return fresh;
-    });
-  }, [askProfile]);
+    const response = await authApi.me();
+    if (generation !== sessionGeneration()) return null;
+    const fresh = normaliseUser(response.user);
+    if (!fresh) return null;
+    setUserState(fresh);
+    await updateSession({ user: fresh }, { onlyIfSaved: true, userId: fresh.id });
+    return fresh;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

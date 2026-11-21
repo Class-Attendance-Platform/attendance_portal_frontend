@@ -18,7 +18,7 @@ export function Card({ title, titleNote, actions, padded = true, className, chil
   return (
     <View
       className={cn(
-        'border border-border bg-surface',
+        'border border-card-border bg-card-bg',
         isDesktop ? 'rounded-card' : 'rounded-card-phone',
         padded && (isDesktop ? 'p-5' : 'p-4'),
         className

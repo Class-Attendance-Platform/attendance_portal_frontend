@@ -22,16 +22,19 @@ export type ButtonProps = Omit<PressableProps, 'children' | 'style'> & {
 };
 
 const CONTAINER: Record<ButtonVariant, string> = {
-  primary: 'bg-primary border-primary active:bg-primary-hover active:border-primary-hover web:hover:bg-primary-hover web:hover:border-primary-hover',
-  secondary: 'bg-surface border-border active:bg-bg web:hover:bg-bg',
-  quiet: 'bg-transparent border-transparent active:bg-primary-soft web:hover:bg-primary-soft',
-  danger: 'bg-absent border-absent active:opacity-90 web:hover:opacity-90',
+  primary:
+    'bg-btn-primary-bg border-btn-primary-bg active:bg-btn-primary-hover active:border-btn-primary-hover web:hover:bg-btn-primary-hover web:hover:border-btn-primary-hover',
+  secondary:
+    'bg-btn-secondary-bg border-btn-secondary-border active:bg-btn-secondary-hover web:hover:bg-btn-secondary-hover',
+  quiet: 'bg-transparent border-transparent active:bg-btn-quiet-hover web:hover:bg-btn-quiet-hover',
+  danger: 'bg-btn-danger-bg border-btn-danger-bg active:opacity-90 web:hover:opacity-90',
 };
 
 function contentColor(variant: ButtonVariant, destructive?: boolean): ColorToken {
-  if (variant === 'primary' || variant === 'danger') return 'white';
+  if (variant === 'primary') return 'btnPrimaryText';
+  if (variant === 'danger') return 'btnDangerText';
   if (destructive) return 'absent';
-  return variant === 'quiet' ? 'primary' : 'text';
+  return variant === 'quiet' ? 'btnQuietText' : 'btnSecondaryText';
 }
 
 export const Button = React.forwardRef<View, ButtonProps>(function Button(

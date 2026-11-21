@@ -18,10 +18,7 @@ import { MessageProvider } from '@/components/ui/message-bar';
 import { ErrorState } from '@/components/ui/states';
 import { FontsReadyProvider } from '@/components/ui/text';
 import { AuthProvider } from '@/hooks/AuthContext';
-import { watchBrowserHistory } from '@/hooks/useLeaveGuard';
 import { colors, NAV_THEME } from '@/lib/theme';
-
-watchBrowserHistory();
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (

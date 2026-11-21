@@ -2,7 +2,6 @@ import { useFocusEffect } from 'expo-router';
 import * as React from 'react';
 
 import { useMessage } from '@/components/ui/message-bar';
-import { onComeBack } from '@/hooks/onComeBack';
 import { toApiError, type ApiError } from '@/lib/api/client';
 
 export type LoadState<T> = {
@@ -74,9 +73,6 @@ export function useLoad<T>(load: () => Promise<T>, deps: React.DependencyList): 
       } else if (hasData.current || failed.current) {
         run('quiet');
       }
-      return onComeBack(() => {
-        run('quiet');
-      });
     }, [run])
   );
 

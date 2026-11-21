@@ -1,7 +1,6 @@
 import { useFocusEffect, useNavigation } from 'expo-router';
 import * as React from 'react';
 
-import { onComeBack } from '@/hooks/onComeBack';
 import { ApiError } from '@/lib/api';
 import { toApiError } from '@/lib/api/client';
 import { focusAction, takeQuietAnswer } from './rules';
@@ -99,7 +98,6 @@ export function useLoad<T>(
       } else {
         onReturn();
       }
-      return onComeBack(onReturn);
     }, [onReturn])
   );
 

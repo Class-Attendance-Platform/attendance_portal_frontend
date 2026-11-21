@@ -9,9 +9,12 @@
     --color-border: 220 227 221;
     --color-text: 23 32 26;
     --color-muted: 82 94 85;
+    --color-white: 255 255 255;
+
     --color-primary: 10 107 59;
     --color-primary-hover: 8 85 47;
     --color-primary-soft: 228 241 232;
+
     --color-present: 21 128 61;
     --color-absent: 180 35 24;
     --color-absent-soft: 253 236 234;
@@ -22,5 +25,38 @@
     --color-info: 3 105 161;
     --color-info-soft: 224 242 254;
     --color-track: 230 235 231;
+
+    /* sidebar er color */
+    --color-sidebar-bg: var(--color-surface);
+    --color-sidebar-border: var(--color-border);
+    --color-sidebar-text: var(--color-text);
+    --color-sidebar-muted: var(--color-muted);
+    --color-sidebar-btn-hover: var(--color-bg);
+    --color-sidebar-btn-active-bg: var(--color-primary-soft);
+    --color-sidebar-btn-active-text: var(--color-primary);
+
+    /* primary / accent button */
+    --color-btn-primary-bg: var(--color-primary);
+    --color-btn-primary-hover: var(--color-primary-hover);
+    --color-btn-primary-text: var(--color-white);
+
+    /* baki button gula */
+    --color-btn-secondary-bg: var(--color-surface);
+    --color-btn-secondary-border: var(--color-border);
+    --color-btn-secondary-hover: var(--color-bg);
+    --color-btn-secondary-text: var(--color-text);
+    --color-btn-quiet-hover: var(--color-primary-soft);
+    --color-btn-quiet-text: var(--color-primary);
+    --color-btn-danger-bg: var(--color-absent);
+    --color-btn-danger-text: var(--color-white);
+
+    /* card er color */
+    --color-card-bg: var(--color-surface);
+    --color-card-border: var(--color-border);
+
+    /* font er color */
+    --color-font-main: var(--color-text);
+    --color-font-muted: var(--color-muted);
+    --color-font-accent: var(--color-primary);
   }
 }
