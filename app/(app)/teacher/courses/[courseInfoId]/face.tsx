@@ -19,7 +19,6 @@ import { AttendanceToggle, ChoiceGroup } from '@/components/teacher/choice-group
 import { PhotoThumb, PhotoViewer, type ClassPhoto } from '@/components/teacher/face-photos';
 import {
   correctedMarks,
-  extraPhotosText,
   facesShown,
   noFacesText,
   photoProblem,
@@ -39,11 +38,9 @@ import { facesApi, type FaceReason, type RecognizeResult, type RecognizedStudent
 import { sessionsApi, type HistoryDay } from '@/lib/api/sessions';
 import { teacherApi } from '@/lib/api/teacher';
 import { todayISO } from '@/lib/dates';
-import { formatDate } from '@/lib/format';
+import { formatDate, plural } from '@/lib/format';
 import { colors } from '@/lib/theme';
 import { cn } from '@/lib/utils';
-
-const MAX_PHOTOS = 3;
 
 type Group = 'present' | 'absent' | 'unsure';
 
@@ -98,8 +95,6 @@ export default function TeacherFaceAttendance() {
 
   async function addPhotos(fromCamera: boolean) {
     setError(null);
-    const room = MAX_PHOTOS - photos.length;
-    if (room <= 0) return;
     try {
       if (fromCamera && Platform.OS !== 'web') {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -113,7 +108,7 @@ export default function TeacherFaceAttendance() {
         : await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsMultipleSelection: true,
-            selectionLimit: room,
+            selectionLimit: 0,
             quality: 0.9,
           });
       if (picked.canceled) return;
@@ -123,16 +118,15 @@ export default function TeacherFaceAttendance() {
         if (problem) problems.push(problem);
         return !problem;
       });
-      const added = usable.slice(0, room).map((asset, index) => ({
+      const added = usable.map((asset, index) => ({
         uri: asset.uri,
         name: asset.fileName || `class-photo-${photos.length + index + 1}.jpg`,
         type: asset.mimeType || 'image/jpeg',
         width: asset.width,
         height: asset.height,
       }));
-      setPhotos((current) => [...current, ...added].slice(0, MAX_PHOTOS));
+      setPhotos((current) => [...current, ...added]);
       setError(photoProblemText(problems, picked.assets.length));
-      if (usable.length > room) message.info(extraPhotosText(room, MAX_PHOTOS));
     } catch {
       setError(Platform.OS === 'web' ? photoProblemText(['not_photo'], 1) : 'Could not open the photos. Please try again.');
     }
@@ -326,8 +320,8 @@ export default function TeacherFaceAttendance() {
         <>
           <Card title="Add class photos" className="gap-4">
             <Text tone="muted">
-              Take 1 photo, or up to 3 for a big room (for example the front rows and the back rows). Use good light and
-              ask students to look at the camera. Photos are only checked, never stored.
+              Take or upload as many photos as needed to cover the room (for example the front rows and the back rows). Use
+              good light and ask students to look at the camera. Photos are only checked, never stored.
             </Text>
             <Text weight="semibold">
               {registered} of {info.student_count} students have registered their face.
@@ -358,7 +352,7 @@ export default function TeacherFaceAttendance() {
               <View className="flex-row flex-wrap gap-3">
                 {photos.map((photo, index) => (
                   <PhotoThumb
-                    key={photo.uri}
+                    key={`${photo.uri}-${index}`}
                     photo={photo}
                     index={index}
                     onRemove={phase === 'pick' ? () => setPhotos((current) => current.filter((_, other) => other !== index)) : undefined}
@@ -367,16 +361,16 @@ export default function TeacherFaceAttendance() {
               </View>
             ) : null}
 
-            {phase === 'pick' && photos.length < MAX_PHOTOS ? (
+            {phase === 'pick' ? (
               <View className="flex-row flex-wrap gap-3">
                 {Platform.OS !== 'web' || isMobile ? (
                   <Button label="Take photo" icon={Camera} onPress={() => addPhotos(true)} />
                 ) : null}
-                <Button label={photos.length ? 'Add another photo' : 'Upload photos'} icon={ImagePlus} onPress={() => addPhotos(false)} />
+                <Button label={photos.length ? 'Add more photos' : 'Upload photos'} icon={ImagePlus} onPress={() => addPhotos(false)} />
               </View>
             ) : null}
             <Text variant="small" tone="muted">
-              {photos.length} of {MAX_PHOTOS} photos added.
+              {photos.length === 0 ? 'No photos added yet.' : `${plural(photos.length, 'photo')} added.`}
             </Text>
 
             {error ? <Notice tone="error" message={error} live /> : null}

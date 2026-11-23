@@ -39,12 +39,6 @@ export function photoProblemText(problems: PhotoProblem[], picked: number): stri
   return `${problems.length} of the ${picked} files ${problems.length === 1 ? 'was' : 'were'} not added. ${rule}`;
 }
 
-export function extraPhotosText(room: number, max: number): string {
-  return room === 1
-    ? `Only ${max} photos can be used, so only the first one was added.`
-    : `Only ${max} photos can be used, so only the first ${room} were added.`;
-}
-
 export function noFacesText(photoCount: number): string {
   return `No faces were found in the ${photoCount === 1 ? 'photo' : 'photos'}. Take a closer, well-lit photo, or use roll call.`;
 }

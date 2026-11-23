@@ -108,7 +108,8 @@ export const facesApi = {
     const form = new FormData();
     form.append('course_info_id', courseInfoId);
     for (const photo of photos) await appendPhoto(form, 'photos', photo);
-    return api.post<RecognizeResult>('/api/faces/recognize/', form, { ...MULTIPART, timeout: 120000 });
+    const timeout = Math.max(120000, photos.length * 45000);
+    return api.post<RecognizeResult>('/api/faces/recognize/', form, { ...MULTIPART, timeout });
   },
 
   confirm: (body: ConfirmFaceBody) => api.post<ConfirmFaceResponse>('/api/faces/confirm/', body),

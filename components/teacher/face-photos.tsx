@@ -52,7 +52,7 @@ export function PhotoViewer({
   result: RecognizeResult;
 }) {
   const [widths, setWidths] = React.useState<Record<number, number>>({});
-  const once = result.photos.length > 1 ? ' A person seen in two photos is marked once.' : '';
+  const once = result.photos.length > 1 ? ' A person seen in multiple photos is marked once.' : '';
   return (
     <Dialog
       open={open}
