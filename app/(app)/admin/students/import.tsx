@@ -1,6 +1,6 @@
 import { CircleCheck, Download, FileSpreadsheet, FileUp, RefreshCw, Upload } from 'lucide-react-native';
 import * as React from 'react';
-import { Platform, ScrollView, View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { canSaveFiles, saveTextFile, toCsv } from '@/components/admin/files';
 import { useLoad } from '@/components/admin/hooks';

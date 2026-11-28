@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { Pressable, Switch as RNSwitch, View } from 'react-native';
+import { Platform, Pressable, Switch as RNSwitch, View } from 'react-native';
 
+import { colors } from '@/lib/theme';
 import { cn, FOCUS_RING } from '@/lib/utils';
 import { describedBy } from './field';
 import { spaceKey } from './keys';
@@ -35,6 +36,12 @@ export function Switch({
     }
   };
 
+  const switchColors = {
+    trackColor: { false: colors.border, true: colors.primary },
+    thumbColor: colors.white,
+    ...(Platform.OS === 'web' ? ({ activeThumbColor: colors.white } as Record<string, string>) : null),
+  };
+
   if (!label) {
     return (
       <RNSwitch
@@ -44,8 +51,7 @@ export function Switch({
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={accessibilityHint ?? description}
         accessibilityRole="switch"
-        trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
-        thumbColor={checked ? '#ffffff' : '#f8fafc'}
+        {...switchColors}
       />
     );
   }
@@ -83,8 +89,7 @@ export function Switch({
         disabled={disabled}
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityHint={accessibilityHint ?? description}
-        trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
-        thumbColor={checked ? '#ffffff' : '#f8fafc'}
+        {...switchColors}
       />
     </Pressable>
   );

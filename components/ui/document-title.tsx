@@ -3,10 +3,10 @@ import * as React from 'react';
 
 const APP_NAME = 'HSTU Attendance Portal';
 
-export function DocumentTitle({ page }: { page?: string }) {
+export function DocumentTitle(_props: { page?: string }) {
   return (
     <Head>
-      <title>{page ? `${page} · ${APP_NAME}` : APP_NAME}</title>
+      <title>{APP_NAME}</title>
     </Head>
   );
 }

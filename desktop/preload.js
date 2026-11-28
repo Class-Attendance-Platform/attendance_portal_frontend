@@ -10,4 +10,9 @@ contextBridge.exposeInMainWorld('desktop', {
     ipcRenderer.on('open-server-settings', listener);
     return () => ipcRenderer.removeListener('open-server-settings', listener);
   },
+  onGoBack: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('go-back', listener);
+    return () => ipcRenderer.removeListener('go-back', listener);
+  },
 });

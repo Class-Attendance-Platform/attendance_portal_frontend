@@ -19,7 +19,6 @@ import { AttendanceToggle, ChoiceGroup } from '@/components/teacher/choice-group
 import { PhotoThumb, PhotoViewer, type ClassPhoto } from '@/components/teacher/face-photos';
 import {
   correctedMarks,
-  facesShown,
   noFacesText,
   photoProblem,
   photoProblemText,
@@ -80,8 +79,6 @@ export default function TeacherFaceAttendance() {
   const [query, setQuery] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = React.useState(false);
-
-  const reviewing = phase === 'review' && !!result;
 
   async function fetchToday(): Promise<HistoryDay | null | undefined> {
     try {
@@ -309,7 +306,6 @@ export default function TeacherFaceAttendance() {
       groupOf(student, present) === group &&
       (!search || student.name.toLowerCase().includes(search) || String(student.student_id).includes(search))
   );
-  const shown = result ? facesShown(result) : 0;
   const busy = phase === 'saving' || checkingEarlier;
 
   return (
@@ -391,12 +387,6 @@ export default function TeacherFaceAttendance() {
         </>
       ) : result ? (
         <>
-          <Notice
-            tone="info"
-            title={`${shown} ${shown === 1 ? 'face' : 'faces'} found`}
-            message="Check each list before saving. Switch a student to Present or Absent. Students under Unsure have no registered face: mark them yourself."
-          />
-
           <View className="gap-3">
             <ChoiceGroup<Group>
               label="Show students"

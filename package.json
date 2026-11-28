@@ -14,7 +14,6 @@
     "web": "expo start -c --web",
     "clean": "rm -rf .expo node_modules",
     "vercel-build": "expo export --platform web",
-    "build:web": "expo export --clear --platform web --output-dir web-build",
     "build": "expo export --clear --platform web --output-dir web-build",
     "desktop": "electron desktop/main.js",
     "desktop:dev": "PORTAL_DEV_URL=http://localhost:8081 electron desktop/main.js",
@@ -83,6 +82,7 @@
     "files": [
       "desktop/**/*",
       "web-build/**/*",
+      "assets/images/icon.png",
       "package.json",
       "!node_modules/**/*",
       "!**/*.map"

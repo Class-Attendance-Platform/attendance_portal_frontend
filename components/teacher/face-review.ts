@@ -82,10 +82,6 @@ export function teacherMarkedIds(students: Suggestion[], marks: Marks): string[]
     .map((student) => student.id);
 }
 
-export function facesShown(result: { students: { face: unknown }[]; unknown_faces: unknown[] }): number {
-  return result.students.filter((student) => student.face).length + result.unknown_faces.length;
-}
-
 export function skippedText(skipped: { name: string }[]): string | null {
   if (!skipped.length) return null;
   if (skipped.length === 1) return `${skipped[0].name} was not saved: no longer on this course's class list.`;

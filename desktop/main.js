@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const WEB_BUILD = path.join(__dirname, '..', 'web-build');
+const APP_ICON = path.join(__dirname, '..', 'assets', 'images', 'icon.png');
+const APP_TITLE = 'HSTU Attendance Portal';
 const APP_ORIGIN = 'app://local';
 const DEFAULT_API_BASE = process.env.PORTAL_API_URL || 'https://attendanceportal.sakibkx.tech';
 const DEV_SERVER_URL = process.env.PORTAL_DEV_URL;
@@ -58,8 +60,8 @@ function serveBuild(request) {
   const file = readFileOrNull(filePath);
   if (file) return responseFor(filePath, file);
   if (!path.extname(relative)) {
-    const shell = readFileOrNull(path.join(WEB_BUILD, 'index.html'));
-    if (shell) return responseFor('index.html', shell);
+    const shellHtml = readFileOrNull(path.join(WEB_BUILD, 'index.html'));
+    if (shellHtml) return responseFor('index.html', shellHtml);
   }
   return new Response('Not found', { status: 404 });
 }
@@ -69,7 +71,8 @@ function allowAppOrigin(details) {
   for (const key of Object.keys(headers)) {
     if (key.toLowerCase().startsWith('access-control-')) delete headers[key];
   }
-  headers['Access-Control-Allow-Origin'] = [APP_ORIGIN];
+  const allowedOrigin = DEV_SERVER_URL ? new URL(DEV_SERVER_URL).origin : APP_ORIGIN;
+  headers['Access-Control-Allow-Origin'] = [allowedOrigin];
   headers['Access-Control-Allow-Methods'] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
   headers['Access-Control-Allow-Headers'] = ['Authorization', 'Content-Type', 'Accept', 'X-Requested-With'];
   headers['Access-Control-Expose-Headers'] = ['Content-Disposition'];
@@ -82,6 +85,12 @@ function openServerSettings() {
   if (win.isMinimized()) win.restore();
   win.focus();
   win.webContents.send('open-server-settings');
+}
+
+function goBack() {
+  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+  if (!win) return;
+  win.webContents.send('go-back');
 }
 
 function buildMenu() {
@@ -107,8 +116,21 @@ function buildMenu() {
       label: 'Server',
       submenu: [{ label: 'Change server address…', accelerator: 'CmdOrCtrl+,', click: openServerSettings }],
     },
-    { role: 'windowMenu' },
+    {
+      label: 'Window',
+      submenu: [
+        { label: 'Back', accelerator: 'Escape', registerAccelerator: false, click: goBack },
+        { type: 'separator' },
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac ? [{ type: 'separator' }, { role: 'front' }] : [{ role: 'close' }]),
+      ],
+    },
   ]);
+}
+
+function isInternalUrl(url) {
+  return DEV_SERVER_URL ? url.startsWith(DEV_SERVER_URL) : url.startsWith(APP_ORIGIN);
 }
 
 function createWindow() {
@@ -118,7 +140,8 @@ function createWindow() {
     minWidth: 360,
     minHeight: 480,
     backgroundColor: '#F5F7F5',
-    title: 'HSTU Attendance Portal',
+    title: APP_TITLE,
+    icon: fs.existsSync(APP_ICON) ? APP_ICON : undefined,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -129,16 +152,16 @@ function createWindow() {
     },
   });
 
+  win.on('page-title-updated', (event) => event.preventDefault());
   win.once('ready-to-show', () => win.show());
   win.loadURL(DEV_SERVER_URL || `${APP_ORIGIN}/`);
 
-  const isInternal = (url) => (DEV_SERVER_URL ? url.startsWith(DEV_SERVER_URL) : url.startsWith(APP_ORIGIN));
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (!isInternal(url) && /^https?:/.test(url)) shell.openExternal(url);
+    if (!isInternalUrl(url) && /^https?:/.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (event, url) => {
-    if (isInternal(url)) return;
+    if (isInternalUrl(url)) return;
     event.preventDefault();
     if (/^https?:/.test(url)) shell.openExternal(url);
   });
@@ -148,6 +171,12 @@ function createWindow() {
 
 app.whenReady().then(() => {
   protocol.handle('app', (request) => serveBuild(request));
+
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const allowed = permission === 'media' || permission === 'clipboard-read' || permission === 'clipboard-sanitized-write';
+    callback(allowed && isInternalUrl(webContents.getURL()));
+  });
+
   session.defaultSession.webRequest.onHeadersReceived(
     { urls: ['http://*/*', 'https://*/*'] },
     (details, callback) => callback({ responseHeaders: allowAppOrigin(details) })

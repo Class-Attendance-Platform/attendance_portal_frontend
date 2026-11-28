@@ -5,6 +5,7 @@ export const SERVER_ADDRESS_KEY = 'portal_api_base';
 export type DesktopBridge = {
   defaultApiBase: string;
   onOpenServerSettings: (callback: () => void) => () => void;
+  onGoBack?: (callback: () => void) => () => void;
 };
 
 declare global {

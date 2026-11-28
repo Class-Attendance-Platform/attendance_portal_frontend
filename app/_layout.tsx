@@ -42,7 +42,33 @@ export default function RootLayout() {
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
-    return window.desktop?.onOpenServerSettings(() => router.push('/server'));
+    const goBack = () => {
+      if (router.canGoBack()) router.back();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+      if (typeof document !== 'undefined' && document.querySelector('[aria-modal="true"]')) {
+        return;
+      }
+      goBack();
+    };
+    const offSettings = window.desktop?.onOpenServerSettings(() => router.push('/server'));
+    const offBack = window.desktop?.onGoBack?.(goBack);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      offSettings?.();
+      offBack?.();
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, []);
 
   return (
